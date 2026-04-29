@@ -1,0 +1,25 @@
+[package]
+name = "claw-harness"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[lib]
+name = "claw_harness"
+crate-type = ["lib"]
+
+[dependencies]
+claw-types = { workspace = true }
+claw-config = { path = "../claw-config" }
+claw-db = { path = "../claw-db" }
+claw-rag = { path = "../claw-rag" }
+
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+tokio.workspace = true
+chrono.workspace = true
+sea-orm.workspace = true
+uuid.workspace = true
+regex.workspace = true

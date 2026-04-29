@@ -1,0 +1,37 @@
+[package]
+name = "claw-rag"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[lib]
+name = "claw_rag"
+crate-type = ["lib"]
+
+[dependencies]
+claw-types = { workspace = true }
+claw-config = { path = "../claw-config" }
+claw-db = { path = "../claw-db" }
+
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+once_cell.workspace = true
+sha2.workspace = true
+hex.workspace = true
+base64.workspace = true
+sea-orm.workspace = true
+
+ort = { workspace = true, optional = true }
+tokenizers = { workspace = true, optional = true }
+sqlite-vec = { workspace = true, optional = true }
+ts-rs = { workspace = true }
+
+[features]
+default = []
+onnx-embedding = ["dep:ort", "dep:tokenizers", "dep:sqlite-vec"]

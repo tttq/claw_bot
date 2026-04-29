@@ -1,0 +1,48 @@
+[package]
+name = "claw-ws"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+claw-tools = { workspace = true, features = ["tauri-integration"] }
+claw-channel = { workspace = true }
+claw-config = { workspace = true }
+claw-db = { workspace = true }
+claw-rag = { workspace = true }
+claw-harness = { workspace = true }
+claw-llm = { workspace = true }
+claw-types = { workspace = true }
+
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+jsonwebtoken.workspace = true
+rsa.workspace = true
+rand.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+futures.workspace = true
+futures-util.workspace = true
+tokio-stream.workspace = true
+dashmap.workspace = true
+base64.workspace = true
+sha2.workspace = true
+hex.workspace = true
+ring.workspace = true
+reqwest.workspace = true
+bytes.workspace = true
+chrono.workspace = true
+zip.workspace = true
+uuid.workspace = true
+dirs.workspace = true
+urlencoding.workspace = true
+tauri.workspace = true
+sea-orm.workspace = true
+
+axum.workspace = true
+tower-http.workspace = true
+tower.workspace = true

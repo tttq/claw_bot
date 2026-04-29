@@ -1,0 +1,60 @@
+[package]
+name = "claw-channel"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+# 内部 crate
+claw-config = { workspace = true }
+claw-db = { workspace = true }
+
+# 异步运行时
+tokio = { workspace = true }
+async-trait = { workspace = true }
+
+# 序列化
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# 错误处理
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# 时间处理
+chrono = { workspace = true }
+
+# UUID
+uuid = { workspace = true }
+
+# 数据库（通过 claw-db 间接使用 sea-orm）
+sea-orm = { workspace = true, features = ["runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "with-json"] }
+
+# 日志
+log = { workspace = true }
+
+# 加密（用于 Token 存储 + 微信 AES）
+sha2 = { workspace = true }
+hex = "0.4"
+aes-gcm = "0.10"
+aes = "0.8"
+base64 = "0.22"
+rand = "0.8"
+getrandom = "0.2"
+dirs = { workspace = true }
+url = "2.5"
+regex = { workspace = true }
+
+# Telegram API
+teloxide = { version = "0.12", features = ["macros"] }
+
+# HTTP Client (Discord REST API)
+reqwest = { workspace = true, features = ["multipart", "stream"] }
+
+# WebSocket (Discord Gateway)
+tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
+futures-util = "0.3"
+
+[dev-dependencies]
+tokio-test = "0.4"

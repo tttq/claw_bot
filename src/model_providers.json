@@ -1,0 +1,563 @@
+{
+  "providers": [
+    {
+      "id": "custom",
+      "name": "✏️ 自定义 (手动输入)",
+      "baseUrl": "",
+      "category": "custom",
+      "description": "完全手动输入 API 地址、密钥和模型名（所有字段可编辑）",
+      "models": []
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "baseUrl": "https://api.openai.com/v1",
+      "category": "international",
+      "description": "OpenAI API provider",
+      "models": [
+        { "id": "gpt-5.4", "name": "GPT-5.4", "reasoning": true, "input": ["text", "image"] },
+        { "id": "gpt-5.4-pro", "name": "GPT-5.4 Pro", "reasoning": true, "input": ["text", "image"] },
+        { "id": "gpt-5.4-mini", "name": "GPT-5.4 Mini", "reasoning": true, "input": ["text", "image"] },
+        { "id": "gpt-5.4-nano", "name": "GPT-5.4 Nano", "reasoning": true, "input": ["text", "image"] },
+        { "id": "gpt-5.2", "name": "GPT-5.2", "reasoning": true, "input": ["text", "image"] },
+        { "id": "gpt-5.0", "name": "GPT-5.0", "reasoning": true, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "openai-codex",
+      "name": "OpenAI Codex",
+      "baseUrl": "https://api.openai.com/v1",
+      "category": "oauth",
+      "description": "OpenAI Codex OAuth provider (ChatGPT subscription)",
+      "models": [
+        { "id": "gpt-5.4", "name": "GPT-5.4", "reasoning": true, "input": ["text", "image"] },
+        { "id": "gpt-5.3-codex-spark", "name": "GPT-5.3 Codex Spark", "reasoning": true, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "baseUrl": "https://api.anthropic.com",
+      "category": "international",
+      "description": "Anthropic Claude API provider",
+      "models": [
+        { "id": "claude-opus-4-6", "name": "Claude Opus 4.6", "reasoning": true, "input": ["text", "image"] },
+        { "id": "claude-opus-4-5", "name": "Claude Opus 4.5", "reasoning": true, "input": ["text", "image"] },
+        { "id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "reasoning": true, "input": ["text", "image"] },
+        { "id": "claude-sonnet-4-5", "name": "Claude Sonnet 4.5", "reasoning": true, "input": ["text", "image"] },
+        { "id": "claude-haiku-4-5", "name": "Claude Haiku 4.5", "reasoning": true, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "google",
+      "name": "Google AI Studio",
+      "baseUrl": "https://generativelanguage.googleapis.com",
+      "category": "international",
+      "description": "Google Gemini API provider",
+      "models": [
+        { "id": "gemini-3-pro-preview", "name": "Gemini 3 Pro Preview", "reasoning": true, "input": ["text", "image"] },
+        { "id": "gemini-3-1-pro-preview", "name": "Gemini 3.1 Pro Preview", "reasoning": true, "input": ["text", "image"] },
+        { "id": "gemini-3-flash-preview", "name": "Gemini 3 Flash Preview", "reasoning": true, "input": ["text", "image"] },
+        { "id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro", "reasoning": true, "input": ["text", "image"] },
+        { "id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "reasoning": true, "input": ["text", "image"] },
+        { "id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "reasoning": false, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "google-vertex",
+      "name": "Google Vertex AI",
+      "baseUrl": "https://us-central1-aiplatform.googleapis.com",
+      "category": "international",
+      "description": "Google Cloud Vertex AI provider"
+    },
+    {
+      "id": "xai",
+      "name": "xAI",
+      "baseUrl": "https://api.x.ai/v1",
+      "category": "international",
+      "description": "xAI Grok API provider",
+      "models": [
+        { "id": "grok-4", "name": "Grok 4", "reasoning": false, "input": ["text"] },
+        { "id": "grok-4-0709", "name": "Grok 4 0709", "reasoning": false, "input": ["text"] },
+        { "id": "grok-4-fast-reasoning", "name": "Grok 4 Fast (Reasoning)", "reasoning": true, "input": ["text"] },
+        { "id": "grok-4-fast-non-reasoning", "name": "Grok 4 Fast (Non-Reasoning)", "reasoning": false, "input": ["text"] },
+        { "id": "grok-4-1-fast-reasoning", "name": "Grok 4.1 Fast (Reasoning)", "reasoning": true, "input": ["text"] },
+        { "id": "grok-4-1-fast-non-reasoning", "name": "Grok 4.1 Fast (Non-Reasoning)", "reasoning": false, "input": ["text"] },
+        { "id": "grok-4.20-experimental-beta-0304-reasoning", "name": "Grok 4.20 Experimental Beta 0304 (Reasoning)", "reasoning": true, "input": ["text"] },
+        { "id": "grok-code-fast-1", "name": "Grok Code Fast 1", "reasoning": true, "input": ["text"] }
+      ]
+    },
+    {
+      "id": "amazon-bedrock",
+      "name": "Amazon Bedrock",
+      "baseUrl": "https://bedrock-runtime.us-east-1.amazonaws.com",
+      "category": "international",
+      "description": "AWS Bedrock API provider",
+      "models": [
+        { "id": "anthropic.claude-opus-4-6", "name": "Claude Opus 4.6", "reasoning": true, "input": ["text", "image"] },
+        { "id": "anthropic.claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "reasoning": true, "input": ["text", "image"] },
+        { "id": "anthropic.claude-haiku-4-5", "name": "Claude Haiku 4.5", "reasoning": true, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral AI",
+      "baseUrl": "https://api.mistral.ai/v1",
+      "category": "international",
+      "description": "Mistral AI API provider",
+      "models": [
+        { "id": "mistral-large-latest", "name": "Mistral Large", "reasoning": false, "input": ["text", "image"] },
+        { "id": "mistral-medium-latest", "name": "Mistral Medium", "reasoning": false, "input": ["text"] },
+        { "id": "mistral-small-latest", "name": "Mistral Small", "reasoning": false, "input": ["text"] },
+        { "id": "codestral-latest", "name": "Codestral", "reasoning": false, "input": ["text"] },
+        { "id": "devstral-latest", "name": "Devstral", "reasoning": false, "input": ["text"] }
+      ]
+    },
+    {
+      "id": "perplexity",
+      "name": "Perplexity AI",
+      "baseUrl": "https://api.perplexity.ai",
+      "category": "search",
+      "description": "Perplexity AI search provider",
+      "models": [
+        { "id": "sonar-pro", "name": "Sonar Pro", "reasoning": false, "input": ["text"] },
+        { "id": "sonar-reasoning-pro", "name": "Sonar Reasoning Pro", "reasoning": true, "input": ["text"] },
+        { "id": "sonar", "name": "Sonar", "reasoning": false, "input": ["text"] }
+      ]
+    },
+    {
+      "id": "huggingface",
+      "name": "Hugging Face",
+      "baseUrl": "https://router.huggingface.co/v1",
+      "category": "international",
+      "description": "Hugging Face Inference Providers",
+      "models": [
+        { "id": "deepseek-ai/DeepSeek-R1", "name": "DeepSeek R1", "reasoning": true, "input": ["text"] },
+        { "id": "deepseek-ai/DeepSeek-V3.1", "name": "DeepSeek V3.1", "reasoning": false, "input": ["text"] },
+        { "id": "meta-llama/Llama-3.3-70B-Instruct-Turbo", "name": "Llama 3.3 70B Instruct Turbo", "reasoning": false, "input": ["text"] },
+        { "id": "openai/gpt-oss-120b", "name": "GPT-OSS 120B", "reasoning": false, "input": ["text"] },
+        { "id": "meta-llama/Llama-4-Scout-17B-16E-Instruct", "name": "Llama 4 Scout 17B 16E Instruct", "reasoning": false, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "nvidia",
+      "name": "NVIDIA NIM",
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "category": "international",
+      "description": "NVIDIA NIM API provider",
+      "models": [
+        { "id": "nvidia/llama-3.1-nemotron-70b-instruct", "name": "NVIDIA Llama 3.1 Nemotron 70B Instruct", "reasoning": false, "input": ["text"] },
+        { "id": "meta/llama-3.3-70b-instruct", "name": "Meta Llama 3.3 70B Instruct", "reasoning": false, "input": ["text"] },
+        { "id": "nvidia/mistral-nemo-minitron-8b-8k-instruct", "name": "NVIDIA Mistral NeMo Minitron 8B Instruct", "reasoning": false, "input": ["text"] },
+        { "id": "deepseek-ai/deepseek-v3.2", "name": "DeepSeek V3.2", "reasoning": true, "input": ["text"] },
+        { "id": "nvidia/llama-3.3-nemotron-super-49b-v1.5", "name": "Llama 3.3 Nemotron Super 49B v1.5", "reasoning": false, "input": ["text"] }
+      ]
+    },
+    {
+      "id": "groq",
+      "name": "Groq",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "category": "fast",
+      "description": "Groq LPU inference (ultra-fast)",
+      "models": [
+        { "id": "llama-3.3-70b-versatile", "name": "Llama 3.3 70B Versatile", "reasoning": false, "input": ["text"] },
+        { "id": "llama-3.1-8b-instant", "name": "Llama 3.1 8B Instant", "reasoning": false, "input": ["text"] },
+        { "id": "gemma2-9b-it", "name": "Gemma 2 9B Instruct", "reasoning": false, "input": ["text"] },
+        { "id": "mixtral-8x7b-32768", "name": "Mixtral 8x7B", "reasoning": false, "input": ["text"] }
+      ]
+    },
+    {
+      "id": "scnet",
+      "name": "超算互联网 (scnet.cn)",
+      "baseUrl": "https://api.scnet.cn/api/llm/v1/chat/completions",
+      "category": "aggregator",
+      "description": "中国国家超级计算中心 AI 开放平台",
+      "models": [
+        { "id": "DeepSeek-R1-Distill-Qwen-32B", "name": "DeepSeek-R1-Distill-Qwen-32B", "reasoning": true, "input": ["text"] },
+        { "id": "DeepSeek-R1-Distill-Qwen-7B", "name": "DeepSeek-R1-Distill-Qwen-7B", "reasoning": true, "input": ["text"] }
+      ]
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "category": "aggregator",
+      "description": "OpenRouter multi-provider aggregator",
+      "models": [
+        { "id": "auto", "name": "OpenRouter Auto", "reasoning": false, "input": ["text", "image"] },
+        { "id": "anthropic/claude-sonnet-4.6", "name": "Claude Sonnet 4.6", "reasoning": true, "input": ["text", "image"] },
+        { "id": "openai/gpt-4o", "name": "GPT-4o", "reasoning": false, "input": ["text", "image"] },
+        { "id": "google/gemini-2.5-pro", "name": "Gemini 2.5 Pro", "reasoning": true, "input": ["text", "image"] },
+        { "id": "deepseek/deepseek-v3.2", "name": "DeepSeek V3.2", "reasoning": true, "input": ["text"] },
+        { "id": "meta-llama/llama-4-maverick", "name": "Llama 4 Maverick", "reasoning": false, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "together",
+      "name": "Together AI",
+      "baseUrl": "https://api.together.xyz/v1",
+      "category": "aggregator",
+      "description": "Together AI inference provider",
+      "models": [
+        { "id": "zai-org/GLM-4.7", "name": "GLM 4.7 Fp8", "reasoning": true, "input": ["text"] },
+        { "id": "moonshotai/Kimi-K2.5", "name": "Kimi K2.5", "reasoning": true, "input": ["text", "image"] },
+        { "id": "meta-llama/Llama-3.3-70B-Instruct-Turbo", "name": "Llama 3.3 70B Instruct Turbo", "reasoning": false, "input": ["text"] },
+        { "id": "meta-llama/Llama-4-Scout-17B-16E-Instruct", "name": "Llama 4 Scout 17B 16E Instruct", "reasoning": false, "input": ["text", "image"] },
+        { "id": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8", "name": "Llama 4 Maverick 17B 128E Instruct FP8", "reasoning": false, "input": ["text", "image"] },
+        { "id": "deepseek-ai/DeepSeek-V3.1", "name": "DeepSeek V3.1", "reasoning": false, "input": ["text"] },
+        { "id": "deepseek-ai/DeepSeek-R1", "name": "DeepSeek R1", "reasoning": true, "input": ["text"] },
+        { "id": "moonshotai/Kimi-K2-Instruct-0905", "name": "Kimi K2-Instruct 0905", "reasoning": false, "input": ["text"] }
+      ]
+    },
+    {
+      "id": "venice",
+      "name": "Venice AI",
+      "baseUrl": "https://api.venice.ai/api/v1",
+      "category": "privacy",
+      "description": "Venice AI privacy-focused provider",
+      "models": [
+        { "id": "llama-3.3-70b", "name": "Llama 3.3 70B", "reasoning": false, "input": ["text"] },
+        { "id": "qwen3-235b-a22b-thinking-2507", "name": "Qwen3 235B Thinking", "reasoning": true, "input": ["text"] },
+        { "id": "qwen3-coder-480b-a35b-instruct", "name": "Qwen3 Coder 480B", "reasoning": false, "input": ["text"] },
+        { "id": "deepseek-v3.2", "name": "DeepSeek V3.2", "reasoning": true, "input": ["text"] },
+        { "id": "kimi-k2-5", "name": "Kimi K2.5", "reasoning": true, "input": ["text", "image"] },
+        { "id": "claude-opus-4-6", "name": "Claude Opus 4.6 (via Venice)", "reasoning": true, "input": ["text", "image"] },
+        { "id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6 (via Venice)", "reasoning": true, "input": ["text", "image"] },
+        { "id": "openai-gpt-54", "name": "GPT-5.4 (via Venice)", "reasoning": true, "input": ["text", "image"] },
+        { "id": "gemini-3-pro-preview", "name": "Gemini 3 Pro (via Venice)", "reasoning": true, "input": ["text", "image"] },
+        { "id": "grok-41-fast", "name": "Grok 4.1 Fast (via Venice)", "reasoning": true, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "chutes",
+      "name": "Chutes AI",
+      "baseUrl": "https://llm.chutes.ai/v1",
+      "category": "aggregator",
+      "description": "Chutes AI decentralized inference",
+      "models": [
+        { "id": "Qwen/Qwen3-32B", "name": "Qwen3-32B", "reasoning": true, "input": ["text"] },
+        { "id": "deepseek-ai/DeepSeek-V3-0324-TEE", "name": "DeepSeek V3 0324 TEE", "reasoning": true, "input": ["text"] },
+        { "id": "deepseek-ai/DeepSeek-V3.2-TEE", "name": "DeepSeek V3.2 TEE", "reasoning": true, "input": ["text"] },
+        { "id": "zai-org/GLM-4.7-TEE", "name": "GLM 4.7 TEE", "reasoning": true, "input": ["text"] },
+        { "id": "zai-org/GLM-5-TEE", "name": "GLM 5 TEE", "reasoning": true, "input": ["text"] },
+        { "id": "moonshotai/Kimi-K2.5-TEE", "name": "Kimi K2.5 TEE", "reasoning": true, "input": ["text", "image"] },
+        { "id": "Qwen/Qwen3-Coder-Next-TEE", "name": "Qwen3 Coder Next TEE", "reasoning": true, "input": ["text"] }
+      ]
+    },
+    {
+      "id": "synthetic",
+      "name": "Synthetic",
+      "baseUrl": "https://api.synthetic.new/anthropic",
+      "category": "aggregator",
+      "description": "Synthetic API provider",
+      "models": [
+        { "id": "hf:MiniMaxAI/MiniMax-M2.5", "name": "MiniMax M2.5", "reasoning": true, "input": ["text"] },
+        { "id": "hf:moonshotai/Kimi-K2-Thinking", "name": "Kimi K2 Thinking", "reasoning": true, "input": ["text"] },
+        { "id": "hf:zai-org/GLM-4.7", "name": "GLM-4.7", "reasoning": true, "input": ["text"] },
+        { "id": "hf:deepseek-ai/DeepSeek-R1-0528", "name": "DeepSeek R1 0528", "reasoning": true, "input": ["text"] },
+        { "id": "hf:deepseek-ai/DeepSeek-V3.2", "name": "DeepSeek V3.2", "reasoning": true, "input": ["text"] },
+        { "id": "hf:zai-org/GLM-5", "name": "GLM-5", "reasoning": true, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "kilocode",
+      "name": "Kilocode",
+      "baseUrl": "https://api.kilo.ai/api/gateway/",
+      "category": "coding",
+      "description": "Kilocode AI coding assistant",
+      "models": [
+        { "id": "kilo/auto", "name": "Kilo Auto", "reasoning": true, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode Zen",
+      "baseUrl": "https://opencode.ai/zen/v1",
+      "category": "coding",
+      "description": "OpenCode Zen catalog",
+      "models": [
+        { "id": "claude-opus-4-6", "name": "Claude Opus 4.6", "reasoning": true, "input": ["text", "image"] },
+        { "id": "gpt-5.2", "name": "GPT-5.2", "reasoning": true, "input": ["text", "image"] },
+        { "id": "gemini-3-pro", "name": "Gemini 3 Pro", "reasoning": true, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "opencode-go",
+      "name": "OpenCode Go",
+      "baseUrl": "https://opencode.ai/zen/go/v1",
+      "category": "coding",
+      "description": "OpenCode Go catalog",
+      "models": [
+        { "id": "kimi-k2.5", "name": "Kimi K2.5", "reasoning": true, "input": ["text", "image"] },
+        { "id": "glm-5", "name": "GLM-5", "reasoning": true, "input": ["text"] },
+        { "id": "minimax-m2.5", "name": "MiniMax M2.5", "reasoning": true, "input": ["text"] }
+      ]
+    },
+    {
+      "id": "zai",
+      "name": "Z.AI (智谱AI)",
+      "baseUrl": "https://api.z.ai/api/paas/v4",
+      "baseUrlCN": "https://open.bigmodel.cn/api/paas/v4",
+      "category": "chinese",
+      "description": "智谱AI GLM系列模型",
+      "models": [
+        { "id": "glm-5", "name": "GLM-5", "reasoning": true, "input": ["text"] },
+        { "id": "glm-5-turbo", "name": "GLM-5 Turbo", "reasoning": true, "input": ["text"] },
+        { "id": "glm-4.7", "name": "GLM-4.7", "reasoning": true, "input": ["text"] },
+        { "id": "glm-4.7-flash", "name": "GLM-4.7 Flash", "reasoning": true, "input": ["text"] },
+        { "id": "glm-4.7-flashx", "name": "GLM-4.7 FlashX", "reasoning": true, "input": ["text"] },
+        { "id": "glm-4.6", "name": "GLM-4.6", "reasoning": true, "input": ["text"] }
+      ]
+    },
+    {
+      "id": "modelstudio",
+      "name": "阿里云百炼 (Alibaba ModelStudio)",
+      "baseUrl": "https://coding-intl.dashscope.aliyuncs.com/v1",
+      "baseUrlCN": "https://coding.dashscope.aliyuncs.com/v1",
+      "category": "chinese",
+      "description": "阿里云百炼大模型平台",
+      "models": [
+        { "id": "qwen3.5-plus", "name": "qwen3.5-plus", "reasoning": false, "input": ["text", "image"] },
+        { "id": "qwen3-max-2026-01-23", "name": "qwen3-max-2026-01-23", "reasoning": false, "input": ["text"] },
+        { "id": "qwen3-coder-next", "name": "qwen3-coder-next", "reasoning": false, "input": ["text"] },
+        { "id": "qwen3-coder-plus", "name": "qwen3-coder-plus", "reasoning": false, "input": ["text"] },
+        { "id": "glm-5", "name": "glm-5", "reasoning": true, "input": ["text"] },
+        { "id": "glm-4.7", "name": "glm-4.7", "reasoning": true, "input": ["text"] },
+        { "id": "kimi-k2.5", "name": "kimi-k2.5", "reasoning": true, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "moonshot",
+      "name": "月之暗面 (Moonshot AI)",
+      "baseUrl": "https://api.moonshot.ai/v1",
+      "baseUrlCN": "https://api.moonshot.cn/v1",
+      "category": "chinese",
+      "description": "月之暗面Kimi系列模型",
+      "models": [
+        { "id": "kimi-k2.5", "name": "Kimi K2.5", "reasoning": true, "input": ["text", "image"] },
+        { "id": "kimi-k2-thinking", "name": "Kimi K2 Thinking", "reasoning": true, "input": ["text"] },
+        { "id": "kimi-k2-0905-preview", "name": "Kimi K2 0905 Preview", "reasoning": false, "input": ["text"] }
+      ]
+    },
+    {
+      "id": "kimi-coding",
+      "name": "Kimi Coding",
+      "baseUrl": "https://api.kimi.com/coding/",
+      "category": "coding",
+      "description": "Kimi编程专用模型",
+      "models": [
+        { "id": "kimi-code", "name": "Kimi Code", "reasoning": true, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "minimax",
+      "name": "MiniMax",
+      "baseUrl": "https://api.minimax.io/v1",
+      "baseUrlCN": "https://api.minimaxi.com/anthropic",
+      "category": "chinese",
+      "description": "MiniMax AI模型平台",
+      "models": [
+        { "id": "MiniMax-M2.7", "name": "MiniMax M2.7", "reasoning": true, "input": ["text"] },
+        { "id": "MiniMax-M2.7-highspeed", "name": "MiniMax M2.7 Highspeed", "reasoning": true, "input": ["text"] },
+        { "id": "MiniMax-M2.5", "name": "MiniMax M2.5", "reasoning": true, "input": ["text"] },
+        { "id": "MiniMax-M2.5-highspeed", "name": "MiniMax M2.5 Highspeed", "reasoning": true, "input": ["text"] }
+      ]
+    },
+    {
+      "id": "qianfan",
+      "name": "百度千帆 (Baidu Qianfan)",
+      "baseUrl": "https://qianfan.baidubce.com/v2",
+      "category": "chinese",
+      "description": "百度千帆大模型平台",
+      "models": [
+        { "id": "deepseek-v3.2", "name": "DEEPSEEK V3.2", "reasoning": true, "input": ["text"] },
+        { "id": "ernie-5.0-thinking-preview", "name": "ERNIE-5.0-Thinking-Preview", "reasoning": true, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "volcengine",
+      "name": "火山引擎 (Volcengine Doubao)",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+      "category": "chinese",
+      "description": "火山引擎豆包大模型",
+      "models": [
+        { "id": "doubao-seed-code-preview-251028", "name": "Doubao Seed Code Preview", "reasoning": false, "input": ["text", "image"] },
+        { "id": "doubao-seed-1-8-251228", "name": "Doubao Seed 1.8", "reasoning": false, "input": ["text", "image"] },
+        { "id": "deepseek-v3-2-251201", "name": "DeepSeek V3.2", "reasoning": true, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "byteplus",
+      "name": "BytePlus",
+      "baseUrl": "https://ark.ap-southeast.byteplus.com/api/v3",
+      "category": "chinese",
+      "description": "字节跳动BytePlus云服务"
+    },
+    {
+      "id": "xiaomi",
+      "name": "小米 (Xiaomi MiMo)",
+      "baseUrl": "https://api.xiaomimimo.com/v1",
+      "category": "chinese",
+      "description": "小米MiMo系列模型",
+      "models": [
+        { "id": "mimo-v2-flash", "name": "Xiaomi MiMo V2 Flash", "reasoning": false, "input": ["text"] },
+        { "id": "mimo-v2-pro", "name": "Xiaomi MiMo V2 Pro", "reasoning": true, "input": ["text"] },
+        { "id": "mimo-v2-omni", "name": "Xiaomi MiMo V2 Omni", "reasoning": true, "input": ["text", "image"] }
+      ]
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama",
+      "baseUrl": "http://localhost:11434/v1",
+      "category": "local",
+      "description": "本地Ollama模型运行"
+    },
+    {
+      "id": "vllm",
+      "name": "vLLM",
+      "baseUrl": "http://localhost:8000/v1",
+      "category": "local",
+      "description": "本地vLLM推理服务"
+    },
+    {
+      "id": "sglang",
+      "name": "SGLang",
+      "baseUrl": "http://localhost:30000/v1",
+      "category": "local",
+      "description": "本地SGLang推理服务"
+    },
+    {
+      "id": "litellm",
+      "name": "LiteLLM",
+      "baseUrl": "http://localhost:4000/v1",
+      "category": "gateway",
+      "description": "LiteLLM统一网关"
+    },
+    {
+      "id": "cloudflare-ai-gateway",
+      "name": "Cloudflare AI Gateway",
+      "baseUrl": "https://gateway.ai.cloudflare.com/v1",
+      "category": "gateway",
+      "description": "Cloudflare AI Gateway"
+    },
+    {
+      "id": "vercel-ai-gateway",
+      "name": "Vercel AI Gateway",
+      "baseUrl": "https://ai-gateway.vercel.sh/v1",
+      "category": "gateway",
+      "description": "Vercel AI Gateway"
+    },
+    {
+      "id": "copilot-proxy",
+      "name": "GitHub Copilot Proxy",
+      "category": "proxy",
+      "description": "GitHub Copilot代理服务"
+    },
+    {
+      "id": "deepgram",
+      "name": "Deepgram",
+      "baseUrl": "https://api.deepgram.com/v1",
+      "category": "transcription",
+      "description": "Deepgram音频转录服务",
+      "models": [
+        { "id": "whisper-large-v3-turbo", "name": "Whisper Large V3 Turbo", "reasoning": false, "input": ["audio"] },
+        { "id": "whisper-large-v3", "name": "Whisper Large V3", "reasoning": false, "input": ["audio"] }
+      ]
+    },
+    {
+      "id": "elevenlabs",
+      "name": "ElevenLabs",
+      "category": "tts",
+      "description": "ElevenLabs语音合成服务"
+    },
+    {
+      "id": "fal",
+      "name": "fal.ai",
+      "category": "media",
+      "description": "fal.ai媒体生成服务"
+    }
+  ],
+  "categories": [
+    {
+      "id": "custom",
+      "name": "✏️ 自定义",
+      "description": "手动输入所有配置"
+    },
+    {
+      "id": "international",
+      "name": "国际厂商",
+      "description": "国际知名AI模型厂商"
+    },
+    {
+      "id": "chinese",
+      "name": "国内厂商",
+      "description": "中国AI模型厂商"
+    },
+    {
+      "id": "aggregator",
+      "name": "聚合平台",
+      "description": "多模型聚合服务平台"
+    },
+    {
+      "id": "local",
+      "name": "本地部署",
+      "description": "本地模型运行服务"
+    },
+    {
+      "id": "gateway",
+      "name": "AI网关",
+      "description": "AI网关服务"
+    },
+    {
+      "id": "proxy",
+      "name": "代理服务",
+      "description": "API代理服务"
+    },
+    {
+      "id": "oauth",
+      "name": "OAuth认证",
+      "description": "OAuth认证方式"
+    },
+    {
+      "id": "fast",
+      "name": "高速推理",
+      "description": "超快推理服务"
+    },
+    {
+      "id": "search",
+      "name": "搜索增强",
+      "description": "搜索增强AI"
+    },
+    {
+      "id": "privacy",
+      "name": "隐私优先",
+      "description": "隐私优先服务商"
+    },
+    {
+      "id": "coding",
+      "name": "编程优化",
+      "description": "编程优化模型"
+    },
+    {
+      "id": "transcription",
+      "name": "音频转录",
+      "description": "音频转录服务"
+    },
+    {
+      "id": "tts",
+      "name": "语音服务",
+      "description": "语音合成服务"
+    },
+    {
+      "id": "media",
+      "name": "媒体生成",
+      "description": "图像/视频生成服务"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "generatedAt": "2026-03-21",
+    "source": "openclaw project analysis",
+    "note": "Complete list of all model providers and models from openclaw documentation"
+  }
+}

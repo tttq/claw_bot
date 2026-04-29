@@ -1,0 +1,5 @@
+[target.x86_64-pc-windows-msvc]
+env = { VCPKG_ROOT = "D:\\Projcets\\Rust\\vcpkg" }
+
+[env]
+VCPKG_ROOT = "D:\\Projcets\\Rust\\vcpkg"

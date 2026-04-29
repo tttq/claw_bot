@@ -1,0 +1,38 @@
+[package]
+name = "claw-llm"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[lib]
+name = "claw_llm"
+crate-type = ["lib"]
+
+[dependencies]
+claw-types = { workspace = true }
+claw-traits = { workspace = true }
+claw-config = { path = "../claw-config" }
+claw-rag = { path = "../claw-rag" }
+claw-db = { path = "../claw-db" }
+
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+tokio.workspace = true
+futures.workspace = true
+futures-util.workspace = true
+anyhow.workspace = true
+dashmap.workspace = true
+async-trait.workspace = true
+once_cell.workspace = true
+reqwest.workspace = true
+reqwest-eventsource.workspace = true
+sea-orm.workspace = true
+chrono.workspace = true
+
+tauri = { workspace = true, optional = true }
+
+[features]
+default = ["tauri-integration"]
+tauri-integration = ["dep:tauri"]

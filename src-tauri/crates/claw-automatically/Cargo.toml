@@ -1,0 +1,68 @@
+[package]
+name = "claw-automatically"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[lib]
+name = "claw_automatically"
+crate-type = ["lib"]
+
+[dependencies]
+# 基础设施（继承 workspace）
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+log.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+dashmap.workspace = true
+regex.workspace = true
+reqwest.workspace = true
+async-trait.workspace = true
+tempfile = "3"
+image = "0.25"
+rand = "0.8"
+base64 = "0.22"
+once_cell = "1"
+dirs = "6"
+toml.workspace = true
+serde_yaml.workspace = true
+claw-config.workspace = true
+tauri = { version = "2", features = [] }
+
+# 内部 crate
+claw-traits = { workspace = true }
+
+# 平台特定依赖（输入模拟 + 屏幕捕获）
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+x11 = { version = "2.21", features = ["xlib", "xtest"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-graphics = "0.24"
+core-foundation = "0.10"
+
+[features]
+default = []
+production = []
+# candle-backend 特性需要额外依赖，暂时禁用
+candle-backend = []
+
+[[example]]
+name = "screen_capture"
+path = "examples/screen_capture.rs"
+
+[[example]]
+name = "manop_inference"
+path = "examples/manop_inference.rs"

@@ -1,0 +1,152 @@
+[workspace]
+members = [
+    "crates/claw-types",
+    "crates/claw-traits",
+    "crates/claw-config",
+    "crates/claw-db",
+    "crates/claw-rag",
+    "crates/claw-llm",
+    "crates/claw-harness",
+    "crates/claw-tools",
+    "crates/claw-ws",
+    "crates/claw-channel",
+    "crates/claw-automatically",
+]
+resolver = "2"
+
+[[bin]]
+name = "generate_keys"
+path = "src/bin/generate_keys.rs"
+
+[package]
+name = "claw-desktop"
+default-run = "claw-desktop"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+tauri.workspace = true
+tauri-plugin-shell.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+claw-tools.workspace = true
+claw-ws.workspace = true
+claw-channel.workspace = true
+claw-automatically.workspace = true
+claw-types.workspace = true
+claw-traits.workspace = true
+claw-config.workspace = true
+claw-db.workspace = true
+claw-llm.workspace = true
+claw-rag.workspace = true
+async-trait.workspace = true
+uuid.workspace = true
+log.workspace = true
+env_logger.workspace = true
+tokio.workspace = true
+
+# Key generation dependencies (for generate_keys binary)
+rsa.workspace = true
+rand.workspace = true
+base64.workspace = true
+ring.workspace = true
+hex.workspace = true
+chrono.workspace = true
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[workspace.package]
+version = "1.0.0"
+description = "Claw - AI Coding Assistant"
+authors = ["Claw"]
+edition = "2024"
+
+[workspace.dependencies]
+# 共享依赖
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+serde_yaml = "0.9"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+thiserror = "2"
+log = "0.4"
+env_logger = "0.11"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+lazy_static = "1.5"
+dashmap = "6"
+dirs = "6"
+async-trait = "0.1"
+
+# 数据库
+sea-orm = { version = "1.1", features = ["sqlx-sqlite", "sqlx-postgres", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "with-json"] }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "postgres"] }
+# 向量扩展（通过 SQL 加载，无需 rusqlite）
+sqlite-vec = { version = "0.1" }
+
+# Embedding / 向量
+ort = "2.0.0-rc.12"
+tokenizers = "0.19"
+
+# 类型契约 / Type Contracts
+ts-rs = { version = "12", features = ["format"] }
+
+# HTTP/网络
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"], default-features = false }
+bytes = "1"
+reqwest-eventsource = "0.6"
+futures = "0.3"
+futures-util = "0.3"
+tokio-stream = "0.1"
+
+# Axum Web 框架
+axum = { version = "0.7", features = ["macros", "multipart"] }
+tower-http = { version = "0.6", features = ["cors", "limit"] }
+tower = "0.5"
+
+# 工具库
+sha2 = "0.10"
+hex = "0.4"
+ring = "0.16"
+glob = "0.3"
+regex = "1"
+urlencoding = "2"
+base64 = "0.22"
+once_cell = "1"
+rfd = "0.15"
+zip = "2.2"
+
+# WebSocket/认证
+tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
+jsonwebtoken = "9"
+rsa = { version = "0.9", features = ["pem", "sha2"] }
+rand = "0.8"
+include_dir = "0.7"
+
+# Tauri (仅桌面应用使用)
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-build = { version = "2", features = [] }
+
+# 内部 crate 依赖
+claw-types = { path = "crates/claw-types" }
+claw-traits = { path = "crates/claw-traits" }
+claw-config = { path = "crates/claw-config" }
+claw-db = { path = "crates/claw-db" }
+claw-rag = { path = "crates/claw-rag" }
+claw-llm = { path = "crates/claw-llm", features = ["tauri-integration"] }
+claw-harness = { path = "crates/claw-harness" }
+claw-tools = { path = "crates/claw-tools", features = ["tauri-integration"] }
+claw-ws = { path = "crates/claw-ws" }
+claw-channel = { path = "crates/claw-channel" }
+claw-automatically = { path = "crates/claw-automatically" }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

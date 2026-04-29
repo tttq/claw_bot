@@ -1,0 +1,84 @@
+[app]
+language = "zh-CN"
+theme = "dark"
+auto_update = true
+minimize_to_tray = false
+startup_behavior = "normal"
+
+[model]
+default_model = "claude-sonnet-4-20250514"
+provider = "anthropic"
+custom_url = ""
+custom_api_key = ""
+custom_model_name = ""
+temperature = 0.7
+max_tokens = 16384
+top_p = 1.0
+thinking_budget = 10000
+stream_mode = true
+api_format = "anthropic"
+
+[api]
+api_key = ""
+base_url = "https://api.anthropic.com"
+api_version = "2023-06-01"
+timeout_seconds = 120
+retry_count = 3
+
+[ui]
+font_size = 14
+font_family = "Inter"
+sidebar_width = 280
+show_line_numbers = true
+code_theme = "oneDark"
+message_style = "bubble"
+show_tool_executions = true
+
+[advanced]
+data_dir = 'D:\Projcets\Rust\auto_career\claw-desk-bot\qclaw-desktop\src-tauri\.temp_build'
+log_level = "info"
+max_conversation_history = 100
+auto_compact_tokens = 150000
+proxy_url = ""
+enable_telemetry = false
+
+[harness]
+error_learning_enabled = false
+cross_memory_enabled = false
+validation_enabled = false
+default_memory_visibility = ""
+max_parallel_subtasks = 0
+task_timeout_seconds = 0
+agents_md_auto_refresh = false
+
+[tools]
+file_access = true
+file_write = true
+shell = true
+search = true
+web = true
+git = true
+browser = true
+automation = true
+agent = true
+
+[database]
+backend = "sqlite"
+initialized = true
+
+[database.sqlite]
+enable_vec = true
+db_path = ""
+
+[database.postgres]
+host = "localhost"
+port = 5432
+database = "claw_desktop"
+username = ""
+password = ""
+pool_size = 0
+
+[database.qdrant]
+url = "http://localhost:6333"
+api_key = ""
+collection = "claw_vectors"

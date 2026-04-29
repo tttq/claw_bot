@@ -1,0 +1,72 @@
+[package]
+name = "claw-tools"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[lib]
+name = "claw_tools"
+crate-type = ["lib"]
+
+[dependencies]
+# 内部依赖
+claw-types = { workspace = true }
+claw-traits = { workspace = true }
+claw-config = { workspace = true }
+claw-db = { workspace = true }
+claw-rag = { workspace = true }
+
+# 外部依赖（从原 claw-core/Cargo.toml 复制）
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+serde_yaml = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+lazy_static = { workspace = true }
+dashmap = { workspace = true }
+dirs = { workspace = true }
+regex = { workspace = true }
+async-trait = { workspace = true }
+
+# 加密和编码
+sha2 = { workspace = true }
+hex = { workspace = true }
+base64 = { workspace = true }
+ring = { workspace = true }
+
+# HTTP客户端
+reqwest = { workspace = true }
+reqwest-eventsource = { workspace = true }
+
+# 文件和IO
+glob = { workspace = true }
+urlencoding = { workspace = true }
+once_cell = { workspace = true }
+zip = { workspace = true }
+include_dir = { workspace = true }
+rand = { workspace = true }
+
+# 额外依赖
+tempfile = "3"
+image = "0.25"
+futures = { workspace = true }
+futures-util = { workspace = true }
+tokio-stream = { workspace = true }
+bytes = { workspace = true }
+sea-orm = { workspace = true }
+tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
+futures-channel = "0.3"
+
+# Tauri集成
+tauri = { workspace = true, optional = true }
+
+[features]
+default = []
+tauri-integration = ["dep:tauri"]

@@ -1,0 +1,30 @@
+[package]
+name = "claw-config"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[lib]
+name = "claw_config"
+crate-type = ["lib"]
+
+[dependencies]
+claw-types = { workspace = true }
+
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+anyhow.workspace = true
+log.workspace = true
+dirs.workspace = true
+once_cell.workspace = true
+tokio.workspace = true
+regex.workspace = true
+ts-rs = { workspace = true, features = ["format"] }
+
+tauri = { workspace = true, optional = true }
+
+[features]
+default = ["tauri-integration"]
+tauri-integration = ["dep:tauri"]

@@ -1,0 +1,26 @@
+[package]
+name = "claw-db"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[lib]
+name = "claw_db"
+crate-type = ["lib"]
+
+[dependencies]
+claw-types = { workspace = true }
+claw-config = { path = "../claw-config" }
+
+sea-orm = { workspace = true, features = ["sqlx-sqlite", "sqlx-postgres", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "with-json"] }
+sqlx = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+tokio.workspace = true
+once_cell.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+anyhow.workspace = true
+reqwest = { workspace = true }

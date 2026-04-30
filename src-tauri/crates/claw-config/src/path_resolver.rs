@@ -81,14 +81,14 @@ fn resolve_app_root(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
             Ok(dev_root)
         }
         RunMode::Production => {
-            if let Ok(exe) = std::env::current_exe() {
-                if let Some(parent) = exe.parent() {
-                    log::info!(
-                        "[PathResolver] Production mode, using exe dir: {}",
-                        parent.display()
-                    );
-                    return Ok(parent.to_path_buf());
-                }
+            if let Ok(exe) = std::env::current_exe()
+                && let Some(parent) = exe.parent()
+            {
+                log::info!(
+                    "[PathResolver] Production mode, using exe dir: {}",
+                    parent.display()
+                );
+                return Ok(parent.to_path_buf());
             }
             if let Ok(app_data_dir) = app_handle.path().app_data_dir() {
                 log::info!(
@@ -111,29 +111,29 @@ fn find_src_tauri_dir() -> Option<PathBuf> {
         if cwd.join("src-tauri").is_dir() {
             return Some(cwd.join("src-tauri"));
         }
-        if let Some(parent) = cwd.parent() {
-            if parent.join("src-tauri").is_dir() {
-                return Some(parent.join("src-tauri"));
-            }
+        if let Some(parent) = cwd.parent()
+            && parent.join("src-tauri").is_dir()
+        {
+            return Some(parent.join("src-tauri"));
         }
     }
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(exe_dir) = exe.parent() {
-            if exe_dir
-                .file_name()
-                .map(|n| n == "src-tauri")
-                .unwrap_or(false)
-            {
-                return Some(exe_dir.to_path_buf());
-            }
-            if exe_dir.join("src-tauri").is_dir() {
-                return Some(exe_dir.join("src-tauri"));
-            }
-            if let Some(parent) = exe_dir.parent() {
-                if parent.join("src-tauri").is_dir() {
-                    return Some(parent.join("src-tauri"));
-                }
-            }
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(exe_dir) = exe.parent()
+    {
+        if exe_dir
+            .file_name()
+            .map(|n| n == "src-tauri")
+            .unwrap_or(false)
+        {
+            return Some(exe_dir.to_path_buf());
+        }
+        if exe_dir.join("src-tauri").is_dir() {
+            return Some(exe_dir.join("src-tauri"));
+        }
+        if let Some(parent) = exe_dir.parent()
+            && parent.join("src-tauri").is_dir()
+        {
+            return Some(parent.join("src-tauri"));
         }
     }
     None
@@ -145,18 +145,17 @@ fn detect_run_mode() -> RunMode {
         return RunMode::Dev;
     }
 
-    if let Ok(cwd) = std::env::current_dir() {
-        if cwd.join(".temp_build").exists() || cwd.join("src-tauri").exists() {
-            return RunMode::Dev;
-        }
+    if let Ok(cwd) = std::env::current_dir()
+        && (cwd.join(".temp_build").exists() || cwd.join("src-tauri").exists())
+    {
+        return RunMode::Dev;
     }
 
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(parent) = exe.parent() {
-            if parent.join(".temp_build").exists() || parent.join("src-tauri").exists() {
-                return RunMode::Dev;
-            }
-        }
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(parent) = exe.parent()
+        && (parent.join(".temp_build").exists() || parent.join("src-tauri").exists())
+    {
+        return RunMode::Dev;
     }
 
     RunMode::Production

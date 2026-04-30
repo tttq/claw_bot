@@ -542,7 +542,15 @@ impl AppConfig {
         if config_path.exists() {
             let metadata = fs::metadata(config_path)?;
             let mut permissions = metadata.permissions();
-            permissions.set_readonly(false);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                permissions.set_mode(permissions.mode() | 0o200);
+            }
+            #[cfg(not(unix))]
+            {
+                permissions.set_readonly(false);
+            }
             fs::set_permissions(config_path, permissions)?;
         }
 

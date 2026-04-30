@@ -9,58 +9,64 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
-use tokio::sync::Mutex;
 use std::time::Instant;
+use tokio::sync::Mutex;
 
 /// 技能工具在注册表中的名称（LLM 通过此名调用）
 #[allow(dead_code)]
 pub const SKILL_TOOL_NAME: &str = "Skill";
-const MAX_FORKED_ROUNDS: usize = 10;     // Forked 模式最大循环轮数
-const MAX_INLINE_CHARS: usize = 50000;  // Inline 模式 prompt 最大字符数
+const MAX_FORKED_ROUNDS: usize = 10; // Forked 模式最大循环轮数
+const MAX_INLINE_CHARS: usize = 50000; // Inline 模式 prompt 最大字符数
 
 /// 技能定义结构体：从 SKILL.md 文件解析得到，描述一个技能的全部元数据
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillDefinition {
-    pub name: String,                   // 技能唯一标识名
-    pub description: String,            // 技能描述（注入 LLM system prompt）
+    pub name: String,        // 技能唯一标识名
+    pub description: String, // 技能描述（注入 LLM system prompt）
     #[serde(default)]
-    pub aliases: Vec<String>,           // 别名列表
+    pub aliases: Vec<String>, // 别名列表
     #[serde(default)]
-    pub when_to_use: String,            // 使用场景说明
+    pub when_to_use: String, // 使用场景说明
     #[serde(default)]
-    pub argument_hint: String,          // 参数提示
+    pub argument_hint: String, // 参数提示
     #[serde(default)]
-    pub allowed_tools: Vec<String>,     // 允许使用的工具白名单
+    pub allowed_tools: Vec<String>, // 允许使用的工具白名单
     #[serde(default)]
-    pub model: Option<String>,          // 强制指定模型
+    pub model: Option<String>, // 强制指定模型
     #[serde(default)]
     pub disable_model_invocation: bool, // 禁止 LLM 调用
     #[serde(default = "default_true")]
-    pub user_invocable: bool,           // 用户是否可直接调用
+    pub user_invocable: bool, // 用户是否可直接调用
     #[serde(default)]
-    pub context: SkillContext,          // 执行模式: Inline/Fork
+    pub context: SkillContext, // 执行模式: Inline/Fork
     #[serde(default)]
-    pub agent: Option<String>,          // 绑定的 Agent ID
+    pub agent: Option<String>, // 绑定的 Agent ID
     #[serde(default)]
     pub files: HashMap<String, String>, // 关联文件映射
     #[serde(default)]
-    pub effort: Option<String>,         // 执行代价等级
+    pub effort: Option<String>, // 执行代价等级
     #[serde(default)]
-    pub source: SkillSource,            // 来源类型
+    pub source: SkillSource, // 来源类型
     #[serde(default)]
-    pub prompt_template: Option<String>,// 提示词模板
+    pub prompt_template: Option<String>, // 提示词模板
 }
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 /// 技能执行上下文模式
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum SkillContext {
-    Inline,                            // 内联模式：同步执行
-    Fork,                              // Fork 模式：异步多轮
+    Inline, // 内联模式：同步执行
+    Fork,   // Fork 模式：异步多轮
 }
-impl Default for SkillContext { fn default() -> Self { SkillContext::Inline } }
+impl Default for SkillContext {
+    fn default() -> Self {
+        SkillContext::Inline
+    }
+}
 
 pub use crate::skill_loader::SkillSource;
 
@@ -170,20 +176,40 @@ pub async fn list_all_skills() -> Vec<SkillDefinition> {
 #[allow(dead_code)]
 pub async fn list_bundled_skills() -> Vec<SkillDefinition> {
     let reg = get_registry().await;
-    reg.all().into_iter().filter(|s| s.source == SkillSource::Bundled).collect()
+    reg.all()
+        .into_iter()
+        .filter(|s| s.source == SkillSource::Bundled)
+        .collect()
 }
 
 /// 注册 MCP 来源的技能（async）
-pub async fn register_mcp_skill(name: String, description: String, prompt_template: String) -> SkillDefinition {
+pub async fn register_mcp_skill(
+    name: String,
+    description: String,
+    prompt_template: String,
+) -> SkillDefinition {
     let skill = SkillDefinition {
-        name: name.clone(), description, source: SkillSource::Mcp,
-        aliases: vec![], when_to_use: String::new(), argument_hint: String::new(),
-        allowed_tools: vec![], model: None, disable_model_invocation: false,
-        user_invocable: true, context: SkillContext::Inline, agent: None,
-        files: HashMap::new(), effort: None, prompt_template: Some(prompt_template),
+        name: name.clone(),
+        description,
+        source: SkillSource::Mcp,
+        aliases: vec![],
+        when_to_use: String::new(),
+        argument_hint: String::new(),
+        allowed_tools: vec![],
+        model: None,
+        disable_model_invocation: false,
+        user_invocable: true,
+        context: SkillContext::Inline,
+        agent: None,
+        files: HashMap::new(),
+        effort: None,
+        prompt_template: Some(prompt_template),
     };
     register_skill(skill.clone()).await;
-    let count = { let r = get_registry().await; r.count() };
+    let count = {
+        let r = get_registry().await;
+        r.count()
+    };
     log::info!("[Skills] 注册 MCP 技能: {} (共 {} 个)", name, count);
     skill
 }
@@ -191,24 +217,41 @@ pub async fn register_mcp_skill(name: String, description: String, prompt_templa
 // ==================== 内部实现 ====================
 
 impl SkillRegistryInner {
-    fn new() -> Self { Self { skills: Vec::new(), _disabled: HashSet::new() } }
+    fn new() -> Self {
+        Self {
+            skills: Vec::new(),
+            _disabled: HashSet::new(),
+        }
+    }
 
     fn register(&mut self, skill: SkillDefinition) {
-        if self.skills.iter().any(|s| s.name == skill.name) { return; }
+        if self.skills.iter().any(|s| s.name == skill.name) {
+            return;
+        }
         self.skills.push(skill);
         if let Some(last) = self.skills.last() {
-            log::info!("[Skills] 注册技能: {} (共 {} 个)", last.name, self.skills.len());
+            log::info!(
+                "[Skills] 注册技能: {} (共 {} 个)",
+                last.name,
+                self.skills.len()
+            );
         }
     }
 
     fn find(&self, name: &str) -> Option<&SkillDefinition> {
         let name_lower = name.to_lowercase();
-        self.skills.iter().find(|s| s.name.to_lowercase() == name_lower || s_aliases_contains(&name_lower, s))
+        self.skills
+            .iter()
+            .find(|s| s.name.to_lowercase() == name_lower || s_aliases_contains(&name_lower, s))
     }
 
-    fn all(&self) -> Vec<SkillDefinition> { self.skills.clone() }
+    fn all(&self) -> Vec<SkillDefinition> {
+        self.skills.clone()
+    }
 
-    fn count(&self) -> usize { self.skills.len() }
+    fn count(&self) -> usize {
+        self.skills.len()
+    }
 }
 
 fn s_aliases_contains(name_lower: &str, def: &SkillDefinition) -> bool {
@@ -222,8 +265,12 @@ fn s_aliases_contains(name_lower: &str, def: &SkillDefinition) -> bool {
 pub async fn check_permission(skill_name: &str) -> PermissionBehavior {
     let rules = permission_rules().await.lock().await;
     for r in rules.iter() {
-        if r.tool_name.ends_with(':') && skill_name.starts_with(r.tool_name.trim_end_matches(':')) { return r.behavior.clone(); }
-        if r.tool_name == "*" || r.tool_name.eq_ignore_ascii_case(skill_name) { return r.behavior.clone(); }
+        if r.tool_name.ends_with(':') && skill_name.starts_with(r.tool_name.trim_end_matches(':')) {
+            return r.behavior.clone();
+        }
+        if r.tool_name == "*" || r.tool_name.eq_ignore_ascii_case(skill_name) {
+            return r.behavior.clone();
+        }
     }
     PermissionBehavior::Ask
 }
@@ -236,7 +283,12 @@ pub async fn add_permission_rule(rule: SkillPermissionRule) {
 /// 移除权限规则
 pub async fn remove_permission_rule(index: usize) -> Result<(), String> {
     let mut rules = permission_rules().await.lock().await;
-    if index < rules.len() { rules.remove(index); Ok(()) } else { Err("Index out of bounds".into()) }
+    if index < rules.len() {
+        rules.remove(index);
+        Ok(())
+    } else {
+        Err("Index out of bounds".into())
+    }
 }
 
 /// 获取所有权限规则
@@ -255,7 +307,11 @@ pub async fn record_telemetry(event: SkillTelemetryEvent) {
 pub async fn get_telemetry_log(limit: usize) -> Vec<SkillTelemetryEvent> {
     let log = telemetry_log().await.lock().await;
     let len = log.len();
-    if limit >= len || limit == 0 { log.clone() } else { log[len - limit..].to_vec() }
+    if limit >= len || limit == 0 {
+        log.clone()
+    } else {
+        log[len - limit..].to_vec()
+    }
 }
 
 /// 清空遥测日志
@@ -282,37 +338,62 @@ pub async fn execute_skill(
 
     // ★ 防死循环保护：递归调用时拒绝执行 Skill 工具
     if query_depth > 0 {
-        log::warn!("[Skills] Recursive call rejected (depth={}), preventing infinite loop", query_depth);
-        return Err(format!("Skill call reached max nesting depth (depth={}). Reply directly to user without calling Skill tool again.", query_depth));
+        log::warn!(
+            "[Skills] Recursive call rejected (depth={}), preventing infinite loop",
+            query_depth
+        );
+        return Err(format!(
+            "Skill call reached max nesting depth (depth={}). Reply directly to user without calling Skill tool again.",
+            query_depth
+        ));
     }
 
     // ★ 特殊处理：skill_name 为空或 "list" 时，直接返回已注册的技能列表
     let normalized_name = skill_name.trim();
-    if normalized_name.is_empty() || normalized_name.eq_ignore_ascii_case("list") || normalized_name.eq_ignore_ascii_case("help") {
+    if normalized_name.is_empty()
+        || normalized_name.eq_ignore_ascii_case("list")
+        || normalized_name.eq_ignore_ascii_case("help")
+    {
         let all_skills = list_all_skills().await;
         let skills_text = if all_skills.is_empty() {
             "No skills registered.".to_string()
         } else {
-            all_skills.iter().map(|s| {
-                let desc_short = s.description.chars().take(60).collect::<String>();
-                let use_text: String = if s.when_to_use.is_empty() { s.description.clone() } else { s.when_to_use.chars().take(100).collect() };
-                format!(
-                    "- **{}** ({}): {} | 来源: {:?} | 上下文: {:?}{}",
-                    s.name,
-                    desc_short,
-                    use_text,
-                    s.source,
-                    s.context,
-                    if s.allowed_tools.is_empty() { String::new() } else { format!(" | 允许工具: {}", s.allowed_tools.join(", ")) }
-                )
-            }).collect::<Vec<_>>().join("\n")
+            all_skills
+                .iter()
+                .map(|s| {
+                    let desc_short = s.description.chars().take(60).collect::<String>();
+                    let use_text: String = if s.when_to_use.is_empty() {
+                        s.description.clone()
+                    } else {
+                        s.when_to_use.chars().take(100).collect()
+                    };
+                    format!(
+                        "- **{}** ({}): {} | 来源: {:?} | 上下文: {:?}{}",
+                        s.name,
+                        desc_short,
+                        use_text,
+                        s.source,
+                        s.context,
+                        if s.allowed_tools.is_empty() {
+                            String::new()
+                        } else {
+                            format!(" | 允许工具: {}", s.allowed_tools.join(", "))
+                        }
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
         };
         log::info!("[Skills] 列表查询: 返回 {} 个技能", all_skills.len());
         return Ok(SkillExecutionResult {
             success: true,
             skill_name: "list".into(),
             status: SkillExecStatus::Inline,
-            result_text: format!("## 当前可用技能列表 (共 {} 个)\n\n{}", all_skills.len(), skills_text),
+            result_text: format!(
+                "## 当前可用技能列表 (共 {} 个)\n\n{}",
+                all_skills.len(),
+                skills_text
+            ),
             duration_ms: start.elapsed().as_millis() as u64,
             rounds: 1,
             agent_id: None,
@@ -324,35 +405,64 @@ pub async fn execute_skill(
         let registry = get_registry().await;
         let s = registry.find(skill_name);
         let count = registry.count();
-        s.ok_or_else(|| format!("Skill '{}' not found. Available skills: {}", skill_name, count))?
-            .clone()
+        s.ok_or_else(|| {
+            format!(
+                "Skill '{}' not found. Available skills: {}",
+                skill_name, count
+            )
+        })?
+        .clone()
     };
 
     if skill.disable_model_invocation && !skill.prompt_template.is_some() {
-        return Err(format!("Skill '{}' has model invocation disabled and no prompt_template", skill_name));
+        return Err(format!(
+            "Skill '{}' has model invocation disabled and no prompt_template",
+            skill_name
+        ));
     }
 
-    log::info!("[Skills] 执行技能: {} (context={:?}, depth={}, args_len={})", skill_name, skill.context, query_depth, args.len());
+    log::info!(
+        "[Skills] 执行技能: {} (context={:?}, depth={}, args_len={})",
+        skill_name,
+        skill.context,
+        query_depth,
+        args.len()
+    );
 
     let result = match skill.context {
-            SkillContext::Inline => execute_inline_skill(&skill, args, &on_progress).await,
-            SkillContext::Fork => execute_forked_skill(&skill, args, &on_progress).await,
-        };
+        SkillContext::Inline => execute_inline_skill(&skill, args, &on_progress).await,
+        SkillContext::Fork => execute_forked_skill(&skill, args, &on_progress).await,
+    };
 
     let duration_ms = start.elapsed().as_millis() as u64;
 
     record_telemetry(SkillTelemetryEvent {
         skill_name: skill.name.clone(),
         execution_context: format!("{:?}", skill.context),
-        invocation_trigger: if query_depth == 0 { "user-invoked".into() } else { "nested-skill".into() },
+        invocation_trigger: if query_depth == 0 {
+            "user-invoked".into()
+        } else {
+            "nested-skill".into()
+        },
         duration_ms: start.elapsed().as_millis() as u64,
         query_depth,
         source: format!("{:?}", skill.source),
-        status: if result.is_ok() { "success".to_string() } else { "failed".to_string() },
-        timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as i64,
-    }).await;
+        status: if result.is_ok() {
+            "success".to_string()
+        } else {
+            "failed".to_string()
+        },
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as i64,
+    })
+    .await;
 
-    result.map(|mut r| { r.duration_ms = duration_ms; r })
+    result.map(|mut r| {
+        r.duration_ms = duration_ms;
+        r
+    })
 }
 
 /// Inline 模式：构建 prompt 直接返回（不调用 LLM，由 Agent 循环后续处理）
@@ -363,12 +473,21 @@ async fn execute_inline_skill(
 ) -> Result<SkillExecutionResult, String> {
     let prompt = skill.build_prompt(args);
     if prompt.len() > MAX_INLINE_CHARS {
-        return Err(format!("Inline prompt 过长 ({} > {} chars)", prompt.len(), MAX_INLINE_CHARS));
+        return Err(format!(
+            "Inline prompt 过长 ({} > {} chars)",
+            prompt.len(),
+            MAX_INLINE_CHARS
+        ));
     }
     Ok(SkillExecutionResult {
-        success: true, skill_name: skill.name.clone(),
-        status: SkillExecStatus::Inline, result_text: prompt,
-        duration_ms: 0, rounds: 1, agent_id: None, allowed_tools: Some(skill.allowed_tools.clone()),
+        success: true,
+        skill_name: skill.name.clone(),
+        status: SkillExecStatus::Inline,
+        result_text: prompt,
+        duration_ms: 0,
+        rounds: 1,
+        agent_id: None,
+        allowed_tools: Some(skill.allowed_tools.clone()),
     })
 }
 
@@ -391,7 +510,10 @@ async fn execute_forked_skill(
     for round in 1..=MAX_FORKED_ROUNDS {
         rounds = round;
         if let Some(cb) = on_progress {
-            cb(format!("[Forked:Round{}] Processing step {}...", round, round));
+            cb(format!(
+                "[Forked:Round{}] Processing step {}...",
+                round, round
+            ));
         }
 
         if round < MAX_FORKED_ROUNDS {
@@ -412,7 +534,10 @@ async fn execute_forked_skill(
 
     log::info!(
         "[Skills:execute_forked] skill={} args_len={} rounds={} duration={}ms",
-        skill.name, args.len(), rounds, duration_ms
+        skill.name,
+        args.len(),
+        rounds,
+        duration_ms
     );
 
     Ok(SkillExecutionResult {
@@ -433,16 +558,29 @@ impl SkillDefinition {
     /// 根据元数据构建执行 prompt（处理模板变量替换 + 默认格式）
     pub fn build_prompt(&self, input: &str) -> String {
         if let Some(ref template) = self.prompt_template {
-            template.replace("$ARGUMENTS", input).replace("$SKILL_NAME", &self.name)
+            template
+                .replace("$ARGUMENTS", input)
+                .replace("$SKILL_NAME", &self.name)
                 .replace("$DESCRIPTION", &self.description)
         } else {
             let mut parts = Vec::with_capacity(8);
             parts.push(format!("# Skill: {}", self.name));
-            if !self.description.is_empty() { parts.push(format!("## Description\n{}", self.description)); }
-            if !self.when_to_use.is_empty() { parts.push(format!("## When to use\n{}", self.when_to_use)); }
-            if !self.argument_hint.is_empty() { parts.push(format!("## Arguments\n{}", self.argument_hint)); }
+            if !self.description.is_empty() {
+                parts.push(format!("## Description\n{}", self.description));
+            }
+            if !self.when_to_use.is_empty() {
+                parts.push(format!("## When to use\n{}", self.when_to_use));
+            }
+            if !self.argument_hint.is_empty() {
+                parts.push(format!("## Arguments\n{}", self.argument_hint));
+            }
             parts.push(format!("## Input\n{}", input));
-            if !self.allowed_tools.is_empty() { parts.push(format!("## Allowed tools\n- {}", self.allowed_tools.join("\n- "))); }
+            if !self.allowed_tools.is_empty() {
+                parts.push(format!(
+                    "## Allowed tools\n- {}",
+                    self.allowed_tools.join("\n- ")
+                ));
+            }
             parts.join("\n\n")
         }
     }

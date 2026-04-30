@@ -58,7 +58,9 @@ pub enum CommunicationStyle {
 }
 
 impl Default for CommunicationStyle {
-    fn default() -> Self { CommunicationStyle::Friendly }
+    fn default() -> Self {
+        CommunicationStyle::Friendly
+    }
 }
 
 impl std::fmt::Display for CommunicationStyle {
@@ -99,17 +101,29 @@ impl AgentPersona {
         parts.push(format!("## Your Persona: {}\n", self.display_name));
 
         if !self.personality_traits.is_empty() {
-            parts.push(format!("- Personality traits: {}", self.personality_traits.join(", ")));
+            parts.push(format!(
+                "- Personality traits: {}",
+                self.personality_traits.join(", ")
+            ));
         }
-        parts.push(format!("- Communication style: {}", self.communication_style));
+        parts.push(format!(
+            "- Communication style: {}",
+            self.communication_style
+        ));
         if !self.expertise_domain.is_empty() {
             parts.push(format!("- Expertise domain: {}", self.expertise_domain));
         }
         if !self.behavior_constraints.is_empty() {
-            parts.push(format!("- Constraints: {}", self.behavior_constraints.join("; ")));
+            parts.push(format!(
+                "- Constraints: {}",
+                self.behavior_constraints.join("; ")
+            ));
         }
         if !self.response_tone_instruction.is_empty() {
-            parts.push(format!("- Tone instruction: {}", self.response_tone_instruction));
+            parts.push(format!(
+                "- Tone instruction: {}",
+                self.response_tone_instruction
+            ));
         }
         if !self.language_preference.is_empty() {
             parts.push(format!("- Respond in: {}", self.language_preference));
@@ -261,7 +275,9 @@ impl std::fmt::Display for MemoryVisibility {
 }
 
 impl Default for MemoryVisibility {
-    fn default() -> Self { MemoryVisibility::Public }
+    fn default() -> Self {
+        MemoryVisibility::Public
+    }
 }
 
 /// 交叉记忆请求
@@ -364,30 +380,30 @@ pub enum HarnessEventType {
     SessionEnded,
 
     // === 任务执行事件 ===
-    TaskDecomposed,       // 主Agent拆分任务
-    TaskAssigned,          // 分配给子Agent
-    TaskStarted,           // 子Agent开始执行
-    TaskCompleted,         // 子Agent完成
-    TaskFailed,            // 子Agent失败
-    TaskAggregated,        // 结果聚合完成
+    TaskDecomposed, // 主Agent拆分任务
+    TaskAssigned,   // 分配给子Agent
+    TaskStarted,    // 子Agent开始执行
+    TaskCompleted,  // 子Agent完成
+    TaskFailed,     // 子Agent失败
+    TaskAggregated, // 结果聚合完成
 
     // === 记忆事件 ===
     MemoryStored,
     MemoryRetrieved,
-    CrossMemoryAccessed,   // 交叉记忆被访问
+    CrossMemoryAccessed, // 交叉记忆被访问
 
     // === 错误事件 ===
     ErrorOccurred,
-    ErrorRuleGenerated,    // 规避规则生成
-    ErrorRuleTriggered,    // 规避规则被触发（成功避免）
+    ErrorRuleGenerated, // 规避规则生成
+    ErrorRuleTriggered, // 规避规则被触发（成功避免）
 
     // === 验证事件 ===
     ValidationPerformed,
     ValidationFailed,
 
     // === 协作事件 ===
-    MentionDetected,       // @mention 检测到
-    CoordinationMessage,   // Agent间消息传递
+    MentionDetected,     // @mention 检测到
+    CoordinationMessage, // Agent间消息传递
 }
 
 impl std::fmt::Display for HarnessEventType {

@@ -13,7 +13,7 @@ use std::process::Command;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitStatusItem {
     pub file: String,
-    pub status: String,         // M/A/D/R/U/??
+    pub status: String, // M/A/D/R/U/??
     pub staged: bool,
     pub path: String,
 }
@@ -40,7 +40,7 @@ pub struct GitBranchInfo {
 /// Git差异行 — 表示diff中的一行（添加/删除/上下文/头部）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitDiffLine {
-    pub type_: String,     // "+" / "-" / " " / "@@"
+    pub type_: String, // "+" / "-" / " " / "@@"
     pub content: String,
     pub old_line: Option<i32>,
     pub new_line: Option<i32>,
@@ -72,7 +72,11 @@ fn run_git_cmd(args: &[&str], working_dir: Option<&str>) -> Result<(String, Stri
 /// 获取Git仓库根目录
 fn get_repo_root(working_dir: Option<&str>) -> Result<String, String> {
     let (stdout, _, code) = run_git_cmd(&["rev-parse", "--show-toplevel"], working_dir)?;
-    if code != 0 { Err("不是 Git 仓库".to_string()) } else { Ok(stdout.trim().to_string()) }
+    if code != 0 {
+        Err("不是 Git 仓库".to_string())
+    } else {
+        Ok(stdout.trim().to_string())
+    }
 }
 
 /// Git状态工具 — 查看工作区文件变更状态
@@ -82,7 +86,9 @@ pub fn git_status(working_dir: Option<String>) -> Result<serde_json::Value, Stri
     let repo_root = get_repo_root(dir)?;
     let (stdout, _stderr, code) = run_git_cmd(&["status", "--porcelain", "-u"], dir)?;
     if code != 0 && stdout.is_empty() {
-        return Ok(json!({"tool":"GitStatus","success":true,"output":"工作区干净","is_clean":true,"items":[],"branch":"?","repo":repo_root}));
+        return Ok(
+            json!({"tool":"GitStatus","success":true,"output":"工作区干净","is_clean":true,"items":[],"branch":"?","repo":repo_root}),
+        );
     }
 
     let (branch_out, _, _) = run_git_cmd(&["rev-parse", "--abbrev-ref", "HEAD"], dir)?;
@@ -107,7 +113,12 @@ pub fn git_status(working_dir: Option<String>) -> Result<serde_json::Value, Stri
                 "U " | "??" => ("?".to_string(), false),
                 _ => (combined.clone(), !index_status.trim().is_empty()),
             };
-            items.push(GitStatusItem { file: file.clone(), status, staged, path: file });
+            items.push(GitStatusItem {
+                file: file.clone(),
+                status,
+                staged,
+                path: file,
+            });
         }
     }
 
@@ -120,13 +131,21 @@ pub fn git_status(working_dir: Option<String>) -> Result<serde_json::Value, Stri
 
 /// Git差异工具 — 查看文件变更差异，支持指定文件和暂存区
 #[tauri::command]
-pub fn git_diff(working_dir: Option<String>, file_path: Option<String>, staged: Option<bool>) -> Result<serde_json::Value, String> {
+pub fn git_diff(
+    working_dir: Option<String>,
+    file_path: Option<String>,
+    staged: Option<bool>,
+) -> Result<serde_json::Value, String> {
     let dir = working_dir.as_deref();
     let mut args = vec!["diff".to_string()];
-    if staged.unwrap_or(false) { args.push("--staged".to_string()); }
+    if staged.unwrap_or(false) {
+        args.push("--staged".to_string());
+    }
     args.push("--no-color".to_string());
     args.push("-U3".to_string());
-    if let Some(f) = &file_path { args.push(f.clone()); }
+    if let Some(f) = &file_path {
+        args.push(f.clone());
+    }
 
     let (stdout, _, code) = run_git_cmd(&args.iter().map(|s| s.as_str()).collect::<Vec<_>>(), dir)?;
     if code != 0 || stdout.is_empty() {
@@ -140,48 +159,102 @@ pub fn git_diff(working_dir: Option<String>, file_path: Option<String>, staged: 
 
     for line in stdout.lines() {
         if line.starts_with("diff --git") {
-            if let Some(f) = current_file.take() { files.push(f); }
-            let parts: &str = line.split("a/").nth(1).and_then(|s| s.split(" b/").next()).map(|s| s.trim()).unwrap_or("");
-            current_file = Some(GitDiffFile { old_path: parts.to_string(), new_path: parts.to_string(), status: "modified".to_string(), lines: Vec::new() });
-            new_line_num = 0; old_line_num = 0;
+            if let Some(f) = current_file.take() {
+                files.push(f);
+            }
+            let parts: &str = line
+                .split("a/")
+                .nth(1)
+                .and_then(|s| s.split(" b/").next())
+                .map(|s| s.trim())
+                .unwrap_or("");
+            current_file = Some(GitDiffFile {
+                old_path: parts.to_string(),
+                new_path: parts.to_string(),
+                status: "modified".to_string(),
+                lines: Vec::new(),
+            });
+            new_line_num = 0;
+            old_line_num = 0;
         } else if line.starts_with("new file") {
-            if let Some(ref mut f) = current_file { f.status = "added".to_string(); }
+            if let Some(ref mut f) = current_file {
+                f.status = "added".to_string();
+            }
         } else if line.starts_with("deleted file") {
-            if let Some(ref mut f) = current_file { f.status = "deleted".to_string(); }
+            if let Some(ref mut f) = current_file {
+                f.status = "deleted".to_string();
+            }
         } else if line.starts_with("rename") {
-            if let Some(ref mut f) = current_file { f.status = "renamed".to_string(); }
+            if let Some(ref mut f) = current_file {
+                f.status = "renamed".to_string();
+            }
         } else if line.starts_with("@@") {
             let header = line.to_string();
-            if let Some(ref mut f) = current_file { f.lines.push(GitDiffLine { type_: "header".to_string(), content: header, old_line: None, new_line: None }); }
+            if let Some(ref mut f) = current_file {
+                f.lines.push(GitDiffLine {
+                    type_: "header".to_string(),
+                    content: header,
+                    old_line: None,
+                    new_line: None,
+                });
+            }
             if let Some(hunk) = line.split("+").nth(1) {
-                if let Some(end) = hunk.find(",") { new_line_num = hunk[..end].parse::<i32>().unwrap_or(1) - 1; }
-                else { new_line_num = hunk.parse::<i32>().unwrap_or(1) - 1; }
+                if let Some(end) = hunk.find(",") {
+                    new_line_num = hunk[..end].parse::<i32>().unwrap_or(1) - 1;
+                } else {
+                    new_line_num = hunk.parse::<i32>().unwrap_or(1) - 1;
+                }
             }
             if let Some(hunk) = line.split("-").nth(1) {
-                if let Some(end) = hunk.find(",") { old_line_num = hunk[..end].parse::<i32>().unwrap_or(1) - 1; }
-                else { old_line_num = hunk.parse::<i32>().unwrap_or(1) - 1; }
+                if let Some(end) = hunk.find(",") {
+                    old_line_num = hunk[..end].parse::<i32>().unwrap_or(1) - 1;
+                } else {
+                    old_line_num = hunk.parse::<i32>().unwrap_or(1) - 1;
+                }
             }
         } else if let Some(ref mut f) = current_file {
             if line.starts_with('+') && !line.starts_with("++") {
                 new_line_num += 1;
-                f.lines.push(GitDiffLine { type_: "+".to_string(), content: line[1..].to_string(), old_line: None, new_line: Some(new_line_num) });
+                f.lines.push(GitDiffLine {
+                    type_: "+".to_string(),
+                    content: line[1..].to_string(),
+                    old_line: None,
+                    new_line: Some(new_line_num),
+                });
             } else if line.starts_with('-') && !line.starts_with("--") {
                 old_line_num += 1;
-                f.lines.push(GitDiffLine { type_: "-".to_string(), content: line[1..].to_string(), old_line: Some(old_line_num), new_line: None });
+                f.lines.push(GitDiffLine {
+                    type_: "-".to_string(),
+                    content: line[1..].to_string(),
+                    old_line: Some(old_line_num),
+                    new_line: None,
+                });
             } else {
-                new_line_num += 1; old_line_num += 1;
-                f.lines.push(GitDiffLine { type_: " ".to_string(), content: line.to_string(), old_line: Some(old_line_num), new_line: Some(new_line_num) });
+                new_line_num += 1;
+                old_line_num += 1;
+                f.lines.push(GitDiffLine {
+                    type_: " ".to_string(),
+                    content: line.to_string(),
+                    old_line: Some(old_line_num),
+                    new_line: Some(new_line_num),
+                });
             }
         }
     }
-    if let Some(f) = current_file { files.push(f); }
+    if let Some(f) = current_file {
+        files.push(f);
+    }
 
     Ok(json!({"tool":"GitDiff","success":true,"files":files}))
 }
 
 /// Git提交工具 — 暂存文件并提交
 #[tauri::command]
-pub fn git_commit(message: String, files: Option<Vec<String>>, working_dir: Option<String>) -> Result<serde_json::Value, String> {
+pub fn git_commit(
+    message: String,
+    files: Option<Vec<String>>,
+    working_dir: Option<String>,
+) -> Result<serde_json::Value, String> {
     let dir = working_dir.as_deref();
     if let Some(ref flist) = files {
         for f in flist {
@@ -200,7 +273,10 @@ pub fn git_commit(message: String, files: Option<Vec<String>>, working_dir: Opti
 
 /// Git日志工具 — 查看提交历史
 #[tauri::command]
-pub fn git_log(limit: Option<u64>, working_dir: Option<String>) -> Result<serde_json::Value, String> {
+pub fn git_log(
+    limit: Option<u64>,
+    working_dir: Option<String>,
+) -> Result<serde_json::Value, String> {
     let dir = working_dir.as_deref();
     let n = limit.unwrap_or(20).to_string();
     let fmt = "%H|%h|%an|%s|%ci";
@@ -235,7 +311,9 @@ pub fn git_branch_list(working_dir: Option<String>) -> Result<serde_json::Value,
     let (stdout, _, _) = run_git_cmd(&["branch", "-a", "--no-color"], dir)?;
 
     let current_branch = run_git_cmd(&["rev-parse", "--abbrev-ref", "HEAD"], dir)
-        .ok().map(|(s,_,_)| s.trim().to_string()).unwrap_or_default();
+        .ok()
+        .map(|(s, _, _)| s.trim().to_string())
+        .unwrap_or_default();
 
     let mut branches = Vec::new();
     for line in stdout.lines() {
@@ -243,8 +321,16 @@ pub fn git_branch_list(working_dir: Option<String>) -> Result<serde_json::Value,
         let is_current = raw.starts_with('*');
         let name = raw.trim_start_matches('*').trim().to_string();
         let is_remote = name.starts_with("remotes/");
-        let display_name = if is_remote { name.strip_prefix("remotes/").unwrap_or(&name).to_string() } else { name.clone() };
-        branches.push(GitBranchInfo { name: display_name, is_current, is_remote });
+        let display_name = if is_remote {
+            name.strip_prefix("remotes/").unwrap_or(&name).to_string()
+        } else {
+            name.clone()
+        };
+        branches.push(GitBranchInfo {
+            name: display_name,
+            is_current,
+            is_remote,
+        });
     }
 
     Ok(json!({"tool":"GitBranch","success":true,"current":current_branch,"branches":branches}))
@@ -252,12 +338,20 @@ pub fn git_branch_list(working_dir: Option<String>) -> Result<serde_json::Value,
 
 /// Git创建分支工具 — 支持创建后自动切换
 #[tauri::command]
-pub fn git_create_branch(name: String, checkout: Option<bool>, working_dir: Option<String>) -> Result<serde_json::Value, String> {
+pub fn git_create_branch(
+    name: String,
+    checkout: Option<bool>,
+    working_dir: Option<String>,
+) -> Result<serde_json::Value, String> {
     let dir = working_dir.as_deref();
     if checkout.unwrap_or(true) {
         let (_, stderr, code) = run_git_cmd(&["checkout", "-b", &name], dir)?;
-        if code == 0 { let msg = format!("Created and switched to branch '{}'", name); Ok(json!({"tool":"GitBranch","success":true,"output":msg})) }
-        else { Ok(json!({"tool":"GitBranch","success":false,"output":stderr})) }
+        if code == 0 {
+            let msg = format!("Created and switched to branch '{}'", name);
+            Ok(json!({"tool":"GitBranch","success":true,"output":msg}))
+        } else {
+            Ok(json!({"tool":"GitBranch","success":false,"output":stderr}))
+        }
     } else {
         run_git_cmd(&["branch", &name], dir)?;
         let msg = format!("Created branch '{}'", name);
@@ -267,46 +361,77 @@ pub fn git_create_branch(name: String, checkout: Option<bool>, working_dir: Opti
 
 /// Git切换分支工具
 #[tauri::command]
-pub fn git_checkout_branch(name: String, working_dir: Option<String>) -> Result<serde_json::Value, String> {
+pub fn git_checkout_branch(
+    name: String,
+    working_dir: Option<String>,
+) -> Result<serde_json::Value, String> {
     let (_, stderr, code) = run_git_cmd(&["checkout", &name], working_dir.as_deref())?;
-    if code == 0 { let msg = format!("Switched to '{}'", name); Ok(json!({"tool":"GitCheckout","success":true,"output":msg})) }
-    else { Ok(json!({"tool":"GitCheckout","success":false,"output":stderr})) }
+    if code == 0 {
+        let msg = format!("Switched to '{}'", name);
+        Ok(json!({"tool":"GitCheckout","success":true,"output":msg}))
+    } else {
+        Ok(json!({"tool":"GitCheckout","success":false,"output":stderr}))
+    }
 }
 
 /// Git暂存工具 — 保存当前工作区修改到stash
 #[tauri::command]
 pub fn git_stash(working_dir: Option<String>) -> Result<serde_json::Value, String> {
-    let (_, stderr, code) = run_git_cmd(&["stash", "push", "-m", "auto-stash"], working_dir.as_deref())?;
-    if code == 0 { Ok(json!({"tool":"GitStash","success":true,"output":"Stash 已保存"})) }
-    else { Ok(json!({"tool":"GitStash","success":false,"output":stderr})) }
+    let (_, stderr, code) = run_git_cmd(
+        &["stash", "push", "-m", "auto-stash"],
+        working_dir.as_deref(),
+    )?;
+    if code == 0 {
+        Ok(json!({"tool":"GitStash","success":true,"output":"Stash 已保存"}))
+    } else {
+        Ok(json!({"tool":"GitStash","success":false,"output":stderr}))
+    }
 }
 
 /// Git恢复暂存工具 — 从stash恢复最近一次保存的修改
 #[tauri::command]
 pub fn git_stash_pop(working_dir: Option<String>) -> Result<serde_json::Value, String> {
     let (_, stderr, code) = run_git_cmd(&["stash", "pop"], working_dir.as_deref())?;
-    if code == 0 { Ok(json!({"tool":"GitStashPop","success":true,"output":"Stash 已恢复"})) }
-    else { Ok(json!({"tool":"GitStashPop","success":false,"output":stderr})) }
+    if code == 0 {
+        Ok(json!({"tool":"GitStashPop","success":true,"output":"Stash 已恢复"}))
+    } else {
+        Ok(json!({"tool":"GitStashPop","success":false,"output":stderr}))
+    }
 }
 
 /// Git添加工具 — 将文件添加到暂存区
 #[tauri::command]
-pub fn git_add(files: Vec<String>, working_dir: Option<String>) -> Result<serde_json::Value, String> {
+pub fn git_add(
+    files: Vec<String>,
+    working_dir: Option<String>,
+) -> Result<serde_json::Value, String> {
     let dir = working_dir.as_deref();
-    for f in &files { run_git_cmd(&["add", f], dir)?; }
+    for f in &files {
+        run_git_cmd(&["add", f], dir)?;
+    }
     Ok(json!({"tool":"GitAdd","success":true,"output":format!("已暂存 {} 个文件", files.len())}))
 }
 
 /// Git取消暂存工具 — 将文件从暂存区移除
 #[tauri::command]
-pub fn git_reset(files: Vec<String>, working_dir: Option<String>) -> Result<serde_json::Value, String> {
+pub fn git_reset(
+    files: Vec<String>,
+    working_dir: Option<String>,
+) -> Result<serde_json::Value, String> {
     let dir = working_dir.as_deref();
-    for f in &files { run_git_cmd(&["reset", "HEAD", "--", f], dir)?; }
-    Ok(json!({"tool":"GitReset","success":true,"output":format!("已取消暂存 {} 个文件", files.len())}))
+    for f in &files {
+        run_git_cmd(&["reset", "HEAD", "--", f], dir)?;
+    }
+    Ok(
+        json!({"tool":"GitReset","success":true,"output":format!("已取消暂存 {} 个文件", files.len())}),
+    )
 }
 
 /// Git仓库检测工具 — 判断指定目录是否为Git仓库
 #[tauri::command]
 pub fn git_is_repository(working_dir: Option<String>) -> Result<bool, String> {
-    match get_repo_root(working_dir.as_deref()) { Ok(_) => Ok(true), Err(_) => Ok(false) }
+    match get_repo_root(working_dir.as_deref()) {
+        Ok(_) => Ok(true),
+        Err(_) => Ok(false),
+    }
 }

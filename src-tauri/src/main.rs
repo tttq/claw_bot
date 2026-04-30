@@ -24,13 +24,14 @@ fn main() {
                 claw_config::path_resolver::init(app)?;
 
                 claw_config::path_resolver::register_skills_export_callback(
-                    claw_tools::bundled_skills::export_bundled_skills
+                    claw_tools::bundled_skills::export_bundled_skills,
                 );
 
                 let config = claw_config::config::get_config().await?.clone();
 
                 // 2. 使用 State<T> 模式注入核心应用状态
-                let app_state = app_state::ClawAppState::new(app.handle().clone(), config.clone()).await;
+                let app_state =
+                    app_state::ClawAppState::new(app.handle().clone(), config.clone()).await;
                 app.manage(app_state);
 
                 // 3. 启动 WebSocket 服务
@@ -52,18 +53,30 @@ fn main() {
                         max_action_steps: 50,
                         confidence_threshold: 0.75,
                         ocr_language: "chi_sim+eng".to_string(),
-                        llm_api_endpoint: if base_url.is_empty() { "https://api.openai.com/v1/chat/completions".to_string() } else {
+                        llm_api_endpoint: if base_url.is_empty() {
+                            "https://api.openai.com/v1/chat/completions".to_string()
+                        } else {
                             let trimmed = base_url.trim_end_matches('/');
-                            if trimmed.ends_with("/chat/completions") { trimmed.to_string() } else { format!("{}/chat/completions", trimmed) }
+                            if trimmed.ends_with("/chat/completions") {
+                                trimmed.to_string()
+                            } else {
+                                format!("{}/chat/completions", trimmed)
+                            }
                         },
                         llm_api_key: resolved_key,
-                        llm_model: if config.model.custom_model_name.is_empty() { config.model.default_model.clone() } else { config.model.custom_model_name.clone() },
+                        llm_model: if config.model.custom_model_name.is_empty() {
+                            config.model.default_model.clone()
+                        } else {
+                            config.model.custom_model_name.clone()
+                        },
                         screen_capture_fps: 30,
                         session_ttl_seconds: 7200,
                         cua_enabled: true,
                     };
                     match claw_automatically::commands::init_engine_with_config(auto_config) {
-                        Ok(()) => log::info!("[Main] AutomationEngine registered (automation enabled)"),
+                        Ok(()) => {
+                            log::info!("[Main] AutomationEngine registered (automation enabled)")
+                        }
                         Err(e) => log::warn!("[Main] AutomationEngine registration failed: {}", e),
                     }
                 } else {
@@ -77,7 +90,10 @@ fn main() {
                 match claw_ws::router_registry::start_http_server(http_app_state_arc, 1421).await {
                     Ok(http_port) => {
                         log::info!("[Main] HTTP server started on port {}", http_port);
-                        if let Err(e) = app.emit("http-server-ready", serde_json::json!({ "port": http_port })) {
+                        if let Err(e) = app.emit(
+                            "http-server-ready",
+                            serde_json::json!({ "port": http_port }),
+                        ) {
                             log::warn!("[Main] Failed to emit http-server-ready event: {}", e);
                         }
                     }
@@ -106,31 +122,41 @@ fn main() {
                 log::info!("[Main] Loaded {} skills", loaded_skills.len());
 
                 let all_tools = claw_tools::tool_registry::list_all_tools().await;
-                let tool_entries: Vec<claw_rag::rag::ToolMemoryEntry> = all_tools.iter().map(|t| {
-                    claw_rag::rag::ToolMemoryEntry {
+                let tool_entries: Vec<claw_rag::rag::ToolMemoryEntry> = all_tools
+                    .iter()
+                    .map(|t| claw_rag::rag::ToolMemoryEntry {
                         name: t.name.clone(),
                         description: t.description.clone(),
                         category: t.category.clone(),
-                    }
-                }).collect();
-                let skill_entries: Vec<claw_rag::rag::SkillMemoryEntry> = loaded_skills.iter().map(|s| {
-                    claw_rag::rag::SkillMemoryEntry {
+                    })
+                    .collect();
+                let skill_entries: Vec<claw_rag::rag::SkillMemoryEntry> = loaded_skills
+                    .iter()
+                    .map(|s| claw_rag::rag::SkillMemoryEntry {
                         name: s.name.clone(),
                         description: s.description.clone(),
                         when_to_use: s.when_to_use.clone().unwrap_or_default(),
                         allowed_tools: s.allowed_tools.clone(),
                         user_invocable: s.user_invocable,
-                    }
-                }).collect();
+                    })
+                    .collect();
 
-                match claw_rag::rag::initialize_tool_skill_memories(&tool_entries, &skill_entries).await {
-                    Ok(count) => log::info!("[Main] Initialized {} tool/skill memory entries", count),
+                match claw_rag::rag::initialize_tool_skill_memories(&tool_entries, &skill_entries)
+                    .await
+                {
+                    Ok(count) => {
+                        log::info!("[Main] Initialized {} tool/skill memory entries", count)
+                    }
                     Err(e) => log::warn!("[Main] Failed to initialize tool/skill memories: {}", e),
                 }
 
                 // 9. 清理过期的工具/技能记忆（工具已被卸载但记忆仍在）
-                match claw_rag::rag::cleanup_stale_tool_memories(&tool_entries, &skill_entries).await {
-                    Ok(count) => log::info!("[Main] Cleaned up {} stale tool/skill memories", count),
+                match claw_rag::rag::cleanup_stale_tool_memories(&tool_entries, &skill_entries)
+                    .await
+                {
+                    Ok(count) => {
+                        log::info!("[Main] Cleaned up {} stale tool/skill memories", count)
+                    }
                     Err(e) => log::warn!("[Main] Failed to cleanup stale memories: {}", e),
                 }
 
@@ -145,10 +171,16 @@ fn main() {
                     let interval = std::time::Duration::from_secs(6 * 3600);
                     loop {
                         tokio::time::sleep(interval).await;
-                        log::info!("[Main:MemoryMaintenance] Starting periodic memory compaction...");
+                        log::info!(
+                            "[Main:MemoryMaintenance] Starting periodic memory compaction..."
+                        );
                         match claw_rag::rag::compact_all_agents().await {
-                            Ok(count) => log::info!("[Main:MemoryMaintenance] Compacted {} agents", count),
-                            Err(e) => log::warn!("[Main:MemoryMaintenance] Compaction failed: {}", e),
+                            Ok(count) => {
+                                log::info!("[Main:MemoryMaintenance] Compacted {} agents", count)
+                            }
+                            Err(e) => {
+                                log::warn!("[Main:MemoryMaintenance] Compaction failed: {}", e)
+                            }
                         }
                     }
                 });

@@ -1,8 +1,8 @@
 // Claw Desktop - PostgreSQL后端实现
 // 提供PostgreSQL数据库的初始化建表、状态检查、连接测试、pgvector支持检测
-use sea_orm::{ConnectionTrait, DatabaseConnection, Statement, QueryResult};
-use crate::db::backend::{DatabaseInitResult, DatabaseStatus, TableStatus};
 use crate::db::backend::schema_validator;
+use crate::db::backend::{DatabaseInitResult, DatabaseStatus, TableStatus};
+use sea_orm::{ConnectionTrait, DatabaseConnection, QueryResult, Statement};
 
 /// PostgreSQL后端实现
 pub struct PostgresBackend;
@@ -10,20 +10,22 @@ pub struct PostgresBackend;
 impl PostgresBackend {
     /// 初始化PostgreSQL数据库 — 连接数据库、启用pgvector扩展、建表
     pub async fn initialize() -> Result<DatabaseInitResult, String> {
-        let config = claw_config::config::try_get_config()
-            .ok_or("Config not initialized")?;
+        let config = claw_config::config::try_get_config().ok_or("Config not initialized")?;
 
         if !config.database.is_postgres() {
             return Err("Database backend is not postgres".to_string());
         }
 
         let url = config.database.connection_url();
-        log::info!("[Postgres] Connecting to {}:{} db={}",
+        log::info!(
+            "[Postgres] Connecting to {}:{} db={}",
             config.database.postgres.host,
             config.database.postgres.port,
-            config.database.postgres.database);
+            config.database.postgres.database
+        );
 
-        let conn = sea_orm::Database::connect(&url).await
+        let conn = sea_orm::Database::connect(&url)
+            .await
             .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
 
         Self::ensure_pgvector(&conn).await?;
@@ -44,8 +46,11 @@ impl PostgresBackend {
         Self::create_agent_tables(&conn).await?;
         Self::create_vector_tables(&conn).await?;
 
-        log::info!("[Postgres] Initialization complete | created={} repaired={}",
-            tables_created.len(), tables_repaired.len());
+        log::info!(
+            "[Postgres] Initialization complete | created={} repaired={}",
+            tables_created.len(),
+            tables_repaired.len()
+        );
 
         Ok(DatabaseInitResult {
             backend: "postgres".to_string(),
@@ -88,17 +93,34 @@ impl PostgresBackend {
 
     /// 测试PostgreSQL连接 — 根据配置参数尝试连接数据库
     pub async fn test_connection(config: &serde_json::Value) -> Result<bool, String> {
-        let host = config.get("host").and_then(|v| v.as_str()).unwrap_or("localhost");
+        let host = config
+            .get("host")
+            .and_then(|v| v.as_str())
+            .unwrap_or("localhost");
         let port = config.get("port").and_then(|v| v.as_u64()).unwrap_or(5432);
-        let database = config.get("database").and_then(|v| v.as_str()).unwrap_or("claw_desktop");
-        let username = config.get("username").and_then(|v| v.as_str()).unwrap_or("");
-        let password = config.get("password").and_then(|v| v.as_str()).unwrap_or("");
+        let database = config
+            .get("database")
+            .and_then(|v| v.as_str())
+            .unwrap_or("claw_desktop");
+        let username = config
+            .get("username")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let password = config
+            .get("password")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
 
-        let url = format!("postgres://{}:{}@{}:{}/{}", username, password, host, port, database);
-        let conn = sea_orm::Database::connect(&url).await
+        let url = format!(
+            "postgres://{}:{}@{}:{}/{}",
+            username, password, host, port, database
+        );
+        let conn = sea_orm::Database::connect(&url)
+            .await
             .map_err(|e| format!("PostgreSQL connection test failed: {}", e))?;
 
-        conn.execute_unprepared("SELECT 1").await
+        conn.execute_unprepared("SELECT 1")
+            .await
             .map_err(|e| format!("PostgreSQL ping failed: {}", e))?;
 
         Ok(true)
@@ -106,8 +128,15 @@ impl PostgresBackend {
 
     /// 确保pgvector扩展已安装和启用
     async fn ensure_pgvector(conn: &DatabaseConnection) -> Result<(), String> {
-        let result: Result<sea_orm::ExecResult, sea_orm::DbErr> = conn.execute_unprepared("CREATE EXTENSION IF NOT EXISTS vector").await;
-        result.map_err(|e| format!("Failed to create pgvector extension: {}. Is pgvector installed?", e))?;
+        let result: Result<sea_orm::ExecResult, sea_orm::DbErr> = conn
+            .execute_unprepared("CREATE EXTENSION IF NOT EXISTS vector")
+            .await;
+        result.map_err(|e| {
+            format!(
+                "Failed to create pgvector extension: {}. Is pgvector installed?",
+                e
+            )
+        })?;
         log::info!("[Postgres] pgvector extension ensured");
         Ok(())
     }
@@ -247,7 +276,9 @@ impl PostgresBackend {
         ];
 
         for stmt in &statements {
-            let result: Result<sea_orm::ExecResult, sea_orm::DbErr> = conn.execute(Statement::from_string(backend, stmt.to_string())).await;
+            let result: Result<sea_orm::ExecResult, sea_orm::DbErr> = conn
+                .execute(Statement::from_string(backend, stmt.to_string()))
+                .await;
             result.map_err(|e| format!("Postgres create table failed: {}", e))?;
         }
 
@@ -328,7 +359,9 @@ impl PostgresBackend {
         ];
 
         for stmt in &statements {
-            let result: Result<sea_orm::ExecResult, sea_orm::DbErr> = conn.execute(Statement::from_string(backend, stmt.to_string())).await;
+            let result: Result<sea_orm::ExecResult, sea_orm::DbErr> = conn
+                .execute(Statement::from_string(backend, stmt.to_string()))
+                .await;
             result.map_err(|e| format!("Postgres create agent table failed: {}", e))?;
         }
 
@@ -349,13 +382,18 @@ impl PostgresBackend {
             dim
         );
 
-        let result: Result<sea_orm::ExecResult, sea_orm::DbErr> = conn.execute(Statement::from_string(conn.get_database_backend(), sql)).await;
+        let result: Result<sea_orm::ExecResult, sea_orm::DbErr> = conn
+            .execute(Statement::from_string(conn.get_database_backend(), sql))
+            .await;
         result.map_err(|e| format!("Postgres create vector table failed: {}", e))?;
 
-        let idx_result: Result<sea_orm::ExecResult, sea_orm::DbErr> = conn.execute(Statement::from_string(
-            conn.get_database_backend(),
-            "CREATE INDEX IF NOT EXISTS idx_mv_pgvec_agent ON memory_vectors_pgvec(agent_id)".to_string(),
-        )).await;
+        let idx_result: Result<sea_orm::ExecResult, sea_orm::DbErr> = conn
+            .execute(Statement::from_string(
+                conn.get_database_backend(),
+                "CREATE INDEX IF NOT EXISTS idx_mv_pgvec_agent ON memory_vectors_pgvec(agent_id)"
+                    .to_string(),
+            ))
+            .await;
         idx_result.ok();
 
         log::info!("[Postgres] Vector tables created (pgvector dim={})", dim);
@@ -365,10 +403,11 @@ impl PostgresBackend {
     /// 统计表行数
     async fn count_rows(conn: &DatabaseConnection, table: &str) -> i64 {
         let sql = format!("SELECT COUNT(*) as cnt FROM {}", table);
-        let result: Option<QueryResult> = conn.query_one(Statement::from_string(
-            conn.get_database_backend(),
-            sql,
-        )).await.ok().flatten();
+        let result: Option<QueryResult> = conn
+            .query_one(Statement::from_string(conn.get_database_backend(), sql))
+            .await
+            .ok()
+            .flatten();
 
         result
             .and_then(|row: QueryResult| row.try_get::<i64>("", "cnt").ok())

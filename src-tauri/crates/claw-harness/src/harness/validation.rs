@@ -1,7 +1,5 @@
-﻿// Claw Desktop - 验证器 - Agent输出验证和校验
-use crate::harness::types::{
-    ValidationCheckType, ValidationResult, ValidationSeverity,
-};
+// Claw Desktop - 验证器 - Agent输出验证和校验
+use crate::harness::types::{ValidationCheckType, ValidationResult, ValidationSeverity};
 use regex::Regex;
 use std::time::Instant;
 
@@ -101,11 +99,31 @@ impl ValidationEngine {
     /// 安全检查 — 检测API密钥、密码、Token、私钥等敏感信息泄露
     fn check_safety(output: &str) -> ValidationResult {
         let safety_checks = [
-            (r#"(?i)(api[_-]?key|apikey)\s*[:=]\s*['"]?sk-[a-zA-Z0-9]{20,}"#, "safety.api_key", ValidationSeverity::Critical),
-            (r#"(?i)(password|passwd|pwd)\s*[:=]\s*['"]?[^\s'"]{8,}"#, "safety.password", ValidationSeverity::Critical),
-            (r#"(?i)(secret|token|bearer)\s*[:=]\s*['"]?[a-zA-Z0-9._-]{20,}"#, "safety.token", ValidationSeverity::Warn),
-            (r#"(?i)-----BEGIN\s+(?:RSA\s+|EC\s+)?PRIVATE\s+KEY-----"#, "safety.private_key", ValidationSeverity::Critical),
-            (r#"(?i)(?:Bearer|Basic)\s+[a-zA-Z0-9._-]{20,}"#, "safety.auth_header", ValidationSeverity::Warn),
+            (
+                r#"(?i)(api[_-]?key|apikey)\s*[:=]\s*['"]?sk-[a-zA-Z0-9]{20,}"#,
+                "safety.api_key",
+                ValidationSeverity::Critical,
+            ),
+            (
+                r#"(?i)(password|passwd|pwd)\s*[:=]\s*['"]?[^\s'"]{8,}"#,
+                "safety.password",
+                ValidationSeverity::Critical,
+            ),
+            (
+                r#"(?i)(secret|token|bearer)\s*[:=]\s*['"]?[a-zA-Z0-9._-]{20,}"#,
+                "safety.token",
+                ValidationSeverity::Warn,
+            ),
+            (
+                r#"(?i)-----BEGIN\s+(?:RSA\s+|EC\s+)?PRIVATE\s+KEY-----"#,
+                "safety.private_key",
+                ValidationSeverity::Critical,
+            ),
+            (
+                r#"(?i)(?:Bearer|Basic)\s+[a-zA-Z0-9._-]{20,}"#,
+                "safety.auth_header",
+                ValidationSeverity::Warn,
+            ),
         ];
 
         for (pattern, name, severity) in &safety_checks {
@@ -140,8 +158,14 @@ impl ValidationEngine {
     fn check_fact_consistency(output: &str) -> ValidationResult {
         let contradiction_patterns = [
             (r"(?i)yes.*but.*no", "Possible yes/no contradiction"),
-            (r"(?i)correct.*however.*incorrect", "Possible correct/incorrect contradiction"),
-            (r"(?i)always.*except.*never", "Possible always/never contradiction"),
+            (
+                r"(?i)correct.*however.*incorrect",
+                "Possible correct/incorrect contradiction",
+            ),
+            (
+                r"(?i)always.*except.*never",
+                "Possible always/never contradiction",
+            ),
         ];
 
         for (pattern, desc) in &contradiction_patterns {
@@ -231,9 +255,7 @@ impl ValidationEngine {
                     warn_output_chars
                 ),
                 severity: ValidationSeverity::Warn,
-                fix_suggestion: Some(
-                    "Consider summarizing for better readability".to_string(),
-                ),
+                fix_suggestion: Some("Consider summarizing for better readability".to_string()),
                 duration_ms: 0,
             };
         }
@@ -281,10 +303,7 @@ impl ValidationEngine {
         let passed = results.iter().filter(|r| r.is_passed).count();
         let failed = results.len() - passed;
 
-        report.push_str(&format!(
-            "Checks: {} passed, {} failed\n\n",
-            passed, failed
-        ));
+        report.push_str(&format!("Checks: {} passed, {} failed\n\n", passed, failed));
 
         for result in results {
             let status = if result.is_passed { "PASS" } else { "FAIL" };

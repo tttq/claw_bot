@@ -59,10 +59,4 @@ production = []
 # candle-backend 特性需要额外依赖，暂时禁用
 candle-backend = []
 
-[[example]]
-name = "screen_capture"
-path = "examples/screen_capture.rs"
 
-[[example]]
-name = "manop_inference"
-path = "examples/manop_inference.rs"

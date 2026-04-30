@@ -3,8 +3,8 @@
 // 提供 list_tools 命令供前端和 LLM 查询可用工具列表
 // LLM 通过 tools 参数获取此列表以实现 function calling
 
-use serde_json::json;
 use claw_types::common::ToolDefinition;
+use serde_json::json;
 
 /// 获取所有已注册工具的完整定义列表
 /// 返回格式兼容 Anthropic tools API 和 OpenAI function calling

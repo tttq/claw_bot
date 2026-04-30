@@ -8,8 +8,13 @@ use std::process::Command;
 #[tauri::command]
 pub fn tool_list_all() -> Result<serde_json::Value, String> {
     let tools = crate::registry::get_all_tool_definitions();
-    let lines: Vec<String> = tools.iter().map(|t| format!("  **{}** — {}", t.name, t.description)).collect();
-    Ok(json!({"tool":"ListTools","success":true,"output":format!("Available tools ({}):\n\n{}", tools.len(), lines.join("\n"))}))
+    let lines: Vec<String> = tools
+        .iter()
+        .map(|t| format!("  **{}** — {}", t.name, t.description))
+        .collect();
+    Ok(
+        json!({"tool":"ListTools","success":true,"output":format!("Available tools ({}):\n\n{}", tools.len(), lines.join("\n"))}),
+    )
 }
 
 /// 获取系统环境变量列表（对应 def_claw 的 env 命令）
@@ -17,7 +22,11 @@ pub fn tool_list_all() -> Result<serde_json::Value, String> {
 pub fn get_env_variables(filter: Option<String>) -> Result<serde_json::Value, String> {
     let vars: Vec<serde_json::Value> = std::env::vars()
         .filter(|(k, _)| {
-            if let Some(ref f) = filter { k.to_lowercase().contains(&f.to_lowercase()) } else { true }
+            if let Some(ref f) = filter {
+                k.to_lowercase().contains(&f.to_lowercase())
+            } else {
+                true
+            }
         })
         .map(|(k, v)| json!({"name": k, "value": v}))
         .collect();
@@ -33,14 +42,20 @@ pub fn get_env_session_info() -> Result<serde_json::Value, String> {
 /// 获取 git diff 摘要（BTW 命令 - 对应 def_claw 的 btw 命令）
 /// 生成基于 git diff 的代码变更摘要，供 AI 审查
 #[tauri::command]
-pub fn get_code_changes_summary(working_dir: Option<String>, staged_only: Option<bool>) -> Result<serde_json::Value, String> {
+pub fn get_code_changes_summary(
+    working_dir: Option<String>,
+    staged_only: Option<bool>,
+) -> Result<serde_json::Value, String> {
     let dir = working_dir.as_deref();
 
     let mut args = vec!["diff".to_string(), "--no-color".to_string()];
-    if staged_only.unwrap_or(false) { args.push("--staged".to_string()); }
+    if staged_only.unwrap_or(false) {
+        args.push("--staged".to_string());
+    }
     args.push("--stat".to_string());
 
-    let output = Command::new("git").args(&args.iter().map(|s| s.as_str()).collect::<Vec<_>>())
+    let output = Command::new("git")
+        .args(&args.iter().map(|s| s.as_str()).collect::<Vec<_>>())
         .current_dir(dir.unwrap_or("."))
         .output()
         .map_err(|e| format!("git execution failed: {}", e))?;
@@ -48,10 +63,13 @@ pub fn get_code_changes_summary(working_dir: Option<String>, staged_only: Option
     let stat_output = String::from_utf8_lossy(&output.stdout).to_string();
 
     let mut args2 = vec!["diff".to_string(), "--no-color".to_string()];
-    if staged_only.unwrap_or(false) { args2.push("--staged".to_string()); }
+    if staged_only.unwrap_or(false) {
+        args2.push("--staged".to_string());
+    }
     args2.push("--name-status".to_string());
 
-    let output2 = Command::new("git").args(&args2.iter().map(|s| s.as_str()).collect::<Vec<_>>())
+    let output2 = Command::new("git")
+        .args(&args2.iter().map(|s| s.as_str()).collect::<Vec<_>>())
         .current_dir(dir.unwrap_or("."))
         .output()
         .map_err(|e| format!("git execution failed: {}", e))?;
@@ -65,10 +83,15 @@ pub fn get_code_changes_summary(working_dir: Option<String>, staged_only: Option
             let status = parts[0].trim();
             let file = parts[1].trim();
             let status_label = match status {
-                "M" => "Modified", "A" => "Added", "D" => "Deleted",
-                "R" => "Renamed", "C" => "Copied", _ => status,
+                "M" => "Modified",
+                "A" => "Added",
+                "D" => "Deleted",
+                "R" => "Renamed",
+                "C" => "Copied",
+                _ => status,
             };
-            files_changed.push(json!({"file": file, "status": status, "status_label": status_label}));
+            files_changed
+                .push(json!({"file": file, "status": status, "status_label": status_label}));
         }
     }
 
@@ -90,8 +113,14 @@ pub async fn run_code_review(
     changes_summary: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     let empty_files: Vec<serde_json::Value> = Vec::new();
-    let files = changes_summary.get("files_changed").and_then(|v| v.as_array()).unwrap_or(&empty_files);
-    let summary_text = changes_summary.get("summary").and_then(|v| v.as_str()).unwrap_or("");
+    let files = changes_summary
+        .get("files_changed")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty_files);
+    let summary_text = changes_summary
+        .get("summary")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
 
     if files.is_empty() && summary_text.is_empty() {
         return Ok(serde_json::json!({
@@ -104,11 +133,15 @@ pub async fn run_code_review(
         }));
     }
 
-    let file_list: Vec<String> = files.iter()
-        .map(|f| format!("- [{}] {}", 
-            f.get("status").and_then(|s| s.as_str()).unwrap_or("?"),
-            f.get("file").and_then(|f| f.as_str()).unwrap_or("?")
-        ))
+    let file_list: Vec<String> = files
+        .iter()
+        .map(|f| {
+            format!(
+                "- [{}] {}",
+                f.get("status").and_then(|s| s.as_str()).unwrap_or("?"),
+                f.get("file").and_then(|f| f.as_str()).unwrap_or("?")
+            )
+        })
         .collect();
 
     let review_result = serde_json::json!({
@@ -140,7 +173,7 @@ pub async fn run_code_review(
             if summary_text.is_empty() { "  (No summary provided)".to_string() } else { format!("  {}", claw_types::truncate_str_safe(&summary_text, 500)) },
             [
                 "• Ensure all new code follows project conventions",
-                "• Check for potential security vulnerabilities", 
+                "• Check for potential security vulnerabilities",
                 "• Verify error handling is comprehensive",
                 "• Confirm test coverage for modified code",
                 "• Review for performance optimizations"
@@ -154,5 +187,7 @@ pub async fn run_code_review(
 /// 切换快速模式设置（减少 token 使用，加快响应）
 #[tauri::command]
 pub fn toggle_fast_mode(enabled: bool) -> Result<serde_json::Value, String> {
-    Ok(json!({"tool":"FastMode","success":true,"fast_mode": enabled, "message": if enabled {"Fast mode ON: reduced context, faster responses"} else {"Fast mode OFF: full context enabled"}}))
+    Ok(
+        json!({"tool":"FastMode","success":true,"fast_mode": enabled, "message": if enabled {"Fast mode ON: reduced context, faster responses"} else {"Fast mode OFF: full context enabled"}}),
+    )
 }

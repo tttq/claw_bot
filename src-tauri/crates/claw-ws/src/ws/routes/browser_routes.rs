@@ -1,18 +1,18 @@
 // Claw Desktop - 浏览器路由 - 处理CDP浏览器控制的WS请求
 use axum::{
+    Json, Router,
     extract::{Extension, Path, Query},
     routing::{get, post},
-    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use claw_tools::browser_manager;
-use claw_tools::chrome_cdp::ChromeCdpClient;
 use crate::ws::app_state::AppState;
 use crate::ws::response::ApiResponse;
 use crate::ws::router_trait::ClawRouter;
 use base64::Engine;
+use claw_tools::browser_manager;
+use claw_tools::chrome_cdp::ChromeCdpClient;
 
 /// 浏览器路由 — 处理浏览器自动化操作的WS请求
 pub struct BrowserRoutes;
@@ -27,7 +27,9 @@ pub struct LaunchBrowserQuery {
 }
 
 /// 默认CDP端口 — 9222
-fn default_port() -> u16 { 9222 }
+fn default_port() -> u16 {
+    9222
+}
 
 /// 检测已安装浏览器
 pub async fn browser_detect(
@@ -47,17 +49,23 @@ pub async fn browser_launch(
     Query(query): Query<LaunchBrowserQuery>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     let browsers = browser_manager::detect_chrome_installations();
-    let path = if let Some(p) = query.browser_path { p } 
-               else if !browsers.is_empty() { browsers[0].path.clone() }
-               else { return Json(ApiResponse::err("No browser found")); };
-    
-    let config = browser_manager::ChromeLaunchConfig { 
-        remote_debugging_port: query.port, 
-        ..Default::default() 
+    let path = if let Some(p) = query.browser_path {
+        p
+    } else if !browsers.is_empty() {
+        browsers[0].path.clone()
+    } else {
+        return Json(ApiResponse::err("No browser found"));
     };
-    
+
+    let config = browser_manager::ChromeLaunchConfig {
+        remote_debugging_port: query.port,
+        ..Default::default()
+    };
+
     match browser_manager::launch_chrome_with_debugging(&path, &config) {
-        Ok(port) => Json(ApiResponse::ok(serde_json::json!({ "success": true, "port": port }))),
+        Ok(port) => Json(ApiResponse::ok(
+            serde_json::json!({ "success": true, "port": port }),
+        )),
         Err(e) => Json(ApiResponse::err(&e)),
     }
 }
@@ -68,7 +76,9 @@ pub async fn browser_check_port(
     Path(port): Path<u16>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match browser_manager::check_debug_port(port) {
-        Ok(is_open) => Json(ApiResponse::ok(serde_json::json!({ "available": is_open, "port": port }))),
+        Ok(is_open) => Json(ApiResponse::ok(
+            serde_json::json!({ "available": is_open, "port": port }),
+        )),
         Err(e) => Json(ApiResponse::err(&e)),
     }
 }
@@ -79,17 +89,22 @@ pub async fn browser_list_tabs(
     Path(port): Path<u16>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match browser_manager::list_browser_tabs(port).await {
-        Ok(tabs) => Json(ApiResponse::ok(serde_json::json!({ "tabs": tabs, "count": tabs.len() }))),
+        Ok(tabs) => Json(ApiResponse::ok(
+            serde_json::json!({ "tabs": tabs, "count": tabs.len() }),
+        )),
         Err(e) => Json(ApiResponse::err(&e)),
     }
 }
 
 /// 获取标签页CDP客户端
 async fn get_tab_client(port: u16, tab_id: &str) -> Result<(String, String), String> {
-    let tabs = browser_manager::list_browser_tabs(port).await
+    let tabs = browser_manager::list_browser_tabs(port)
+        .await
         .map_err(|e| e.to_string())?;
 
-    let tab = tabs.iter().find(|t| t.id == tab_id)
+    let tab = tabs
+        .iter()
+        .find(|t| t.id == tab_id)
         .ok_or_else(|| format!("Tab {} not found", tab_id))?;
 
     Ok((tab.id.clone(), tab.web_socket_url.clone()))
@@ -98,7 +113,9 @@ async fn get_tab_client(port: u16, tab_id: &str) -> Result<(String, String), Str
 /// 连接到指定标签页
 async fn connect_tab(port: u16, tab_id: &str) -> Result<ChromeCdpClient, String> {
     let (_id, ws_url) = get_tab_client(port, tab_id).await?;
-    ChromeCdpClient::connect(&ws_url).await.map_err(|e| e.to_string())
+    ChromeCdpClient::connect(&ws_url)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,12 +133,10 @@ pub async fn browser_fill_input(
     Json(req): Json<FillInputRequest>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match connect_tab(port, &tab_id).await {
-        Ok(client) => {
-            match client.fill_input(&req.selector, &req.value).await {
-                Ok(data) => Json(ApiResponse::ok(data)),
-                Err(e) => Json(ApiResponse::err(&e)),
-            }
-        }
+        Ok(client) => match client.fill_input(&req.selector, &req.value).await {
+            Ok(data) => Json(ApiResponse::ok(data)),
+            Err(e) => Json(ApiResponse::err(&e)),
+        },
         Err(e) => Json(ApiResponse::err(&e)),
     }
 }
@@ -140,12 +155,10 @@ pub async fn browser_execute_js(
     Json(req): Json<ExecuteJsRequest>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match connect_tab(port, &tab_id).await {
-        Ok(client) => {
-            match client.execute_javascript(&req.script).await {
-                Ok(data) => Json(ApiResponse::ok(data)),
-                Err(e) => Json(ApiResponse::err(&e)),
-            }
-        }
+        Ok(client) => match client.execute_javascript(&req.script).await {
+            Ok(data) => Json(ApiResponse::ok(data)),
+            Err(e) => Json(ApiResponse::err(&e)),
+        },
         Err(e) => Json(ApiResponse::err(&e)),
     }
 }
@@ -156,12 +169,10 @@ pub async fn browser_get_info(
     Path((port, tab_id)): Path<(u16, String)>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match connect_tab(port, &tab_id).await {
-        Ok(client) => {
-            match client.get_page_info().await {
-                Ok(info) => Json(ApiResponse::ok(serde_json::json!(info))),
-                Err(e) => Json(ApiResponse::err(&e)),
-            }
-        }
+        Ok(client) => match client.get_page_info().await {
+            Ok(info) => Json(ApiResponse::ok(serde_json::json!(info))),
+            Err(e) => Json(ApiResponse::err(&e)),
+        },
         Err(e) => Json(ApiResponse::err(&e)),
     }
 }
@@ -180,12 +191,10 @@ pub async fn browser_reload(
     Query(query): Query<ReloadQuery>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match connect_tab(port, &tab_id).await {
-        Ok(client) => {
-            match client.reload(query.ignore_cache).await {
-                Ok(_) => Json(ApiResponse::ok(serde_json::json!({ "success": true }))),
-                Err(e) => Json(ApiResponse::err(&e)),
-            }
-        }
+        Ok(client) => match client.reload(query.ignore_cache).await {
+            Ok(_) => Json(ApiResponse::ok(serde_json::json!({ "success": true }))),
+            Err(e) => Json(ApiResponse::err(&e)),
+        },
         Err(e) => Json(ApiResponse::err(&e)),
     }
 }
@@ -196,12 +205,10 @@ pub async fn browser_close_tab(
     Path((port, tab_id)): Path<(u16, String)>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match connect_tab(port, &tab_id).await {
-        Ok(client) => {
-            match client.close_tab().await {
-                Ok(_) => Json(ApiResponse::ok(serde_json::json!({ "success": true }))),
-                Err(e) => Json(ApiResponse::err(&e)),
-            }
-        }
+        Ok(client) => match client.close_tab().await {
+            Ok(_) => Json(ApiResponse::ok(serde_json::json!({ "success": true }))),
+            Err(e) => Json(ApiResponse::err(&e)),
+        },
         Err(e) => Json(ApiResponse::err(&e)),
     }
 }
@@ -212,17 +219,21 @@ pub async fn browser_navigate(
     Path((port, tab_id)): Path<(u16, String)>,
     Json(body): Json<serde_json::Value>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let url = body.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let url = body
+        .get("url")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     if url.is_empty() {
         return Json(ApiResponse::err("Missing url"));
     }
 
     match connect_tab(port, &tab_id).await {
-        Ok(client) => {
-            match client.navigate(&url).await {
-                Ok(_) => Json(ApiResponse::ok(serde_json::json!({ "success": true, "url": url }))),
-                Err(e) => Json(ApiResponse::err(&e)),
-            }
+        Ok(client) => match client.navigate(&url).await {
+            Ok(_) => Json(ApiResponse::ok(
+                serde_json::json!({ "success": true, "url": url }),
+            )),
+            Err(e) => Json(ApiResponse::err(&e)),
         },
         Err(e) => Json(ApiResponse::err(&e)),
     }
@@ -234,11 +245,9 @@ pub async fn browser_get_content(
     Path((port, tab_id)): Path<(u16, String)>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match connect_tab(port, &tab_id).await {
-        Ok(client) => {
-            match client.get_page_content().await {
-                Ok(content) => Json(ApiResponse::ok(serde_json::json!({ "content": content }))),
-                Err(e) => Json(ApiResponse::err(&e)),
-            }
+        Ok(client) => match client.get_page_content().await {
+            Ok(content) => Json(ApiResponse::ok(serde_json::json!({ "content": content }))),
+            Err(e) => Json(ApiResponse::err(&e)),
         },
         Err(e) => Json(ApiResponse::err(&e)),
     }
@@ -250,21 +259,22 @@ pub async fn browser_screenshot(
     Path((port, tab_id)): Path<(u16, String)>,
     Query(query): Query<std::collections::HashMap<String, String>>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let format = query.get("format").cloned().unwrap_or_else(|| "png".to_string());
+    let format = query
+        .get("format")
+        .cloned()
+        .unwrap_or_else(|| "png".to_string());
 
     match connect_tab(port, &tab_id).await {
-        Ok(client) => {
-            match client.screenshot(&format).await {
-                Ok(bytes) => {
-                    let data = base64::engine::general_purpose::STANDARD.encode(&bytes);
-                    Json(ApiResponse::ok(serde_json::json!({
-                        "data": data,
-                        "format": format,
-                        "size": bytes.len()
-                    })))
-                }
-                Err(e) => Json(ApiResponse::err(&e)),
+        Ok(client) => match client.screenshot(&format).await {
+            Ok(bytes) => {
+                let data = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                Json(ApiResponse::ok(serde_json::json!({
+                    "data": data,
+                    "format": format,
+                    "size": bytes.len()
+                })))
             }
+            Err(e) => Json(ApiResponse::err(&e)),
         },
         Err(e) => Json(ApiResponse::err(&e)),
     }
@@ -276,7 +286,11 @@ pub async fn browser_click(
     Path((port, tab_id)): Path<(u16, String)>,
     Json(body): Json<serde_json::Value>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let selector = body.get("selector").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let selector = body
+        .get("selector")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     if selector.is_empty() {
         return Json(ApiResponse::err("Missing selector"));
     }
@@ -288,10 +302,12 @@ pub async fn browser_click(
                 selector.replace('\'', "\\'")
             );
             match client.execute_javascript(&script).await {
-                Ok(_) => Json(ApiResponse::ok(serde_json::json!({ "success": true, "selector": selector }))),
+                Ok(_) => Json(ApiResponse::ok(
+                    serde_json::json!({ "success": true, "selector": selector }),
+                )),
                 Err(e) => Json(ApiResponse::err(&e)),
             }
-        },
+        }
         Err(e) => Json(ApiResponse::err(&e)),
     }
 }
@@ -303,14 +319,32 @@ impl ClawRouter for BrowserRoutes {
             .route("/api/browser/launch", get(browser_launch))
             .route("/api/browser/check-port/:port", get(browser_check_port))
             .route("/api/browser/tabs/:port", get(browser_list_tabs))
-            .route("/api/browser/navigate/:port/:tab_id", post(browser_navigate))
-            .route("/api/browser/content/:port/:tab_id", get(browser_get_content))
-            .route("/api/browser/screenshot/:port/:tab_id", get(browser_screenshot))
+            .route(
+                "/api/browser/navigate/:port/:tab_id",
+                post(browser_navigate),
+            )
+            .route(
+                "/api/browser/content/:port/:tab_id",
+                get(browser_get_content),
+            )
+            .route(
+                "/api/browser/screenshot/:port/:tab_id",
+                get(browser_screenshot),
+            )
             .route("/api/browser/click/:port/:tab_id", post(browser_click))
-            .route("/api/browser/fill-input/:port/:tab_id", post(browser_fill_input))
-            .route("/api/browser/execute-js/:port/:tab_id", post(browser_execute_js))
+            .route(
+                "/api/browser/fill-input/:port/:tab_id",
+                post(browser_fill_input),
+            )
+            .route(
+                "/api/browser/execute-js/:port/:tab_id",
+                post(browser_execute_js),
+            )
             .route("/api/browser/info/:port/:tab_id", get(browser_get_info))
             .route("/api/browser/reload/:port/:tab_id", get(browser_reload))
-            .route("/api/browser/close-tab/:port/:tab_id", post(browser_close_tab))
+            .route(
+                "/api/browser/close-tab/:port/:tab_id",
+                post(browser_close_tab),
+            )
     }
 }

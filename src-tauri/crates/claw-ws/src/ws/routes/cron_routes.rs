@@ -1,8 +1,8 @@
 // Claw Desktop - 定时任务路由 - 处理Cron定时任务的WS请求
 use axum::{
+    Json, Router,
     extract::Extension,
     routing::{get, post},
-    Json, Router,
 };
 use std::sync::Arc;
 
@@ -18,7 +18,9 @@ pub async fn cron_list(
     Extension(_state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match claw_harness::harness::cron::CronStore::list().await {
-        Ok(jobs) => Json(ApiResponse::ok(serde_json::to_value(jobs).unwrap_or_default())),
+        Ok(jobs) => Json(ApiResponse::ok(
+            serde_json::to_value(jobs).unwrap_or_default(),
+        )),
         Err(e) => Json(ApiResponse::err(&e)),
     }
 }
@@ -29,15 +31,46 @@ pub async fn cron_create(
     Json(params): Json<serde_json::Value>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     let job = claw_harness::harness::cron::CronJob {
-        id: params.get("id").and_then(|v| v.as_str()).unwrap_or(&uuid::Uuid::new_v4().to_string()).to_string(),
-        name: params.get("name").and_then(|v| v.as_str()).unwrap_or("Untitled").to_string(),
-        schedule: params.get("schedule").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        prompt: params.get("prompt").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        agent_id: params.get("agent_id").and_then(|v| v.as_str()).map(String::from),
-        delivery_channel_id: params.get("delivery_channel_id").and_then(|v| v.as_str()).map(String::from),
-        delivery_chat_id: params.get("delivery_chat_id").and_then(|v| v.as_str()).map(String::from),
-        enabled: params.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
-        silent_on_empty: params.get("silent_on_empty").and_then(|v| v.as_bool()).unwrap_or(false),
+        id: params
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&uuid::Uuid::new_v4().to_string())
+            .to_string(),
+        name: params
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Untitled")
+            .to_string(),
+        schedule: params
+            .get("schedule")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        prompt: params
+            .get("prompt")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        agent_id: params
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .map(String::from),
+        delivery_channel_id: params
+            .get("delivery_channel_id")
+            .and_then(|v| v.as_str())
+            .map(String::from),
+        delivery_chat_id: params
+            .get("delivery_chat_id")
+            .and_then(|v| v.as_str())
+            .map(String::from),
+        enabled: params
+            .get("enabled")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true),
+        silent_on_empty: params
+            .get("silent_on_empty")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
         last_run_at: None,
         next_run_at: None,
         run_count: 0,
@@ -58,10 +91,18 @@ pub async fn cron_update(
 ) -> Json<ApiResponse<serde_json::Value>> {
     let id = params.get("id").and_then(|v| v.as_str()).unwrap_or("");
     if let Ok(Some(mut job)) = claw_harness::harness::cron::CronStore::get(id).await {
-        if let Some(name) = params.get("name").and_then(|v| v.as_str()) { job.name = name.to_string(); }
-        if let Some(schedule) = params.get("schedule").and_then(|v| v.as_str()) { job.schedule = schedule.to_string(); }
-        if let Some(prompt) = params.get("prompt").and_then(|v| v.as_str()) { job.prompt = prompt.to_string(); }
-        if let Some(enabled) = params.get("enabled").and_then(|v| v.as_bool()) { job.enabled = enabled; }
+        if let Some(name) = params.get("name").and_then(|v| v.as_str()) {
+            job.name = name.to_string();
+        }
+        if let Some(schedule) = params.get("schedule").and_then(|v| v.as_str()) {
+            job.schedule = schedule.to_string();
+        }
+        if let Some(prompt) = params.get("prompt").and_then(|v| v.as_str()) {
+            job.prompt = prompt.to_string();
+        }
+        if let Some(enabled) = params.get("enabled").and_then(|v| v.as_bool()) {
+            job.enabled = enabled;
+        }
         match claw_harness::harness::cron::CronStore::update(&job).await {
             Ok(_) => Json(ApiResponse::ok(serde_json::json!({"updated": true}))),
             Err(e) => Json(ApiResponse::err(&e)),

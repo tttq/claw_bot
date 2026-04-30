@@ -1,10 +1,10 @@
 // Claw Desktop - 桌面自动化 Tauri 命令
 // 注册所有自动化相关的Tauri命令：引擎初始化、指令执行、屏幕截图/OCR、
 // 鼠标键盘操作、窗口管理、应用启动、Mano-P模型管理等
-use std::sync::{Mutex, Arc};
-use once_cell::sync::Lazy;
+use crate::{AutomaticallyConfig, AutomaticallyEngine};
 use async_trait::async_trait;
-use crate::{AutomaticallyEngine, AutomaticallyConfig};
+use once_cell::sync::Lazy;
+use std::sync::{Arc, Mutex};
 
 static ENGINE: Lazy<Mutex<Option<Arc<AutomaticallyEngine>>>> = Lazy::new(|| Mutex::new(None));
 
@@ -12,10 +12,13 @@ static ENGINE: Lazy<Mutex<Option<Arc<AutomaticallyEngine>>>> = Lazy::new(|| Mute
 pub fn init_engine_with_config(config: AutomaticallyConfig) -> Result<(), String> {
     let engine = AutomaticallyEngine::new(config);
 
-    let mut engine_guard = ENGINE.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    let mut engine_guard = ENGINE
+        .lock()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
     *engine_guard = Some(Arc::new(engine));
 
-    let engine_ref = engine_guard.as_ref()
+    let engine_ref = engine_guard
+        .as_ref()
         .ok_or_else(|| "Failed to get engine reference after initialization".to_string())?
         .clone();
     claw_traits::automation::set_executor(ArcWrapper(engine_ref))
@@ -36,13 +39,11 @@ fn get_process_names() -> Vec<String> {
             "Get-Process | Where-Object { $_.MainWindowTitle -ne '' -or $_.Name -match '\\.(exe)$' -or $_.Path } | Select-Object -ExpandProperty ProcessName"])
         .output();
     match output {
-        Ok(out) => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .map(|l| l.trim().to_string())
-                .filter(|l| !l.is_empty())
-                .collect()
-        }
+        Ok(out) => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect(),
         Err(_) => Vec::new(),
     }
 }
@@ -56,7 +57,8 @@ fn get_process_names() -> Vec<String> {
 impl claw_traits::automation::AutomationExecutor for ArcWrapper {
     /// 执行自动化指令 — 通过引擎解析并执行自然语言指令
     async fn execute_automation(&self, instruction: &str) -> Result<String, String> {
-        self.0.execute_instruction(instruction)
+        self.0
+            .execute_instruction(instruction)
             .await
             .map(|r| serde_json::to_string(&r).unwrap_or_else(|_| r.success.to_string()))
             .map_err(|e| e.to_string())
@@ -70,7 +72,10 @@ impl claw_traits::automation::AutomationExecutor for ArcWrapper {
         let ocr_text = match crate::capture::screen::ocr_screen_text() {
             Ok(text) => text,
             Err(e) => {
-                log::warn!("[ArcWrapper:capture_screen] OCR failed: {}, continuing without OCR", e);
+                log::warn!(
+                    "[ArcWrapper:capture_screen] OCR failed: {}, continuing without OCR",
+                    e
+                );
                 "[OCR not available]".to_string()
             }
         };
@@ -90,27 +95,42 @@ impl claw_traits::automation::AutomationExecutor for ArcWrapper {
     }
     /// 鼠标左键双击 — 在指定坐标双击
     async fn mouse_double_click(&self, x: f64, y: f64) -> Result<String, String> {
-        self.0.mouse_double_click(x, y).await.map_err(|e| e.to_string())?;
+        self.0
+            .mouse_double_click(x, y)
+            .await
+            .map_err(|e| e.to_string())?;
         Ok(format!("Double-clicked at ({}, {})", x, y))
     }
     /// 鼠标右键点击 — 在指定坐标右键点击
     async fn mouse_right_click(&self, x: f64, y: f64) -> Result<String, String> {
-        self.0.mouse_right_click(x, y).await.map_err(|e| e.to_string())?;
+        self.0
+            .mouse_right_click(x, y)
+            .await
+            .map_err(|e| e.to_string())?;
         Ok(format!("Right-clicked at ({}, {})", x, y))
     }
     /// 键盘输入文本 — 模拟键盘逐字输入
     async fn keyboard_type(&self, text: &str) -> Result<String, String> {
-        self.0.keyboard_type(text).await.map_err(|e| e.to_string())?;
+        self.0
+            .keyboard_type(text)
+            .await
+            .map_err(|e| e.to_string())?;
         Ok(format!("Typed: {} chars", text.len()))
     }
     /// 键盘按键 — 模拟按下指定按键
     async fn keyboard_press(&self, key: &str) -> Result<String, String> {
-        self.0.keyboard_press(key).await.map_err(|e| e.to_string())?;
+        self.0
+            .keyboard_press(key)
+            .await
+            .map_err(|e| e.to_string())?;
         Ok(format!("Pressed: {}", key))
     }
     /// 列出已安装应用 — 可选按关键词过滤
     async fn list_installed_apps(&self, filter: Option<&str>) -> Result<String, String> {
-        let apps = self.0.list_installed_apps(filter).map_err(|e| e.to_string())?;
+        let apps = self
+            .0
+            .list_installed_apps(filter)
+            .map_err(|e| e.to_string())?;
         serde_json::to_string(&apps).map_err(|e| e.to_string())
     }
     /// 启动应用 — 按名称查找并启动，启动后验证进程是否存在
@@ -127,15 +147,31 @@ impl claw_traits::automation::AutomationExecutor for ArcWrapper {
         let new_processes: Vec<String> = processes_after
             .into_iter()
             .filter(|p| !processes_before.contains(p))
-            .filter(|p| p.to_lowercase().contains(&lower_name) || lower_name.contains(&p.to_lowercase().replace(".exe", "")))
+            .filter(|p| {
+                p.to_lowercase().contains(&lower_name)
+                    || lower_name.contains(&p.to_lowercase().replace(".exe", ""))
+            })
             .collect();
 
         if !new_processes.is_empty() {
-            log::info!("[ArcWrapper:launch_application] New process detected: {:?}", new_processes);
-            Ok(format!("Launched: {} (active window: {})", name, new_processes.join(", ")))
+            log::info!(
+                "[ArcWrapper:launch_application] New process detected: {:?}",
+                new_processes
+            );
+            Ok(format!(
+                "Launched: {} (active window: {})",
+                name,
+                new_processes.join(", ")
+            ))
         } else {
-            log::info!("[ArcWrapper:launch_application] Launch command sent for '{}', but no new process detected", name);
-            Ok(format!("Launch command sent for: {}. The application may need more time to start, or it may not be installed correctly.", name))
+            log::info!(
+                "[ArcWrapper:launch_application] Launch command sent for '{}', but no new process detected",
+                name
+            );
+            Ok(format!(
+                "Launch command sent for: {}. The application may need more time to start, or it may not be installed correctly.",
+                name
+            ))
         }
     }
     /// OCR识别屏幕 — 捕获屏幕并识别文字
@@ -159,15 +195,21 @@ pub fn init_automatically_engine_with_config(config: AutomaticallyConfig) -> Res
 
 /// 执行自动化指令 — 解析自然语言指令并返回执行结果
 #[tauri::command]
-pub async fn execute_automation_instruction(instruction: String) -> Result<serde_json::Value, String> {
+pub async fn execute_automation_instruction(
+    instruction: String,
+) -> Result<serde_json::Value, String> {
     let engine_arc = {
-        let engine_guard = ENGINE.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let engine_guard = ENGINE
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         engine_guard.clone()
     };
 
     match engine_arc {
         Some(engine) => {
-            let result = engine.execute_instruction(&instruction).await
+            let result = engine
+                .execute_instruction(&instruction)
+                .await
                 .map_err(|e| e.to_string())?;
             Ok(serde_json::json!({
                 "success": result.success,
@@ -185,7 +227,10 @@ pub async fn execute_automation_instruction(instruction: String) -> Result<serde
 
 /// 配置Mano-P云端API — 设置API地址和密钥
 #[tauri::command]
-pub async fn configure_mano_p_cloud(api_url: String, api_key: Option<String>) -> Result<serde_json::Value, String> {
+pub async fn configure_mano_p_cloud(
+    api_url: String,
+    api_key: Option<String>,
+) -> Result<serde_json::Value, String> {
     log::info!(
         "[Commands:configure_mano_p_cloud] url={} | key_set={}",
         api_url,
@@ -202,7 +247,6 @@ pub async fn configure_mano_p_cloud(api_url: String, api_key: Option<String>) ->
         "api_url": api_url,
         "api_key_configured": api_key.as_ref().map(|k| !k.is_empty()).unwrap_or(false),
     }))
-
 }
 
 /// 搜索已安装应用 — 按关键词模糊搜索应用索引
@@ -274,16 +318,23 @@ pub fn get_app_index_stats() -> Result<serde_json::Value, String> {
 /// 执行CUA指令 — 通过CUA Agent循环执行桌面自动化
 #[tauri::command]
 pub async fn execute_cua_instruction(instruction: String) -> Result<serde_json::Value, String> {
-    log::info!("[Commands:execute_cua_instruction] instruction={}", instruction);
+    log::info!(
+        "[Commands:execute_cua_instruction] instruction={}",
+        instruction
+    );
 
     let engine_arc = {
-        let engine_guard = ENGINE.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let engine_guard = ENGINE
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         engine_guard.clone()
     };
 
     match engine_arc {
         Some(engine) => {
-            let result = engine.execute_cua_instruction(&instruction).await
+            let result = engine
+                .execute_cua_instruction(&instruction)
+                .await
                 .map_err(|e| e.to_string())?;
             Ok(serde_json::json!({
                 "success": result.success,
@@ -315,13 +366,17 @@ pub async fn list_installed_apps(filter: Option<String>) -> Result<serde_json::V
     log::info!("[Commands:list_installed_apps] filter={:?}", filter);
 
     let engine_arc = {
-        let engine_guard = ENGINE.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let engine_guard = ENGINE
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         engine_guard.clone()
     };
 
     match engine_arc {
         Some(engine) => {
-            let apps = engine.list_installed_apps(filter.as_deref()).map_err(|e| e.to_string())?;
+            let apps = engine
+                .list_installed_apps(filter.as_deref())
+                .map_err(|e| e.to_string())?;
             Ok(serde_json::json!({
                 "success": true,
                 "apps": apps,
@@ -337,13 +392,17 @@ pub async fn launch_application(name: String) -> Result<serde_json::Value, Strin
     log::info!("[Commands:launch_application] name={}", name);
 
     let engine_arc = {
-        let engine_guard = ENGINE.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let engine_guard = ENGINE
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         engine_guard.clone()
     };
 
     match engine_arc {
         Some(engine) => {
-            engine.launch_application(&name).map_err(|e| e.to_string())?;
+            engine
+                .launch_application(&name)
+                .map_err(|e| e.to_string())?;
             Ok(serde_json::json!({
                 "success": true,
                 "message": format!("Launched: {}", name),
@@ -391,7 +450,9 @@ pub async fn keyboard_press(key: String) -> Result<(), String> {
 /// 获取自动化引擎配置 — 返回当前引擎的所有配置项
 #[tauri::command]
 pub fn get_automation_config() -> Result<serde_json::Value, String> {
-    let engine_guard = ENGINE.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    let engine_guard = ENGINE
+        .lock()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
     match engine_guard.as_ref() {
         Some(engine) => {
             let config = engine.config();
@@ -485,11 +546,13 @@ pub async fn mouse_right_click(x: f64, y: f64) -> Result<(), String> {
 #[tauri::command]
 pub async fn mouse_drag(from_x: f64, from_y: f64, to_x: f64, to_y: f64) -> Result<(), String> {
     use crate::input::mouse;
-    mouse::drag(from_x, from_y, to_x, to_y).await.map_err(|e| e.to_string())
+    mouse::drag(from_x, from_y, to_x, to_y)
+        .await
+        .map_err(|e| e.to_string())
 }
 
-use crate::manop::{ManoPModelVersion, initialize_mano_p, is_mano_p_ready};
 use crate::manop::model_manager::ManoPModelManager;
+use crate::manop::{ManoPModelVersion, initialize_mano_p, is_mano_p_ready};
 
 /// 初始化Mano-P模型 — 加载本地模型或配置云端推理
 #[tauri::command]
@@ -545,37 +608,43 @@ pub async fn download_mano_p_model(version: Option<String>) -> Result<serde_json
         _ => ManoPModelVersion::Quantized4B,
     };
 
-    log::info!("[Commands:download_mano_p_model] Downloading {}", model_version.display_name());
+    log::info!(
+        "[Commands:download_mano_p_model] Downloading {}",
+        model_version.display_name()
+    );
 
     let manager = ManoPModelManager::new();
 
     match manager.download_model(model_version).await {
-        Ok(_) => {
-            Ok(serde_json::json!({
-                "success": true,
-                "message": format!("{} downloaded successfully", model_version.display_name()),
-                "version": model_version.model_id(),
-            }))
-        }
-        Err(e) => {
-            Err(format!("Failed to download model: {}", e))
-        }
+        Ok(_) => Ok(serde_json::json!({
+            "success": true,
+            "message": format!("{} downloaded successfully", model_version.display_name()),
+            "version": model_version.model_id(),
+        })),
+        Err(e) => Err(format!("Failed to download model: {}", e)),
     }
 }
 
 /// 执行Mano-P指令 — 通过Mano-P推理引擎执行桌面自动化
 #[tauri::command]
 pub async fn execute_mano_p_instruction(instruction: String) -> Result<serde_json::Value, String> {
-    log::info!("[Commands:execute_mano_p_instruction] instruction={}", instruction);
+    log::info!(
+        "[Commands:execute_mano_p_instruction] instruction={}",
+        instruction
+    );
 
     let engine_arc = {
-        let engine_guard = ENGINE.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let engine_guard = ENGINE
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         engine_guard.clone()
     };
 
     match engine_arc {
         Some(engine) => {
-            let result = engine.execute_instruction(&instruction).await
+            let result = engine
+                .execute_instruction(&instruction)
+                .await
                 .map_err(|e| e.to_string())?;
             Ok(serde_json::json!({
                 "success": result.success,

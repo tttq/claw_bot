@@ -29,7 +29,12 @@ pub struct RedactingFormatter;
 impl RedactingFormatter {
     /// 格式化日志记录，自动脱敏敏感信息
     pub fn format_record(record: &log::Record) -> String {
-        let raw = format!("[{}][{}] {}", record.level(), record.target(), record.args());
+        let raw = format!(
+            "[{}][{}] {}",
+            record.level(),
+            record.target(),
+            record.args()
+        );
         redact_secrets(&raw)
     }
 }

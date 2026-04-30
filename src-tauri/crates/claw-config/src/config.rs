@@ -2,7 +2,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path};
+use std::path::Path;
 use std::sync::OnceLock;
 use tokio::sync::OnceCell as AsyncOnceCell;
 
@@ -14,154 +14,154 @@ static INITIALIZED: AsyncOnceCell<Result<(), String>> = AsyncOnceCell::const_new
 /// 应用配置根结构体 - 包含所有配置子项
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
-    pub app: AppSettings,              // 应用基础设置
-    pub model: ModelSettings,          // 模型设置
-    pub api: ApiSettings,              // API设置
-    pub ui: UiSettings,                // UI设置
-    pub advanced: AdvancedSettings,    // 高级设置
+    pub app: AppSettings,           // 应用基础设置
+    pub model: ModelSettings,       // 模型设置
+    pub api: ApiSettings,           // API设置
+    pub ui: UiSettings,             // UI设置
+    pub advanced: AdvancedSettings, // 高级设置
     #[serde(default)]
-    pub harness: HarnessSettings,      // Agent管理设置
+    pub harness: HarnessSettings, // Agent管理设置
     #[serde(default)]
-    pub tools: ToolSettings,           // 工具权限设置
+    pub tools: ToolSettings, // 工具权限设置
     #[serde(default)]
-    pub database: DatabaseSettings,    // 数据库设置
+    pub database: DatabaseSettings, // 数据库设置
 }
 
 /// 应用基础设置 - 语言、主题、启动行为等
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     #[serde(default = "default_language")]
-    pub language: String,              // 界面语言
+    pub language: String, // 界面语言
     #[serde(default = "default_theme")]
-    pub theme: String,                 // 主题 (dark/light/system)
+    pub theme: String, // 主题 (dark/light/system)
     #[serde(default)]
-    pub auto_update: bool,             // 自动更新
+    pub auto_update: bool, // 自动更新
     #[serde(default)]
-    pub minimize_to_tray: bool,        // 最小化到托盘
+    pub minimize_to_tray: bool, // 最小化到托盘
     #[serde(default = "default_startup")]
-    pub startup_behavior: String,      // 启动行为 (normal/minimized)
+    pub startup_behavior: String, // 启动行为 (normal/minimized)
 }
 
 /// 模型设置 - 默认模型、服务商、参数等
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelSettings {
     #[serde(default = "default_model")]
-    pub default_model: String,         // 默认模型名称
+    pub default_model: String, // 默认模型名称
     #[serde(default = "default_provider")]
-    pub provider: String,              // 服务商 (anthropic/openai/custom)
+    pub provider: String, // 服务商 (anthropic/openai/custom)
     #[serde(default)]
-    pub custom_url: String,            // 自定义API URL
+    pub custom_url: String, // 自定义API URL
     #[serde(default)]
-    pub custom_api_key: String,        // 自定义API Key
+    pub custom_api_key: String, // 自定义API Key
     #[serde(default)]
-    pub custom_model_name: String,     // 自定义模型名称
+    pub custom_model_name: String, // 自定义模型名称
     #[serde(default = "default_temperature")]
-    pub temperature: f64,              // 温度参数 (0.0-2.0)
+    pub temperature: f64, // 温度参数 (0.0-2.0)
     #[serde(default = "default_max_tokens")]
-    pub max_tokens: u32,               // 最大生成token数
+    pub max_tokens: u32, // 最大生成token数
     #[serde(default = "default_top_p")]
-    pub top_p: f64,                    // Top-P采样参数
+    pub top_p: f64, // Top-P采样参数
     #[serde(default)]
-    pub thinking_budget: u64,          // 思维预算token数
+    pub thinking_budget: u64, // 思维预算token数
     #[serde(default = "default_true")]
-    pub stream_mode: bool,             // 是否启用流式模式
+    pub stream_mode: bool, // 是否启用流式模式
     #[serde(default = "default_api_format")]
-    pub api_format: String,            // API格式 (anthropic/openai)
+    pub api_format: String, // API格式 (anthropic/openai)
 }
 
 /// API设置 - 密钥、基础URL、超时等
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiSettings {
     #[serde(default)]
-    pub api_key: String,               // API密钥
+    pub api_key: String, // API密钥
     #[serde(default = "default_base_url")]
-    pub base_url: String,              // API基础URL
+    pub base_url: String, // API基础URL
     #[serde(default = "default_api_version")]
-    pub api_version: String,           // API版本
+    pub api_version: String, // API版本
     #[serde(default = "default_timeout")]
-    pub timeout_seconds: u64,          // 请求超时时间（秒）
+    pub timeout_seconds: u64, // 请求超时时间（秒）
     #[serde(default = "default_retry")]
-    pub retry_count: u32,              // 重试次数
+    pub retry_count: u32, // 重试次数
 }
 
 /// UI设置 - 字体、侧边栏、代码主题等
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UiSettings {
     #[serde(default = "default_font_size")]
-    pub font_size: u32,                // 字体大小
+    pub font_size: u32, // 字体大小
     #[serde(default = "default_font_family")]
-    pub font_family: String,           // 字体族
+    pub font_family: String, // 字体族
     #[serde(default = "default_sidebar_width")]
-    pub sidebar_width: u32,            // 侧边栏宽度
+    pub sidebar_width: u32, // 侧边栏宽度
     #[serde(default)]
-    pub show_line_numbers: bool,       // 显示行号
+    pub show_line_numbers: bool, // 显示行号
     #[serde(default = "default_code_theme")]
-    pub code_theme: String,            // 代码高亮主题
+    pub code_theme: String, // 代码高亮主题
     #[serde(default = "default_msg_style")]
-    pub message_style: String,         // 消息样式 (bubble/flat)
+    pub message_style: String, // 消息样式 (bubble/flat)
     #[serde(default = "default_true")]
-    pub show_tool_executions: bool,    // 显示工具执行详情
+    pub show_tool_executions: bool, // 显示工具执行详情
 }
 
 /// 高级设置 - 数据目录、日志级别、代理等
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdvancedSettings {
     #[serde(default)]
-    pub data_dir: String,              // 数据存储目录
+    pub data_dir: String, // 数据存储目录
     #[serde(default = "default_log_level")]
-    pub log_level: String,             // 日志级别
+    pub log_level: String, // 日志级别
     #[serde(default = "default_max_history")]
-    pub max_conversation_history: u32,  // 最大对话历史数
+    pub max_conversation_history: u32, // 最大对话历史数
     #[serde(default = "default_compact_threshold")]
-    pub auto_compact_tokens: u64,      // 自动压缩token阈值
+    pub auto_compact_tokens: u64, // 自动压缩token阈值
     #[serde(default)]
-    pub proxy_url: String,             // 代理URL
+    pub proxy_url: String, // 代理URL
     #[serde(default = "default_true")]
-    pub enable_telemetry: bool,        // 启用遥测
+    pub enable_telemetry: bool, // 启用遥测
     #[serde(default)]
-    pub plan_mode: bool,               // 计划模式开关
+    pub plan_mode: bool, // 计划模式开关
 }
 
 /// Agent管理设置 - 错误学习、跨记忆、验证等
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct HarnessSettings {
     #[serde(default)]
-    pub error_learning_enabled: bool,   // 启用错误学习
+    pub error_learning_enabled: bool, // 启用错误学习
     #[serde(default = "default_true")]
-    pub cross_memory_enabled: bool,     // 启用跨Agent记忆共享
+    pub cross_memory_enabled: bool, // 启用跨Agent记忆共享
     #[serde(default = "default_true")]
-    pub validation_enabled: bool,       // 启用验证
+    pub validation_enabled: bool, // 启用验证
     #[serde(default = "default_visibility")]
     pub default_memory_visibility: String, // 默认记忆可见性
     #[serde(default = "default_parallel")]
-    pub max_parallel_subtasks: usize,   // 最大并行子任务数
+    pub max_parallel_subtasks: usize, // 最大并行子任务数
     #[serde(default = "default_task_timeout")]
-    pub task_timeout_seconds: u64,      // 任务超时时间（秒）
+    pub task_timeout_seconds: u64, // 任务超时时间（秒）
     #[serde(default = "default_true")]
-    pub agents_md_auto_refresh: bool,   // 自动刷新AGENTS.md
+    pub agents_md_auto_refresh: bool, // 自动刷新AGENTS.md
 }
 
 /// 工具权限设置 - 控制各类工具的启用/禁用
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolSettings {
     #[serde(default = "default_true")]
-    pub file_access: bool,              // 文件读取权限
+    pub file_access: bool, // 文件读取权限
     #[serde(default = "default_true")]
-    pub file_write: bool,               // 文件写入权限
+    pub file_write: bool, // 文件写入权限
     #[serde(default = "default_true")]
-    pub shell: bool,                    // Shell命令权限
+    pub shell: bool, // Shell命令权限
     #[serde(default = "default_true")]
-    pub search: bool,                   // 搜索权限
+    pub search: bool, // 搜索权限
     #[serde(default = "default_true")]
-    pub web: bool,                      // 网络访问权限
+    pub web: bool, // 网络访问权限
     #[serde(default = "default_true")]
-    pub git: bool,                      // Git操作权限
+    pub git: bool, // Git操作权限
     #[serde(default = "default_true")]
-    pub browser: bool,                  // 浏览器权限
+    pub browser: bool, // 浏览器权限
     #[serde(default = "default_true")]
-    pub automation: bool,               // 自动化权限
+    pub automation: bool, // 自动化权限
     #[serde(default = "default_true")]
-    pub agent: bool,                    // Agent权限
+    pub agent: bool, // Agent权限
 }
 
 /// 工具权限默认值 — 所有工具默认启用
@@ -185,66 +185,78 @@ impl Default for ToolSettings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseSettings {
     #[serde(default = "default_db_backend")]
-    pub backend: String,               // 数据库后端类型 (sqlite/postgres/qdrant)
+    pub backend: String, // 数据库后端类型 (sqlite/postgres/qdrant)
     #[serde(default)]
-    pub sqlite: SqliteSettings,        // SQLite配置
+    pub sqlite: SqliteSettings, // SQLite配置
     #[serde(default)]
-    pub postgres: PostgresSettings,    // PostgreSQL配置
+    pub postgres: PostgresSettings, // PostgreSQL配置
     #[serde(default)]
-    pub qdrant: QdrantSettings,        // Qdrant向量数据库配置
+    pub qdrant: QdrantSettings, // Qdrant向量数据库配置
     #[serde(default)]
-    pub initialized: bool,             // 数据库是否已初始化
+    pub initialized: bool, // 数据库是否已初始化
 }
 
 /// SQLite设置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SqliteSettings {
     #[serde(default = "default_true")]
-    pub enable_vec: bool,              // 启用向量扩展
+    pub enable_vec: bool, // 启用向量扩展
     #[serde(default)]
-    pub db_path: String,               // 数据库文件路径
+    pub db_path: String, // 数据库文件路径
 }
 
 /// PostgreSQL设置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostgresSettings {
     #[serde(default = "default_pg_host")]
-    pub host: String,                  // 主机地址
+    pub host: String, // 主机地址
     #[serde(default = "default_pg_port")]
-    pub port: u16,                     // 端口号
+    pub port: u16, // 端口号
     #[serde(default = "default_pg_database")]
-    pub database: String,              // 数据库名称
+    pub database: String, // 数据库名称
     #[serde(default)]
-    pub username: String,              // 用户名
+    pub username: String, // 用户名
     #[serde(default)]
-    pub password: String,              // 密码
+    pub password: String, // 密码
     #[serde(default)]
-    pub pool_size: u32,                // 连接池大小
+    pub pool_size: u32, // 连接池大小
 }
 
 /// Qdrant向量数据库设置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QdrantSettings {
     #[serde(default = "default_qdrant_url")]
-    pub url: String,                   // Qdrant服务URL
+    pub url: String, // Qdrant服务URL
     #[serde(default)]
-    pub api_key: String,               // API密钥
+    pub api_key: String, // API密钥
     #[serde(default = "default_qdrant_collection")]
-    pub collection: String,            // 集合名称
+    pub collection: String, // 集合名称
 }
 
 /// 数据库默认后端 — SQLite
-fn default_db_backend() -> String { "sqlite".to_string() }
+fn default_db_backend() -> String {
+    "sqlite".to_string()
+}
 /// PostgreSQL默认主机 — localhost
-fn default_pg_host() -> String { "localhost".to_string() }
+fn default_pg_host() -> String {
+    "localhost".to_string()
+}
 /// PostgreSQL默认端口 — 5432
-fn default_pg_port() -> u16 { 5432 }
+fn default_pg_port() -> u16 {
+    5432
+}
 /// PostgreSQL默认数据库名 — claw_desktop
-fn default_pg_database() -> String { "claw_desktop".to_string() }
+fn default_pg_database() -> String {
+    "claw_desktop".to_string()
+}
 /// Qdrant默认URL — http://localhost:6333
-fn default_qdrant_url() -> String { "http://localhost:6333".to_string() }
+fn default_qdrant_url() -> String {
+    "http://localhost:6333".to_string()
+}
 /// Qdrant默认集合名 — claw_vectors
-fn default_qdrant_collection() -> String { "claw_vectors".to_string() }
+fn default_qdrant_collection() -> String {
+    "claw_vectors".to_string()
+}
 
 /// 数据库设置默认值 — SQLite后端
 impl Default for DatabaseSettings {
@@ -323,62 +335,112 @@ impl DatabaseSettings {
                     self.postgres.database
                 )
             }
-            _ => String::new()
+            _ => String::new(),
         }
     }
 }
 
 /// 默认可见性 — public
-fn default_visibility() -> String { "public".to_string() }
+fn default_visibility() -> String {
+    "public".to_string()
+}
 /// 默认并行子任务数 — 5
-fn default_parallel() -> usize { 5 }
+fn default_parallel() -> usize {
+    5
+}
 /// 默认任务超时 — 300秒
-fn default_task_timeout() -> u64 { 300 }
+fn default_task_timeout() -> u64 {
+    300
+}
 
 /// 默认语言 — 简体中文
-fn default_language() -> String { "zh-CN".to_string() }
+fn default_language() -> String {
+    "zh-CN".to_string()
+}
 /// 默认主题 — 暗色
-fn default_theme() -> String { "dark".to_string() }
+fn default_theme() -> String {
+    "dark".to_string()
+}
 /// 默认启动行为 — 正常启动
-fn default_startup() -> String { "normal".to_string() }
+fn default_startup() -> String {
+    "normal".to_string()
+}
 /// 默认模型 — claude-sonnet-4
-fn default_model() -> String { "claude-sonnet-4-20250514".to_string() }
+fn default_model() -> String {
+    "claude-sonnet-4-20250514".to_string()
+}
 /// 默认提供商 — anthropic
-fn default_provider() -> String { "anthropic".to_string() }
+fn default_provider() -> String {
+    "anthropic".to_string()
+}
 /// 默认温度 — 0.7
-fn default_temperature() -> f64 { 0.7 }
+fn default_temperature() -> f64 {
+    0.7
+}
 /// 默认最大Token — 16384
-fn default_max_tokens() -> u32 { 16384 }
+fn default_max_tokens() -> u32 {
+    16384
+}
 /// 默认Top-P — 1.0
-fn default_top_p() -> f64 { 1.0 }
+fn default_top_p() -> f64 {
+    1.0
+}
 /// 默认布尔值 — true
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 /// 默认API格式 — anthropic
-fn default_api_format() -> String { "anthropic".to_string() }
+fn default_api_format() -> String {
+    "anthropic".to_string()
+}
 /// 默认API基础URL — Anthropic官方
-fn default_base_url() -> String { "https://api.anthropic.com".to_string() }
+fn default_base_url() -> String {
+    "https://api.anthropic.com".to_string()
+}
 /// 默认API版本 — 2023-06-01
-fn default_api_version() -> String { "2023-06-01".to_string() }
+fn default_api_version() -> String {
+    "2023-06-01".to_string()
+}
 /// 默认超时 — 120秒
-fn default_timeout() -> u64 { 120 }
+fn default_timeout() -> u64 {
+    120
+}
 /// 默认重试次数 — 3
-fn default_retry() -> u32 { 3 }
+fn default_retry() -> u32 {
+    3
+}
 /// 默认字体大小 — 14px
-fn default_font_size() -> u32 { 14 }
+fn default_font_size() -> u32 {
+    14
+}
 /// 默认字体 — Inter
-fn default_font_family() -> String { "Inter".to_string() }
+fn default_font_family() -> String {
+    "Inter".to_string()
+}
 /// 默认侧边栏宽度 — 280px
-fn default_sidebar_width() -> u32 { 280 }
+fn default_sidebar_width() -> u32 {
+    280
+}
 /// 默认代码主题 — oneDark
-fn default_code_theme() -> String { "oneDark".to_string() }
+fn default_code_theme() -> String {
+    "oneDark".to_string()
+}
 /// 默认消息样式 — 气泡
-fn default_msg_style() -> String { "bubble".to_string() }
+fn default_msg_style() -> String {
+    "bubble".to_string()
+}
 /// 默认日志级别 — info
-fn default_log_level() -> String { "info".to_string() }
+fn default_log_level() -> String {
+    "info".to_string()
+}
 /// 默认最大历史记录 — 100条
-fn default_max_history() -> u32 { 100 }
+fn default_max_history() -> u32 {
+    100
+}
 /// 默认压缩阈值 — 150000 Token
-fn default_compact_threshold() -> u64 { 150000 }
+fn default_compact_threshold() -> u64 {
+    150000
+}
 
 /// 应用配置默认值 — 简体中文/暗色主题/Claude Sonnet/Anthropic
 impl Default for AppConfig {
@@ -540,7 +602,7 @@ impl AppConfig {
         if let Some(key) = self.get_api_key() {
             return Ok(key.to_string());
         }
-        
+
         if let Ok(key) = std::env::var("ANTHROPIC_API_KEY") {
             return Ok(key);
         }
@@ -550,7 +612,7 @@ impl AppConfig {
         if let Ok(key) = std::env::var("LLM_API_KEY") {
             return Ok(key);
         }
-        
+
         anyhow::bail!("No API key configured. Please set it in Settings or environment variables.")
     }
 
@@ -581,27 +643,34 @@ impl AppConfig {
 
 /// 确保配置已初始化（懒加载，首次调用时自动初始化）
 async fn ensure_initialized() -> Result<(), String> {
-    INITIALIZED.get_or_init(|| async {
-        if !path_resolver::is_initialized() {
-            return Err("PathResolver not initialized. Call claw_config::init(app) first.".to_string());
-        }
+    INITIALIZED
+        .get_or_init(|| async {
+            if !path_resolver::is_initialized() {
+                return Err(
+                    "PathResolver not initialized. Call claw_config::init(app) first.".to_string(),
+                );
+            }
 
-        path_resolver::ensure_dirs().map_err(|e| format!("Ensure dirs failed: {}", e))?;
+            path_resolver::ensure_dirs().map_err(|e| format!("Ensure dirs failed: {}", e))?;
 
-        let config = AppConfig::load_or_create(path_resolver::get_app_root())
-            .unwrap_or_default();
+            let config =
+                AppConfig::load_or_create(path_resolver::get_app_root()).unwrap_or_default();
 
-        let _ = APP_CONFIG.set(config);
+            let _ = APP_CONFIG.set(config);
 
-        log::info!("[Config] Auto-initialized successfully");
-        Ok(())
-    }).await.clone()
+            log::info!("[Config] Auto-initialized successfully");
+            Ok(())
+        })
+        .await
+        .clone()
 }
 
 /// 获取全局配置引用（异步，自动初始化）
 pub async fn get_config() -> Result<&'static AppConfig, String> {
     ensure_initialized().await?;
-    Ok(APP_CONFIG.get().expect("Config should be initialized after ensure_initialized"))
+    Ok(APP_CONFIG
+        .get()
+        .expect("Config should be initialized after ensure_initialized"))
 }
 
 /// 尝试获取全局配置引用（不触发初始化）

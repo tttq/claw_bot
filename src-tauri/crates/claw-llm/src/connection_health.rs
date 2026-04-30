@@ -6,9 +6,9 @@ use std::time::{Duration, Instant};
 
 /// 连接健康检查器 - 追踪API调用的成功/失败状态，当连续失败超过阈值时触发恢复
 pub struct ConnectionHealthChecker {
-    consecutive_failures: AtomicUsize,                    // 连续失败次数（原子操作）
-    last_success: std::sync::Mutex<Option<Instant>>,     // 上次成功时间
-    max_consecutive_failures: usize,                      // 触发恢复的最大连续失败次数
+    consecutive_failures: AtomicUsize, // 连续失败次数（原子操作）
+    last_success: std::sync::Mutex<Option<Instant>>, // 上次成功时间
+    max_consecutive_failures: usize,   // 触发恢复的最大连续失败次数
 }
 
 impl ConnectionHealthChecker {
@@ -26,7 +26,10 @@ impl ConnectionHealthChecker {
     pub fn record_success(&self) {
         self.consecutive_failures.store(0, Ordering::SeqCst);
         let mut last_success = self.last_success.lock().unwrap_or_else(|e| {
-            log::error!("[ConnectionHealth:record_success] Mutex poisoned, recovering: {}", e);
+            log::error!(
+                "[ConnectionHealth:record_success] Mutex poisoned, recovering: {}",
+                e
+            );
             e.into_inner()
         });
         *last_success = Some(Instant::now());
@@ -35,7 +38,11 @@ impl ConnectionHealthChecker {
     /// 记录一次失败的API调用，返回当前连续失败次数
     pub fn record_failure(&self) -> usize {
         let failures = self.consecutive_failures.fetch_add(1, Ordering::SeqCst) + 1;
-        log::warn!("[ConnectionHealth:record_failure] Consecutive failures: {}/{}", failures, self.max_consecutive_failures);
+        log::warn!(
+            "[ConnectionHealth:record_failure] Consecutive failures: {}/{}",
+            failures,
+            self.max_consecutive_failures
+        );
         failures
     }
 
@@ -52,7 +59,10 @@ impl ConnectionHealthChecker {
     /// 获取距离上次成功调用的时间间隔
     pub fn time_since_last_success(&self) -> Option<Duration> {
         let last_success = self.last_success.lock().unwrap_or_else(|e| {
-            log::error!("[ConnectionHealth:time_since_last_success] Mutex poisoned, recovering: {}", e);
+            log::error!(
+                "[ConnectionHealth:time_since_last_success] Mutex poisoned, recovering: {}",
+                e
+            );
             e.into_inner()
         });
         last_success.map(|instant| instant.elapsed())

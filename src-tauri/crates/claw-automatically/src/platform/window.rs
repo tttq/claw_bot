@@ -33,7 +33,7 @@ pub fn get_active_window() -> Result<WindowInfo> {
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
         Err(AutomaticallyError::PlatformNotSupported(
-            "Window management not supported on this platform".to_string()
+            "Window management not supported on this platform".to_string(),
         ))
     }
 }
@@ -64,7 +64,7 @@ pub fn list_windows() -> Result<Vec<WindowInfo>> {
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
         Err(AutomaticallyError::PlatformNotSupported(
-            "Window listing not supported on this platform".to_string()
+            "Window listing not supported on this platform".to_string(),
         ))
     }
 }
@@ -89,7 +89,7 @@ pub fn focus_window(title_contains: &str) -> Result<()> {
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
         Err(AutomaticallyError::PlatformNotSupported(
-            "Window focus not supported on this platform".to_string()
+            "Window focus not supported on this platform".to_string(),
         ))
     }
 }
@@ -114,7 +114,7 @@ pub fn get_screen_size() -> Result<(u32, u32)> {
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
         Err(AutomaticallyError::PlatformNotSupported(
-            "Screen size query not supported on this platform".to_string()
+            "Screen size query not supported on this platform".to_string(),
         ))
     }
 }
@@ -139,7 +139,7 @@ pub fn minimize_window() -> Result<()> {
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
         Err(AutomaticallyError::PlatformNotSupported(
-            "Window minimize not supported on this platform".to_string()
+            "Window minimize not supported on this platform".to_string(),
         ))
     }
 }
@@ -150,8 +150,10 @@ use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
 /// Windows平台：获取前台窗口信息
 #[cfg(target_os = "windows")]
 fn get_active_window_windows() -> Result<WindowInfo> {
-    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW, GetWindowRect};
     use windows::Win32::Foundation::RECT;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetForegroundWindow, GetWindowRect, GetWindowTextW,
+    };
 
     unsafe {
         let hwnd = GetForegroundWindow();
@@ -179,8 +181,8 @@ fn get_active_window_windows() -> Result<WindowInfo> {
 /// Windows平台：枚举所有可见窗口
 #[cfg(target_os = "windows")]
 fn list_windows_windows() -> Result<Vec<WindowInfo>> {
-    use windows::Win32::UI::WindowsAndMessaging::EnumWindows;
     use std::sync::Mutex;
+    use windows::Win32::UI::WindowsAndMessaging::EnumWindows;
 
     let windows: Mutex<Vec<WindowInfo>> = Mutex::new(Vec::new());
 
@@ -195,9 +197,11 @@ fn list_windows_windows() -> Result<Vec<WindowInfo>> {
 /// Windows回调：枚举窗口 — 收集可见窗口的标题、PID和位置
 #[cfg(target_os = "windows")]
 unsafe extern "system" fn enum_windows_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    use windows::Win32::UI::WindowsAndMessaging::{IsWindowVisible, GetWindowTextW, GetWindowThreadProcessId, GetWindowRect};
-    use windows::Win32::Foundation::RECT;
     use std::sync::Mutex;
+    use windows::Win32::Foundation::RECT;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible,
+    };
 
     unsafe {
         if !IsWindowVisible(hwnd).as_bool() {
@@ -242,8 +246,10 @@ unsafe extern "system" fn enum_windows_callback(hwnd: HWND, lparam: LPARAM) -> B
 /// Windows平台：按标题关键字查找并聚焦窗口
 #[cfg(target_os = "windows")]
 fn focus_window_windows(title_contains: &str) -> Result<()> {
-    use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, SetForegroundWindow, ShowWindow, SW_RESTORE};
     use std::sync::Mutex;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        EnumWindows, SW_RESTORE, SetForegroundWindow, ShowWindow,
+    };
 
     let target = title_contains.to_lowercase();
     let found: Mutex<Option<(HWND, String)>> = Mutex::new(None);
@@ -269,7 +275,8 @@ fn focus_window_windows(title_contains: &str) -> Result<()> {
         Ok(())
     } else {
         Err(AutomaticallyError::Automation(format!(
-            "No window found containing '{}'", title_contains
+            "No window found containing '{}'",
+            title_contains
         )))
     }
 }
@@ -277,7 +284,7 @@ fn focus_window_windows(title_contains: &str) -> Result<()> {
 /// Windows回调：查找窗口 — 按标题关键字匹配窗口
 #[cfg(target_os = "windows")]
 unsafe extern "system" fn find_window_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    use windows::Win32::UI::WindowsAndMessaging::{IsWindowVisible, GetWindowTextW};
+    use windows::Win32::UI::WindowsAndMessaging::{GetWindowTextW, IsWindowVisible};
 
     struct CallbackData {
         target: String,
@@ -312,14 +319,16 @@ unsafe extern "system" fn find_window_callback(hwnd: HWND, lparam: LPARAM) -> BO
 /// Windows平台：获取屏幕尺寸
 #[cfg(target_os = "windows")]
 fn get_screen_size_windows() -> Result<(u32, u32)> {
-    use windows::Win32::Graphics::Gdi::{GetDC, GetDeviceCaps, HORZRES, VERTRES, ReleaseDC};
+    use windows::Win32::Graphics::Gdi::{GetDC, GetDeviceCaps, HORZRES, ReleaseDC, VERTRES};
     use windows::Win32::UI::WindowsAndMessaging::GetDesktopWindow;
 
     unsafe {
         let hwnd = GetDesktopWindow();
         let hdc = GetDC(hwnd);
         if hdc.0.is_null() {
-            return Err(AutomaticallyError::Capture("Failed to get screen DC".to_string()));
+            return Err(AutomaticallyError::Capture(
+                "Failed to get screen DC".to_string(),
+            ));
         }
         let width = GetDeviceCaps(hdc, HORZRES) as u32;
         let height = GetDeviceCaps(hdc, VERTRES) as u32;
@@ -331,7 +340,7 @@ fn get_screen_size_windows() -> Result<(u32, u32)> {
 /// Windows平台：最小化前台窗口
 #[cfg(target_os = "windows")]
 fn minimize_window_windows() -> Result<()> {
-    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, ShowWindow, SW_MINIMIZE};
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SW_MINIMIZE, ShowWindow};
 
     unsafe {
         let hwnd = GetForegroundWindow();
@@ -344,7 +353,7 @@ fn minimize_window_windows() -> Result<()> {
 #[cfg(target_os = "linux")]
 fn get_active_window_linux() -> Result<WindowInfo> {
     Err(AutomaticallyError::PlatformNotSupported(
-        "Linux active window detection requires xdotool".to_string()
+        "Linux active window detection requires xdotool".to_string(),
     ))
 }
 
@@ -352,7 +361,7 @@ fn get_active_window_linux() -> Result<WindowInfo> {
 #[cfg(target_os = "linux")]
 fn list_windows_linux() -> Result<Vec<WindowInfo>> {
     Err(AutomaticallyError::PlatformNotSupported(
-        "Linux window listing requires wmctrl".to_string()
+        "Linux window listing requires wmctrl".to_string(),
     ))
 }
 
@@ -360,7 +369,7 @@ fn list_windows_linux() -> Result<Vec<WindowInfo>> {
 #[cfg(target_os = "linux")]
 fn focus_window_linux(_title_contains: &str) -> Result<()> {
     Err(AutomaticallyError::PlatformNotSupported(
-        "Linux window focus requires xdotool".to_string()
+        "Linux window focus requires xdotool".to_string(),
     ))
 }
 
@@ -372,7 +381,9 @@ fn get_screen_size_linux() -> Result<(u32, u32)> {
     unsafe {
         let display = xlib::XOpenDisplay(std::ptr::null());
         if display.is_null() {
-            return Err(AutomaticallyError::Capture("Cannot open X display".to_string()));
+            return Err(AutomaticallyError::Capture(
+                "Cannot open X display".to_string(),
+            ));
         }
         let screen = xlib::XDefaultScreen(display);
         let width = xlib::XDisplayWidth(display, screen) as u32;
@@ -386,7 +397,7 @@ fn get_screen_size_linux() -> Result<(u32, u32)> {
 #[cfg(target_os = "linux")]
 fn minimize_window_linux() -> Result<()> {
     Err(AutomaticallyError::PlatformNotSupported(
-        "Linux window minimize requires xdotool".to_string()
+        "Linux window minimize requires xdotool".to_string(),
     ))
 }
 
@@ -394,7 +405,7 @@ fn minimize_window_linux() -> Result<()> {
 #[cfg(target_os = "macos")]
 fn get_active_window_macos() -> Result<WindowInfo> {
     Err(AutomaticallyError::PlatformNotSupported(
-        "macOS active window detection requires Accessibility API".to_string()
+        "macOS active window detection requires Accessibility API".to_string(),
     ))
 }
 
@@ -402,7 +413,7 @@ fn get_active_window_macos() -> Result<WindowInfo> {
 #[cfg(target_os = "macos")]
 fn list_windows_macos() -> Result<Vec<WindowInfo>> {
     Err(AutomaticallyError::PlatformNotSupported(
-        "macOS window listing requires Accessibility API".to_string()
+        "macOS window listing requires Accessibility API".to_string(),
     ))
 }
 
@@ -410,14 +421,14 @@ fn list_windows_macos() -> Result<Vec<WindowInfo>> {
 #[cfg(target_os = "macos")]
 fn focus_window_macos(_title_contains: &str) -> Result<()> {
     Err(AutomaticallyError::PlatformNotSupported(
-        "macOS window focus requires Accessibility API".to_string()
+        "macOS window focus requires Accessibility API".to_string(),
     ))
 }
 
 /// macOS平台：获取屏幕尺寸 — 使用CoreGraphics API
 #[cfg(target_os = "macos")]
 fn get_screen_size_macos() -> Result<(u32, u32)> {
-    use core_graphics::display::{CGMainDisplayID, CGDisplay};
+    use core_graphics::display::{CGDisplay, CGMainDisplayID};
 
     let display_id = CGMainDisplayID();
     let display = CGDisplay::new(display_id);
@@ -430,6 +441,6 @@ fn get_screen_size_macos() -> Result<(u32, u32)> {
 #[cfg(target_os = "macos")]
 fn minimize_window_macos() -> Result<()> {
     Err(AutomaticallyError::PlatformNotSupported(
-        "macOS window minimize requires Accessibility API".to_string()
+        "macOS window minimize requires Accessibility API".to_string(),
     ))
 }

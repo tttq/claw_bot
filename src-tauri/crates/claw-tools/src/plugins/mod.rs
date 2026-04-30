@@ -12,19 +12,19 @@
 //   ├── agent/      - Agent 编排 (agent, todo, task, workflow, skill...)
 //   └── misc/       - 杂项工具 (list_all, env, code_review...)
 
-pub mod shell;
-pub mod file;
-pub mod search;
-pub mod git;
-pub mod web;
 pub mod agent;
+pub mod file;
+pub mod git;
 pub mod misc;
+pub mod search;
+pub mod shell;
+pub mod web;
 
 // Re-export for backward compatibility
-pub use shell::*;
-pub use file::*;
-pub use search::*;
-pub use git::*;
-pub use web::*;
 pub use agent::*;
+pub use file::*;
+pub use git::*;
 pub use misc::*;
+pub use search::*;
+pub use shell::*;
+pub use web::*;

@@ -1,7 +1,7 @@
 // Claw Desktop - 内置技能 - 编译时嵌入的技能定义
-use include_dir::{include_dir, Dir};
-use std::path::Path;
+use include_dir::{Dir, include_dir};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 pub static BUNDLED_SKILLS_DIR: Dir<'static> = include_dir!("bundled-skills");
 
@@ -25,7 +25,14 @@ pub fn get_bundled_skills_dir() -> &'static Dir<'static> {
 pub fn list_bundled_skill_names() -> Vec<String> {
     let mut names = Vec::new();
     for entry in BUNDLED_SKILLS_DIR.dirs() {
-        names.push(entry.path().file_name().unwrap_or_default().to_string_lossy().to_string());
+        names.push(
+            entry
+                .path()
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
+        );
     }
     names.sort();
     names
@@ -44,23 +51,25 @@ pub fn get_bundled_skill_content(skill_name: &str) -> Option<String> {
 /// 获取所有内置技能列表 — 解析每个技能的SKILL.md并提取描述
 pub fn get_all_bundled_skills() -> Vec<BundledSkillInfo> {
     let mut skills = Vec::new();
-    
+
     for dir in BUNDLED_SKILLS_DIR.dirs() {
-        let skill_name = dir.path().file_name()
+        let skill_name = dir
+            .path()
+            .file_name()
             .unwrap_or_default()
             .to_string_lossy()
             .to_string();
-        
+
         let skill_md_path = Path::new(&skill_name).join("SKILL.md");
-        
+
         if let Some(file) = BUNDLED_SKILLS_DIR.get_file(&skill_md_path) {
             let content = match file.contents_utf8() {
                 Some(c) => c.to_string(),
                 None => continue,
             };
-            
+
             let description = extract_description_from_content(&content);
-            
+
             skills.push(BundledSkillInfo {
                 name: skill_name.clone(),
                 description,
@@ -69,7 +78,7 @@ pub fn get_all_bundled_skills() -> Vec<BundledSkillInfo> {
             });
         }
     }
-    
+
     skills.sort_by(|a, b| a.name.cmp(&b.name));
     skills
 }
@@ -77,23 +86,34 @@ pub fn get_all_bundled_skills() -> Vec<BundledSkillInfo> {
 /// 从SKILL.md内容中提取description字段 — 解析YAML frontmatter
 fn extract_description_from_content(content: &str) -> String {
     let frontmatter_start = content.find("---");
-    if frontmatter_start.is_none() { return String::new(); }
-    
+    if frontmatter_start.is_none() {
+        return String::new();
+    }
+
     let after_first = &content[frontmatter_start.unwrap() + 3..];
     let frontmatter_end = after_first.find("---");
-    if frontmatter_end.is_none() { return String::new(); }
-    
+    if frontmatter_end.is_none() {
+        return String::new();
+    }
+
     let yaml_str = &after_first[..frontmatter_end.unwrap()];
-    
+
     for line in yaml_str.lines() {
         let line = line.trim();
         if line.starts_with("description:") || line.starts_with("description :") {
-            let desc = line.trim_start_matches("description:").trim_start_matches("description :").trim();
-            let desc = desc.trim_start_matches('"').trim_end_matches('"').trim_start_matches('\'').trim_end_matches('\'');
+            let desc = line
+                .trim_start_matches("description:")
+                .trim_start_matches("description :")
+                .trim();
+            let desc = desc
+                .trim_start_matches('"')
+                .trim_end_matches('"')
+                .trim_start_matches('\'')
+                .trim_end_matches('\'');
             return desc.to_string();
         }
     }
-    
+
     String::new()
 }
 
@@ -113,8 +133,7 @@ pub async fn cmd_list_bundled_skills() -> Result<serde_json::Value, String> {
 /// Tauri命令：获取指定内置技能的内容
 #[tauri::command]
 pub async fn cmd_get_bundled_skill_content(name: String) -> Result<String, String> {
-    get_bundled_skill_content(&name)
-        .ok_or_else(|| format!("Bundled skill '{}' not found", name))
+    get_bundled_skill_content(&name).ok_or_else(|| format!("Bundled skill '{}' not found", name))
 }
 
 /// 导出内置技能到指定目录 — 跳过已存在的技能目录
@@ -138,10 +157,18 @@ pub fn export_bundled_skills(target_dir: &Path) -> Result<usize, String> {
         std::fs::write(&skill_md_path, &skill.content)
             .map_err(|e| format!("Failed to write skill '{}': {}", skill.name, e))?;
 
-        log::info!("[BundledSkills] Exported '{}' to {}", skill.name, skill_dir.display());
+        log::info!(
+            "[BundledSkills] Exported '{}' to {}",
+            skill.name,
+            skill_dir.display()
+        );
         count += 1;
     }
 
-    log::info!("[BundledSkills] Exported {} bundled skills to {}", count, target_dir.display());
+    log::info!(
+        "[BundledSkills] Exported {} bundled skills to {}",
+        count,
+        target_dir.display()
+    );
     Ok(count)
 }

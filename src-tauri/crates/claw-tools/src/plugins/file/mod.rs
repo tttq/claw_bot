@@ -9,18 +9,16 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const BINARY_EXTENSIONS: &[&str] = &[
-    "exe", "dll", "so", "dylib", "bin", "obj", "o", "lib", "a",
-    "png", "jpg", "jpeg", "gif", "bmp", "ico", "svg", "webp", "tiff", "tif",
-    "mp3", "mp4", "avi", "mov", "wav", "flac", "ogg", "mkv",
-    "zip", "tar", "gz", "bz2", "rar", "7z", "xz",
-    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
-    "woff", "woff2", "ttf", "otf", "eot",
-    "pyc", "pyo", "class", "jar", "war", "ear",
-    "sqlite", "db", "mdb",
-    "iso", "dmg", "vmdk", "vdi",
+    "exe", "dll", "so", "dylib", "bin", "obj", "o", "lib", "a", "png", "jpg", "jpeg", "gif", "bmp",
+    "ico", "svg", "webp", "tiff", "tif", "mp3", "mp4", "avi", "mov", "wav", "flac", "ogg", "mkv",
+    "zip", "tar", "gz", "bz2", "rar", "7z", "xz", "pdf", "doc", "docx", "xls", "xlsx", "ppt",
+    "pptx", "woff", "woff2", "ttf", "otf", "eot", "pyc", "pyo", "class", "jar", "war", "ear",
+    "sqlite", "db", "mdb", "iso", "dmg", "vmdk", "vdi",
 ];
 
-const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "bmp", "ico", "svg", "webp", "tiff", "tif"];
+const IMAGE_EXTENSIONS: &[&str] = &[
+    "png", "jpg", "jpeg", "gif", "bmp", "ico", "svg", "webp", "tiff", "tif",
+];
 
 const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024;
 const MAX_READ_LINES: usize = 2000;
@@ -43,7 +41,9 @@ fn is_image_file(path: &Path) -> bool {
 
 /// 检测内容是否为二进制数据 — 通过null字节密度判断
 fn looks_binary(content: &[u8]) -> bool {
-    if content.is_empty() { return false; }
+    if content.is_empty() {
+        return false;
+    }
     let check_len = content.len().min(8192);
     let null_count = content[..check_len].iter().filter(|&&b| b == 0).count();
     null_count > check_len / 100 || (check_len > 0 && null_count > 10)
@@ -59,15 +59,24 @@ fn format_file_size(bytes: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = 1024 * KB;
     const GB: u64 = 1024 * MB;
-    if bytes >= GB { format!("{:.2} GB", bytes as f64 / GB as f64) }
-    else if bytes >= MB { format!("{:.2} MB", bytes as f64 / MB as f64) }
-    else if bytes >= KB { format!("{:.2} KB", bytes as f64 / KB as f64) }
-    else { format!("{} B", bytes) }
+    if bytes >= GB {
+        format!("{:.2} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.2} MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.2} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{} B", bytes)
+    }
 }
 
 /// 文件读取工具 — 支持行范围、编码检测、二进制/图片处理、Token估算
 #[tauri::command]
-pub fn tool_read(file_path: String, offset: Option<u64>, limit: Option<u64>) -> Result<serde_json::Value, String> {
+pub fn tool_read(
+    file_path: String,
+    offset: Option<u64>,
+    limit: Option<u64>,
+) -> Result<serde_json::Value, String> {
     let path = PathBuf::from(&file_path);
 
     if !path.exists() {
@@ -83,7 +92,8 @@ pub fn tool_read(file_path: String, offset: Option<u64>, limit: Option<u64>) -> 
 
     let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
     let file_size = metadata.len();
-    let modified_time = metadata.modified()
+    let modified_time = metadata
+        .modified()
         .ok()
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_secs());
@@ -150,14 +160,21 @@ pub fn tool_read(file_path: String, offset: Option<u64>, limit: Option<u64>) -> 
 
     let end_line = (start_line + max_lines).min(total_lines);
     let lines: Vec<&str> = content.lines().collect();
-    let result_lines: Vec<String> = lines[start_line..end_line].iter().enumerate()
+    let result_lines: Vec<String> = lines[start_line..end_line]
+        .iter()
+        .enumerate()
         .map(|(i, line)| format!("{:>6}\u{2192}{}", start_line + i + 1, line))
         .collect();
 
     let truncated = end_line < total_lines;
     let output = if truncated {
-        format!("{}\n...(已截断，共 {} 行，显示第 {}-{} 行)",
-            result_lines.join("\n"), total_lines, start_line + 1, end_line)
+        format!(
+            "{}\n...(已截断，共 {} 行，显示第 {}-{} 行)",
+            result_lines.join("\n"),
+            total_lines,
+            start_line + 1,
+            end_line
+        )
     } else {
         result_lines.join("\n")
     };
@@ -169,7 +186,9 @@ pub fn tool_read(file_path: String, offset: Option<u64>, limit: Option<u64>) -> 
         total_lines,
         total_chars,
         total_tokens,
-        modified_time.map(|t| format!("{}", t)).unwrap_or_else(|| "未知".to_string())
+        modified_time
+            .map(|t| format!("{}", t))
+            .unwrap_or_else(|| "未知".to_string())
     );
 
     Ok(serde_json::json!({
@@ -188,7 +207,12 @@ pub fn tool_read(file_path: String, offset: Option<u64>, limit: Option<u64>) -> 
 }
 
 /// 处理图片文件读取 — 转为Base64编码并返回MIME类型
-fn handle_image_file(file_path: &str, path: &Path, file_size: u64, modified_time: Option<u64>) -> Result<serde_json::Value, String> {
+fn handle_image_file(
+    file_path: &str,
+    path: &Path,
+    file_size: u64,
+    modified_time: Option<u64>,
+) -> Result<serde_json::Value, String> {
     let raw_bytes = fs::read(path).map_err(|e| e.to_string())?;
     let base64_data = general_purpose::STANDARD.encode(&raw_bytes);
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("png");
@@ -199,7 +223,7 @@ fn handle_image_file(file_path: &str, path: &Path, file_size: u64, modified_time
         "svg" => "image/svg+xml",
         _ => "image/png",
     };
-    
+
     Ok(serde_json::json!({
         "tool": "Read", "success": true, "is_image": true,
         "output": format!(
@@ -217,17 +241,27 @@ fn handle_image_file(file_path: &str, path: &Path, file_size: u64, modified_time
 /// 建议相似文件 — 当目标文件不存在时，在同级目录搜索名称相近的文件
 fn suggest_similar_files(target: &str) -> Vec<String> {
     let target_path = Path::new(target);
-    let parent = match target_path.parent() { Some(p) => p, None => return vec![] };
-    let target_name = match target_path.file_name() { Some(n) => n.to_string_lossy().to_lowercase(), None => return vec![] };
+    let parent = match target_path.parent() {
+        Some(p) => p,
+        None => return vec![],
+    };
+    let target_name = match target_path.file_name() {
+        Some(n) => n.to_string_lossy().to_lowercase(),
+        None => return vec![],
+    };
 
     let mut suggestions = Vec::new();
     if let Ok(entries) = fs::read_dir(parent) {
         for entry in entries.flatten() {
             if let Ok(name) = entry.file_name().into_string() {
                 let name_lower = name.to_lowercase();
-                if name_lower != target_name && (name_lower.contains(&target_name) || target_name.contains(&name_lower)) {
+                if name_lower != target_name
+                    && (name_lower.contains(&target_name) || target_name.contains(&name_lower))
+                {
                     suggestions.push(format!("  {}", entry.path().display()));
-                    if suggestions.len() >= 5 { break; }
+                    if suggestions.len() >= 5 {
+                        break;
+                    }
                 }
             }
         }
@@ -235,16 +269,24 @@ fn suggest_similar_files(target: &str) -> Vec<String> {
     suggestions
 }
 
-use base64::{engine::general_purpose, Engine};
+use base64::{Engine, engine::general_purpose};
 
 /// 文件编辑工具 — 基于上下文的精确替换，支持多匹配和预览模式
 #[tauri::command]
-pub fn tool_edit(file_path: String, edits: serde_json::Value, dry_run: Option<bool>) -> Result<serde_json::Value, String> {
+pub fn tool_edit(
+    file_path: String,
+    edits: serde_json::Value,
+    dry_run: Option<bool>,
+) -> Result<serde_json::Value, String> {
     let path = PathBuf::from(&file_path);
     if !path.exists() {
-        return Ok(serde_json::json!({"tool": "Edit", "success": false, "output": format!("文件不存在: {}", file_path)}));
+        return Ok(
+            serde_json::json!({"tool": "Edit", "success": false, "output": format!("文件不存在: {}", file_path)}),
+        );
     }
-    let edit_list = edits.as_array().ok_or_else(|| "edits 必须是数组".to_string())?;
+    let edit_list = edits
+        .as_array()
+        .ok_or_else(|| "edits 必须是数组".to_string())?;
     if edit_list.is_empty() {
         return Err("编辑列表为空".to_string());
     }
@@ -254,45 +296,64 @@ pub fn tool_edit(file_path: String, edits: serde_json::Value, dry_run: Option<bo
     let mut errors = Vec::new();
 
     for (i, edit) in edit_list.iter().enumerate() {
-        let old_str = edit.get("old_string").and_then(|v| v.as_str())
+        let old_str = edit
+            .get("old_string")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| format!("edit[{}] 缺少 old_string", i))?;
-        let new_str = edit.get("new_string").and_then(|v| v.as_str()).unwrap_or("");
+        let new_str = edit
+            .get("new_string")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
 
         if content.contains(old_str) {
             content = content.replacen(old_str, new_str, 1);
             applied += 1;
         } else {
-            errors.push(format!("edit[{}]: 未找到 '{}'" , i, claw_types::truncate_str_safe(old_str, 30)));
+            errors.push(format!(
+                "edit[{}]: 未找到 '{}'",
+                i,
+                claw_types::truncate_str_safe(old_str, 30)
+            ));
         }
     }
 
     if dry_run.unwrap_or(false) {
-        return Ok(serde_json::json!({"tool": "Edit", "success": true, "output": format!(
-            "[预览] {} 组编辑 (共 {} 组): {}",
-            applied,
-            edit_list.len(),
-            if errors.is_empty() { "全部匹配".to_string() } else { format!("未匹配:\n{}", errors.join("\n")) }
-        )}));
+        return Ok(
+            serde_json::json!({"tool": "Edit", "success": true, "output": format!(
+                "[预览] {} 组编辑 (共 {} 组): {}",
+                applied,
+                edit_list.len(),
+                if errors.is_empty() { "全部匹配".to_string() } else { format!("未匹配:\n{}", errors.join("\n")) }
+            )}),
+        );
     }
 
     if applied > 0 {
         fs::write(&path, &content).map_err(|e| e.to_string())?;
-        Ok(serde_json::json!({"tool": "Edit", "success": true, "output": format!(
-            "成功! {} 组编辑已应用到 '{}'\n{}",
-            applied,
-            file_path,
-            if errors.is_empty() { String::new() } else { format!("警告:\n{}", errors.join("\n")) }
-        )}))
+        Ok(
+            serde_json::json!({"tool": "Edit", "success": true, "output": format!(
+                "成功! {} 组编辑已应用到 '{}'\n{}",
+                applied,
+                file_path,
+                if errors.is_empty() { String::new() } else { format!("警告:\n{}", errors.join("\n")) }
+            )}),
+        )
     } else {
-        Ok(serde_json::json!({"tool": "Edit", "success": false, "output": format!(
-            "0 组成功。未匹配:\n{}", errors.join("\n")
-        )}))
+        Ok(
+            serde_json::json!({"tool": "Edit", "success": false, "output": format!(
+                "0 组成功。未匹配:\n{}", errors.join("\n")
+            )}),
+        )
     }
 }
 
 /// 文件写入工具 — 创建或覆盖文件，支持自动创建目录
 #[tauri::command]
-pub fn tool_write(file_path: String, content: String, create_dirs: Option<bool>) -> Result<serde_json::Value, String> {
+pub fn tool_write(
+    file_path: String,
+    content: String,
+    create_dirs: Option<bool>,
+) -> Result<serde_json::Value, String> {
     let path = PathBuf::from(&file_path);
     if create_dirs.unwrap_or(true) {
         if let Some(parent) = path.parent() {
@@ -301,18 +362,24 @@ pub fn tool_write(file_path: String, content: String, create_dirs: Option<bool>)
     }
     fs::write(&path, &content).map_err(|e| e.to_string())?;
     let metadata = fs::metadata(&path).ok();
-    Ok(serde_json::json!({"tool": "Write", "success": true, "output": format!(
-        "已写入 '{}' ({} 字节, {} 行{})", 
-        file_path, content.len(), content.lines().count(),
-        metadata.map(|m| format!(", 实际大小: {}", m.len())).unwrap_or_default()
-    )}))
+    Ok(
+        serde_json::json!({"tool": "Write", "success": true, "output": format!(
+            "已写入 '{}' ({} 字节, {} 行{})",
+            file_path, content.len(), content.lines().count(),
+            metadata.map(|m| format!(", 实际大小: {}", m.len())).unwrap_or_default()
+        )}),
+    )
 }
 
 // ==================== WebSocket 适配函数 ====================
 
 /// WebSocket适配：读取文件
 pub async fn tool_read_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
-    let file_path = params.get("file_path").and_then(|v| v.as_str()).ok_or("Missing file_path")?.to_string();
+    let file_path = params
+        .get("file_path")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing file_path")?
+        .to_string();
     let offset = params.get("offset").and_then(|v| v.as_u64());
     let limit = params.get("limit").and_then(|v| v.as_u64());
     tool_read(file_path, offset, limit)
@@ -320,7 +387,11 @@ pub async fn tool_read_ws(params: &serde_json::Value) -> Result<serde_json::Valu
 
 /// WebSocket适配：编辑文件
 pub async fn tool_edit_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
-    let file_path = params.get("file_path").and_then(|v| v.as_str()).ok_or("Missing file_path")?.to_string();
+    let file_path = params
+        .get("file_path")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing file_path")?
+        .to_string();
     let edits = params.get("edits").cloned().ok_or("Missing edits")?;
     let dry_run = params.get("dry_run").and_then(|v| v.as_bool());
     tool_edit(file_path, edits, dry_run)
@@ -328,8 +399,16 @@ pub async fn tool_edit_ws(params: &serde_json::Value) -> Result<serde_json::Valu
 
 /// WebSocket适配：写入文件
 pub async fn tool_write_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
-    let file_path = params.get("file_path").and_then(|v| v.as_str()).ok_or("Missing file_path")?.to_string();
-    let content = params.get("content").and_then(|v| v.as_str()).ok_or("Missing content")?.to_string();
+    let file_path = params
+        .get("file_path")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing file_path")?
+        .to_string();
+    let content = params
+        .get("content")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing content")?
+        .to_string();
     let create_dirs = params.get("create_dirs").and_then(|v| v.as_bool());
     tool_write(file_path, content, create_dirs)
 }

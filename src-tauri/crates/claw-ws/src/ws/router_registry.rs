@@ -1,9 +1,5 @@
 // Claw Desktop - 路由注册表 - 管理所有路由处理器的注册
-use axum::{
-    middleware,
-    Router,
-    extract::Extension,
-};
+use axum::{Router, extract::Extension, middleware};
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -45,23 +41,26 @@ pub fn create_app_router(state: Arc<AppState>) -> Router {
         .layer(Extension(state));
 
     log::info!("[RouterRegistry] ✅ All 22 route modules merged successfully!");
-    
+
     app
 }
 
-pub async fn start_http_server(state: Arc<AppState>, port: u16) -> Result<u16, Box<dyn std::error::Error>> {
+pub async fn start_http_server(
+    state: Arc<AppState>,
+    port: u16,
+) -> Result<u16, Box<dyn std::error::Error>> {
     let app = create_app_router(state);
-    
+
     let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", port)).await?;
     let actual_port = listener.local_addr()?.port();
-    
+
     log::info!("[HTTP] Starting server on http://127.0.0.1:{}", actual_port);
-    
+
     tokio::spawn(async move {
         if let Err(e) = axum::serve(listener, app).await {
             log::error!("[HTTP] Server error: {}", e);
         }
     });
-    
+
     Ok(actual_port)
 }

@@ -27,7 +27,15 @@ pub trait LlmCaller: Send + Sync {
         image_base64: &str,
         is_openai: bool,
     ) -> Result<String, String> {
-        let _ = (api_key, base_url, model, system_prompt, user_message, image_base64, is_openai);
+        let _ = (
+            api_key,
+            base_url,
+            model,
+            system_prompt,
+            user_message,
+            image_base64,
+            is_openai,
+        );
         Err("Vision not supported by this LlmCaller implementation".to_string())
     }
 }

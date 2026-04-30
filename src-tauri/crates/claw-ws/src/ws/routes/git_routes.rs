@@ -1,9 +1,5 @@
 // Claw Desktop - Git路由 - 处理Git操作的WS请求
-use axum::{
-    extract::Extension,
-    routing::post,
-    Json, Router,
-};
+use axum::{Json, Router, extract::Extension, routing::post};
 use std::sync::Arc;
 
 use crate::adapters::tool_adapters as ws_adapters;

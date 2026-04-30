@@ -1,6 +1,6 @@
-﻿// Claw Desktop - 渠道处理器 - 处理渠道相关的WS消息
-use std::sync::{OnceLock, Arc};
+// Claw Desktop - 渠道处理器 - 处理渠道相关的WS消息
 use claw_channel::*;
+use std::sync::{Arc, OnceLock};
 
 static CHANNEL_REGISTRY: OnceLock<Arc<ChannelRegistry>> = OnceLock::new();
 
@@ -17,7 +17,9 @@ pub fn get_registry() -> Option<&'static ChannelRegistry> {
 // ====== Channel 管理路由 ======
 
 /// 处理渠道列表请求 — 返回已注册渠道和账号信息
-pub async fn handle_channel_list(_req: &crate::ws::protocol::WsRequest) -> Result<serde_json::Value, String> {
+pub async fn handle_channel_list(
+    _req: &crate::ws::protocol::WsRequest,
+) -> Result<serde_json::Value, String> {
     let registry = get_registry().ok_or("Channel registry not initialized")?;
 
     let channels: Vec<ChannelMeta> = registry.list_registered_channels().await;
@@ -32,7 +34,9 @@ pub async fn handle_channel_list(_req: &crate::ws::protocol::WsRequest) -> Resul
     }))
 }
 
-pub async fn handle_channel_status(req: &crate::ws::protocol::WsRequest) -> Result<serde_json::Value, String> {
+pub async fn handle_channel_status(
+    req: &crate::ws::protocol::WsRequest,
+) -> Result<serde_json::Value, String> {
     let account_id = req.params["account_id"]
         .as_str()
         .ok_or("Missing account_id")?;
@@ -46,7 +50,9 @@ pub async fn handle_channel_status(req: &crate::ws::protocol::WsRequest) -> Resu
     Ok(serde_json::to_value(status).map_err(|e| format!("{:?}", e))?)
 }
 
-pub async fn handle_channel_create_account(req: &crate::ws::protocol::WsRequest) -> Result<serde_json::Value, String> {
+pub async fn handle_channel_create_account(
+    req: &crate::ws::protocol::WsRequest,
+) -> Result<serde_json::Value, String> {
     let channel_type_str = req.params["channel_type"]
         .as_str()
         .ok_or("Missing channel_type")?;
@@ -74,9 +80,7 @@ pub async fn handle_channel_create_account(req: &crate::ws::protocol::WsRequest)
     };
 
     let registry = get_registry().ok_or("Channel registry not initialized")?;
-    let manager = registry
-        .config_manager()
-        .ok_or("Database not connected")?;
+    let manager = registry.config_manager().ok_or("Database not connected")?;
 
     manager
         .create_account(&account)
@@ -91,13 +95,13 @@ pub async fn handle_channel_create_account(req: &crate::ws::protocol::WsRequest)
     }))
 }
 
-pub async fn handle_channel_update_account(req: &crate::ws::protocol::WsRequest) -> Result<serde_json::Value, String> {
+pub async fn handle_channel_update_account(
+    req: &crate::ws::protocol::WsRequest,
+) -> Result<serde_json::Value, String> {
     let account_id = req.params["account_id"]
         .as_str()
         .ok_or("Missing account_id")?;
-    let name = req.params["name"]
-        .as_str()
-        .ok_or("Missing name")?;
+    let name = req.params["name"].as_str().ok_or("Missing name")?;
     let enabled = req.params["enabled"].as_bool().unwrap_or(true);
     let config_json = &req.params["config"];
 
@@ -119,8 +123,7 @@ pub async fn handle_channel_update_account(req: &crate::ws::protocol::WsRequest)
     }
 
     if let Some(dm_policy) = req.params.get("dm_policy") {
-        account.dm_policy =
-            serde_json::from_value(dm_policy.clone()).map_err(|e| e.to_string())?;
+        account.dm_policy = serde_json::from_value(dm_policy.clone()).map_err(|e| e.to_string())?;
     }
 
     if let Some(group_policy) = req.params.get("group_policy") {
@@ -143,7 +146,9 @@ pub async fn handle_channel_update_account(req: &crate::ws::protocol::WsRequest)
     Ok(serde_json::json!({ "success": true }))
 }
 
-pub async fn handle_channel_delete_account(req: &crate::ws::protocol::WsRequest) -> Result<serde_json::Value, String> {
+pub async fn handle_channel_delete_account(
+    req: &crate::ws::protocol::WsRequest,
+) -> Result<serde_json::Value, String> {
     let account_id = req.params["account_id"]
         .as_str()
         .ok_or("Missing account_id")?;
@@ -154,9 +159,7 @@ pub async fn handle_channel_delete_account(req: &crate::ws::protocol::WsRequest)
     let _ = registry.stop_account(account_id).await;
 
     // 删除配置
-    let manager = registry
-        .config_manager()
-        .ok_or("Database not connected")?;
+    let manager = registry.config_manager().ok_or("Database not connected")?;
 
     manager
         .delete_account(account_id)
@@ -168,18 +171,16 @@ pub async fn handle_channel_delete_account(req: &crate::ws::protocol::WsRequest)
     Ok(serde_json::json!({ "success": true }))
 }
 
-pub async fn handle_channel_toggle(req: &crate::ws::protocol::WsRequest) -> Result<serde_json::Value, String> {
+pub async fn handle_channel_toggle(
+    req: &crate::ws::protocol::WsRequest,
+) -> Result<serde_json::Value, String> {
     let account_id = req.params["account_id"]
         .as_str()
         .ok_or("Missing account_id")?;
-    let enabled = req.params["enabled"]
-        .as_bool()
-        .ok_or("Missing enabled")?;
+    let enabled = req.params["enabled"].as_bool().ok_or("Missing enabled")?;
 
     let registry = get_registry().ok_or("Channel registry not initialized")?;
-    let manager = registry
-        .config_manager()
-        .ok_or("Database not connected")?;
+    let manager = registry.config_manager().ok_or("Database not connected")?;
 
     if enabled {
         manager
@@ -198,7 +199,9 @@ pub async fn handle_channel_toggle(req: &crate::ws::protocol::WsRequest) -> Resu
     Ok(serde_json::json!({ "success": true }))
 }
 
-pub async fn handle_channel_test_connection(req: &crate::ws::protocol::WsRequest) -> Result<serde_json::Value, String> {
+pub async fn handle_channel_test_connection(
+    req: &crate::ws::protocol::WsRequest,
+) -> Result<serde_json::Value, String> {
     let account_id = req.params["account_id"]
         .as_str()
         .ok_or("Missing account_id")?;
@@ -218,19 +221,17 @@ pub async fn handle_channel_test_connection(req: &crate::ws::protocol::WsRequest
 
 // ====== Channel 消息路由 ======
 
-pub async fn handle_channel_send_message(req: &crate::ws::protocol::WsRequest) -> Result<serde_json::Value, String> {
+pub async fn handle_channel_send_message(
+    req: &crate::ws::protocol::WsRequest,
+) -> Result<serde_json::Value, String> {
     let account_id = req.params["account_id"]
         .as_str()
         .ok_or("Missing account_id")?;
     let target_id = req.params["target_id"]
         .as_str()
         .ok_or("Missing target_id")?;
-    let text = req.params["text"]
-        .as_str()
-        .ok_or("Missing text")?;
-    let chat_type_str = req.params["chat_type"]
-        .as_str()
-        .unwrap_or("direct");
+    let text = req.params["text"].as_str().ok_or("Missing text")?;
+    let chat_type_str = req.params["chat_type"].as_str().unwrap_or("direct");
 
     let chat_type = match chat_type_str {
         "group" => ChatType::Group,
@@ -251,7 +252,9 @@ pub async fn handle_channel_send_message(req: &crate::ws::protocol::WsRequest) -
         account_id.to_string(),
         target_id.to_string(),
         chat_type,
-        MessageContent::Text { text: text.to_string() },
+        MessageContent::Text {
+            text: text.to_string(),
+        },
     );
 
     let result: SendResult = registry
@@ -262,7 +265,9 @@ pub async fn handle_channel_send_message(req: &crate::ws::protocol::WsRequest) -
     Ok(serde_json::to_value(result).map_err(|e| format!("{:?}", e))?)
 }
 
-pub async fn handle_channel_get_schema(req: &crate::ws::protocol::WsRequest) -> Result<serde_json::Value, String> {
+pub async fn handle_channel_get_schema(
+    req: &crate::ws::protocol::WsRequest,
+) -> Result<serde_json::Value, String> {
     let channel_type_str = req.params["channel_type"]
         .as_str()
         .ok_or("Missing channel_type")?;

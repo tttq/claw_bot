@@ -1,10 +1,10 @@
-﻿// Claw Desktop - Agent MD - 从AGENTS.md加载Agent定义
+// Claw Desktop - Agent MD - 从AGENTS.md加载Agent定义
 use crate::harness::persona::sanitize_id;
 use crate::harness::types::AgentPersona;
+use log;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use log;
 
 /// Agent MD管理器 — 管理Agent的agent.md定义文件
 ///
@@ -40,10 +40,7 @@ impl AgentsMdManager {
 
         md.push_str(&format!("# {}\n\n", persona.display_name));
 
-        md.push_str(&format!(
-            "> Agent ID: `{}`\n\n",
-            persona.agent_id
-        ));
+        md.push_str(&format!("> Agent ID: `{}`\n\n", persona.agent_id));
 
         if !persona.personality_traits.is_empty() {
             md.push_str("## Personality\n\n");
@@ -59,10 +56,7 @@ impl AgentsMdManager {
         ));
 
         if !persona.expertise_domain.is_empty() {
-            md.push_str(&format!(
-                "## Expertise\n\n{}\n\n",
-                persona.expertise_domain
-            ));
+            md.push_str(&format!("## Expertise\n\n{}\n\n", persona.expertise_domain));
         }
 
         if !persona.behavior_constraints.is_empty() {
@@ -80,10 +74,7 @@ impl AgentsMdManager {
             ));
         }
 
-        md.push_str(&format!(
-            "## Language\n\n{}\n",
-            persona.language_preference
-        ));
+        md.push_str(&format!("## Language\n\n{}\n", persona.language_preference));
 
         md
     }
@@ -96,11 +87,9 @@ impl AgentsMdManager {
         }
 
         let content = self.generate_agent_md(persona);
-        fs::write(&path, &content)
-            .map_err(|e| format!("Failed to write agent.md: {}", e))?;
+        fs::write(&path, &content).map_err(|e| format!("Failed to write agent.md: {}", e))?;
 
-        self.cache
-            .insert(persona.agent_id.clone(), content);
+        self.cache.insert(persona.agent_id.clone(), content);
 
         log::info!(
             "[AgentsMdManager:save_agent_md] Saved agent.md for agent={}",
@@ -118,8 +107,7 @@ impl AgentsMdManager {
         let path = self.agent_md_path(agent_id);
         match fs::read_to_string(&path) {
             Ok(content) => {
-                self.cache
-                    .insert(agent_id.to_string(), content.clone());
+                self.cache.insert(agent_id.to_string(), content.clone());
                 Some(content)
             }
             Err(_) => None,
@@ -134,20 +122,16 @@ impl AgentsMdManager {
             return Ok(0);
         }
 
-        let entries = fs::read_dir(&self.base_dir)
-            .map_err(|e| format!("Failed to read base dir: {}", e))?;
+        let entries =
+            fs::read_dir(&self.base_dir).map_err(|e| format!("Failed to read base dir: {}", e))?;
 
         for entry in entries.flatten() {
             if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
                 let agent_md_path = entry.path().join("agent.md");
                 if agent_md_path.exists() {
-                    let agent_id = entry
-                        .file_name()
-                        .to_string_lossy()
-                        .to_string();
+                    let agent_id = entry.file_name().to_string_lossy().to_string();
                     if let Ok(content) = fs::read_to_string(&agent_md_path) {
-                        self.cache
-                            .insert(agent_id.clone(), content);
+                        self.cache.insert(agent_id.clone(), content);
                         refreshed += 1;
                     }
                 }

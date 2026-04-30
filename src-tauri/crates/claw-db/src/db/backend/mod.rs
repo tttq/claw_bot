@@ -1,10 +1,10 @@
 // Claw Desktop - 数据库后端抽象层
 // 定义数据库后端枚举（SQLite/PostgreSQL/Qdrant）、初始化结果/状态/表状态结构体，
 // 提供统一的初始化、状态检查、连接测试接口
-pub mod sqlite_backend;
 pub mod postgres_backend;
 pub mod qdrant_backend;
 pub mod schema_validator;
+pub mod sqlite_backend;
 
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
@@ -92,10 +92,15 @@ impl BackendInitializer {
     }
 
     /// 测试指定后端数据库连接
-    pub async fn test_connection(backend: &DatabaseBackend, config: &serde_json::Value) -> Result<bool, String> {
+    pub async fn test_connection(
+        backend: &DatabaseBackend,
+        config: &serde_json::Value,
+    ) -> Result<bool, String> {
         match backend {
             DatabaseBackend::Sqlite => sqlite_backend::SqliteBackend::test_connection(config).await,
-            DatabaseBackend::Postgres => postgres_backend::PostgresBackend::test_connection(config).await,
+            DatabaseBackend::Postgres => {
+                postgres_backend::PostgresBackend::test_connection(config).await
+            }
             DatabaseBackend::Qdrant => qdrant_backend::QdrantBackend::test_connection(config).await,
         }
     }
@@ -103,13 +108,14 @@ impl BackendInitializer {
 
 /// 获取主数据库连接 — 根据配置创建SQLite或PostgreSQL连接
 pub async fn get_main_db_connection() -> Result<DatabaseConnection, String> {
-    let config = claw_config::config::try_get_config()
-        .ok_or("Config not initialized")?;
+    let config = claw_config::config::try_get_config().ok_or("Config not initialized")?;
 
     match DatabaseBackend::from(config.database.backend.as_str()) {
         DatabaseBackend::Postgres => {
             let url = config.database.connection_url();
-            sea_orm::Database::connect(&url).await.map_err(|e| e.to_string())
+            sea_orm::Database::connect(&url)
+                .await
+                .map_err(|e| e.to_string())
         }
         _ => {
             let db_path = if config.database.sqlite.db_path.is_empty() {
@@ -118,7 +124,9 @@ pub async fn get_main_db_connection() -> Result<DatabaseConnection, String> {
                 std::path::PathBuf::from(&config.database.sqlite.db_path)
             };
             let url = format!("sqlite://{}?mode=rwc", db_path.display());
-            sea_orm::Database::connect(&url).await.map_err(|e| e.to_string())
+            sea_orm::Database::connect(&url)
+                .await
+                .map_err(|e| e.to_string())
         }
     }
 }

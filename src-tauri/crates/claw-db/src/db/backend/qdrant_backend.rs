@@ -8,8 +8,7 @@ pub struct QdrantBackend;
 impl QdrantBackend {
     /// 初始化Qdrant — 测试连接、确保集合存在（含向量维度配置）
     pub async fn initialize() -> Result<DatabaseInitResult, String> {
-        let config = claw_config::config::try_get_config()
-            .ok_or("Config not initialized")?;
+        let config = claw_config::config::try_get_config().ok_or("Config not initialized")?;
 
         if !config.database.is_qdrant() {
             return Err("Database backend is not qdrant".to_string());
@@ -26,7 +25,11 @@ impl QdrantBackend {
         let dim = claw_types::common::EMBEDDING_DIM;
         Self::ensure_collection(url, api_key, collection, dim).await?;
 
-        log::info!("[Qdrant] Initialization complete | collection={} dim={}", collection, dim);
+        log::info!(
+            "[Qdrant] Initialization complete | collection={} dim={}",
+            collection,
+            dim
+        );
 
         Ok(DatabaseInitResult {
             backend: "qdrant".to_string(),
@@ -34,21 +37,25 @@ impl QdrantBackend {
             tables_created: vec![collection.clone()],
             tables_repaired: vec![],
             vector_support: true,
-            message: format!("Qdrant initialized (collection={}, dim={})", collection, dim),
+            message: format!(
+                "Qdrant initialized (collection={}, dim={})",
+                collection, dim
+            ),
         })
     }
 
     /// 检查Qdrant状态 — 连接状态、集合是否存在
     pub async fn check_status() -> Result<DatabaseStatus, String> {
-        let config = claw_config::config::try_get_config()
-            .ok_or("Config not initialized")?;
+        let config = claw_config::config::try_get_config().ok_or("Config not initialized")?;
 
         let url = &config.database.qdrant.url;
         let collection = &config.database.qdrant.collection;
         let api_key = &config.database.qdrant.api_key;
 
         let connected = Self::test_qdrant_connection(url, api_key).await.is_ok();
-        let collection_exists = Self::collection_exists(url, api_key, collection).await.unwrap_or(false);
+        let collection_exists = Self::collection_exists(url, api_key, collection)
+            .await
+            .unwrap_or(false);
 
         let mut tables = Vec::new();
         tables.push(TableStatus {
@@ -70,7 +77,10 @@ impl QdrantBackend {
 
     /// 测试Qdrant连接 — 根据配置参数尝试健康检查
     pub async fn test_connection(config: &serde_json::Value) -> Result<bool, String> {
-        let url = config.get("url").and_then(|v| v.as_str()).unwrap_or("http://localhost:6333");
+        let url = config
+            .get("url")
+            .and_then(|v| v.as_str())
+            .unwrap_or("http://localhost:6333");
         let api_key = config.get("api_key").and_then(|v| v.as_str()).unwrap_or("");
         Self::test_qdrant_connection(url, api_key).await
     }
@@ -80,7 +90,8 @@ impl QdrantBackend {
         let client = reqwest::Client::new();
         let health_url = format!("{}/healthz", url);
 
-        let response = client.get(&health_url)
+        let response = client
+            .get(&health_url)
             .timeout(std::time::Duration::from_secs(5))
             .send()
             .await
@@ -94,11 +105,16 @@ impl QdrantBackend {
     }
 
     /// 检查集合是否存在 — 请求/collections/{name}端点
-    async fn collection_exists(url: &str, _api_key: &str, collection: &str) -> Result<bool, String> {
+    async fn collection_exists(
+        url: &str,
+        _api_key: &str,
+        collection: &str,
+    ) -> Result<bool, String> {
         let client = reqwest::Client::new();
         let check_url = format!("{}/collections/{}", url, collection);
 
-        let response = client.get(&check_url)
+        let response = client
+            .get(&check_url)
             .timeout(std::time::Duration::from_secs(5))
             .send()
             .await
@@ -108,7 +124,12 @@ impl QdrantBackend {
     }
 
     /// 确保集合存在 — 不存在则创建（配置向量维度和Cosine距离度量）
-    async fn ensure_collection(url: &str, _api_key: &str, collection: &str, dim: usize) -> Result<(), String> {
+    async fn ensure_collection(
+        url: &str,
+        _api_key: &str,
+        collection: &str,
+        dim: usize,
+    ) -> Result<(), String> {
         if Self::collection_exists(url, _api_key, collection).await? {
             log::info!("[Qdrant] Collection '{}' already exists", collection);
             return Ok(());
@@ -124,7 +145,8 @@ impl QdrantBackend {
             }
         });
 
-        let response = client.put(&create_url)
+        let response = client
+            .put(&create_url)
             .json(&body)
             .timeout(std::time::Duration::from_secs(10))
             .send()
@@ -137,7 +159,10 @@ impl QdrantBackend {
         } else {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
-            Err(format!("Qdrant create collection failed: {} - {}", status, text))
+            Err(format!(
+                "Qdrant create collection failed: {} - {}",
+                status, text
+            ))
         }
     }
 }

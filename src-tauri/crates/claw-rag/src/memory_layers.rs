@@ -173,7 +173,12 @@ pub struct LayerRetrievalResult {
 ///
 /// 规则：tool_knowledge/skill_knowledge → Procedural, world → Semantic,
 /// mental_model → Procedural, experience → Episodic, observation按重要性分层
-pub fn classify_to_layer(fact_type: &str, source_type: &str, tags: Option<&str>, importance_score: f64) -> MemoryLayer {
+pub fn classify_to_layer(
+    fact_type: &str,
+    source_type: &str,
+    tags: Option<&str>,
+    importance_score: f64,
+) -> MemoryLayer {
     if let Some(t) = tags {
         if t == "tool_knowledge" || t == "skill_knowledge" {
             return MemoryLayer::Procedural;
@@ -222,7 +227,12 @@ pub fn layer_to_fact_type_hint(layer: MemoryLayer) -> &'static str {
 /// 公式: decay × importance × access_boost
 /// decay = 2^(-days_elapsed / half_life_days)
 /// access_boost = 1 + ln(access_count) × 0.1
-pub fn calc_forgetting_score(occurred_at: i64, access_count: i32, importance_score: f64, half_life_days: f64) -> f64 {
+pub fn calc_forgetting_score(
+    occurred_at: i64,
+    access_count: i32,
+    importance_score: f64,
+    half_life_days: f64,
+) -> f64 {
     let now = chrono::Utc::now().timestamp();
     let days_elapsed = ((now - occurred_at) as f64) / 86400.0;
     let decay = 2.0_f64.powf(-days_elapsed / half_life_days);
@@ -378,12 +388,8 @@ impl LayerStats {
         self.total_importance += unit.importance_score;
 
         if let Some(t) = unit.occurred_at {
-            self.oldest_timestamp = Some(
-                self.oldest_timestamp.map_or(t, |old| old.min(t))
-            );
-            self.newest_timestamp = Some(
-                self.newest_timestamp.map_or(t, |old| old.max(t))
-            );
+            self.oldest_timestamp = Some(self.oldest_timestamp.map_or(t, |old| old.min(t)));
+            self.newest_timestamp = Some(self.newest_timestamp.map_or(t, |old| old.max(t)));
         }
 
         if let Some(expires_at) = unit.expires_at {

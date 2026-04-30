@@ -1,22 +1,22 @@
 // Claw Desktop - 系统路由 - 处理系统级WS请求
 use axum::{
+    Json, Router,
     extract::{Extension, Path, Query},
     routing::{get, post},
-    Json, Router,
 };
+use sea_orm::ColumnTrait;
+use sea_orm::EntityTrait;
+use sea_orm::PaginatorTrait;
+use sea_orm::QueryFilter;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use sea_orm::EntityTrait;
-use sea_orm::ColumnTrait;
-use sea_orm::QueryFilter;
-use sea_orm::PaginatorTrait;
 
-use claw_config::config::AppConfig;
 use crate::ws::app_state::AppState;
 use crate::ws::response::ApiResponse;
-use crate::ws::router::{get_config as get_app_config};
+use crate::ws::router::get_config as get_app_config;
 use crate::ws::router_trait::ClawRouter;
 use crate::ws::server::get_ws_port;
+use claw_config::config::AppConfig;
 
 /// 系统路由 — 处理系统管理/健康检查/数据库的WS请求
 pub struct SystemRoutes;
@@ -67,9 +67,21 @@ pub async fn export_data_to_path(
     };
     let mut export_data = serde_json::json!({"conversations": [], "messages": []});
     for conv in convs {
-        let msgs = claw_db::database::Database::get_messages(&conv.id).await.unwrap_or_default();
-        export_data["conversations"].as_array_mut().unwrap_or(&mut Vec::new()).push(serde_json::to_value(conv).unwrap_or(serde_json::Value::Null));
-        export_data["messages"].as_array_mut().unwrap_or(&mut Vec::new()).extend(msgs.into_iter().map(|m| serde_json::to_value(m).unwrap_or(serde_json::Value::Null)).collect::<Vec<_>>());
+        let msgs = claw_db::database::Database::get_messages(&conv.id)
+            .await
+            .unwrap_or_default();
+        export_data["conversations"]
+            .as_array_mut()
+            .unwrap_or(&mut Vec::new())
+            .push(serde_json::to_value(conv).unwrap_or(serde_json::Value::Null));
+        export_data["messages"]
+            .as_array_mut()
+            .unwrap_or(&mut Vec::new())
+            .extend(
+                msgs.into_iter()
+                    .map(|m| serde_json::to_value(m).unwrap_or(serde_json::Value::Null))
+                    .collect::<Vec<_>>(),
+            );
     }
     match serde_json::to_string_pretty(&export_data) {
         Ok(json_str) => match std::fs::write(&req.path, json_str) {
@@ -86,7 +98,10 @@ pub async fn export_with_dialog(
 ) -> Json<ApiResponse<serde_json::Value>> {
     let export_dir = claw_config::path_resolver::get_app_root().join("exports");
     let _ = std::fs::create_dir_all(&export_dir);
-    let filename = format!("claw_export_{}.json", chrono::Utc::now().format("%Y%m%d_%H%M%S"));
+    let filename = format!(
+        "claw_export_{}.json",
+        chrono::Utc::now().format("%Y%m%d_%H%M%S")
+    );
     let path = export_dir.join(&filename);
 
     let convs = match claw_db::database::Database::list_conversations().await {
@@ -95,15 +110,29 @@ pub async fn export_with_dialog(
     };
     let mut export_data = serde_json::json!({"conversations": [], "messages": []});
     for conv in convs {
-        let msgs = claw_db::database::Database::get_messages(&conv.id).await.unwrap_or_default();
-        export_data["conversations"].as_array_mut().unwrap_or(&mut Vec::new()).push(serde_json::to_value(conv).unwrap_or(serde_json::Value::Null));
-        export_data["messages"].as_array_mut().unwrap_or(&mut Vec::new()).extend(msgs.into_iter().map(|m| serde_json::to_value(m).unwrap_or(serde_json::Value::Null)).collect::<Vec<_>>());
+        let msgs = claw_db::database::Database::get_messages(&conv.id)
+            .await
+            .unwrap_or_default();
+        export_data["conversations"]
+            .as_array_mut()
+            .unwrap_or(&mut Vec::new())
+            .push(serde_json::to_value(conv).unwrap_or(serde_json::Value::Null));
+        export_data["messages"]
+            .as_array_mut()
+            .unwrap_or(&mut Vec::new())
+            .extend(
+                msgs.into_iter()
+                    .map(|m| serde_json::to_value(m).unwrap_or(serde_json::Value::Null))
+                    .collect::<Vec<_>>(),
+            );
     }
     match serde_json::to_string_pretty(&export_data) {
         Ok(json_str) => match std::fs::write(&path, json_str) {
             Ok(()) => {
                 log::info!("[SystemRoutes:export_with_dialog] Exported to {:?}", path);
-                Json(ApiResponse::ok(serde_json::json!({ "success": true, "path": path.to_string_lossy().to_string() })))
+                Json(ApiResponse::ok(
+                    serde_json::json!({ "success": true, "path": path.to_string_lossy().to_string() }),
+                ))
             }
             Err(e) => Json(ApiResponse::err(&e.to_string())),
         },
@@ -131,7 +160,10 @@ pub async fn import_data(
 
     if let Some(convs) = data.get("conversations").and_then(|v| v.as_array()) {
         for conv_val in convs {
-            let agent_id = conv_val.get("agent_id").and_then(|v| v.as_str()).map(String::from);
+            let agent_id = conv_val
+                .get("agent_id")
+                .and_then(|v| v.as_str())
+                .map(String::from);
             if let Ok(_) = claw_db::database::Database::create_conversation(agent_id).await {
                 imported_convs += 1;
             }
@@ -140,18 +172,36 @@ pub async fn import_data(
 
     if let Some(msgs) = data.get("messages").and_then(|v| v.as_array()) {
         for msg_val in msgs {
-            let conv_id = msg_val.get("conversation_id").and_then(|v| v.as_str()).unwrap_or("");
-            let role = msg_val.get("role").and_then(|v| v.as_str()).unwrap_or("user");
-            let content = msg_val.get("content").and_then(|v| v.as_str()).unwrap_or("");
+            let conv_id = msg_val
+                .get("conversation_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let role = msg_val
+                .get("role")
+                .and_then(|v| v.as_str())
+                .unwrap_or("user");
+            let content = msg_val
+                .get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             if !conv_id.is_empty() && !content.is_empty() {
-                if let Ok(_) = claw_db::database::Database::add_message(conv_id, role, content, None, None, None).await {
+                if let Ok(_) = claw_db::database::Database::add_message(
+                    conv_id, role, content, None, None, None,
+                )
+                .await
+                {
                     imported_msgs += 1;
                 }
             }
         }
     }
 
-    log::info!("[SystemRoutes:import_data] Imported {} conversations, {} messages from {}", imported_convs, imported_msgs, req.path);
+    log::info!(
+        "[SystemRoutes:import_data] Imported {} conversations, {} messages from {}",
+        imported_convs,
+        imported_msgs,
+        req.path
+    );
     Json(ApiResponse::ok(serde_json::json!({
         "success": true,
         "imported_conversations": imported_convs,
@@ -187,7 +237,9 @@ pub async fn get_db_stats(
     match claw_db::database::Database::list_conversations().await {
         Ok(convs) => {
             let msg_count: u64 = convs.iter().map(|c| c.message_count).sum();
-            Json(ApiResponse::ok(serde_json::json!({ "totalConversations": convs.len(), "totalMessages": msg_count })))
+            Json(ApiResponse::ok(
+                serde_json::json!({ "totalConversations": convs.len(), "totalMessages": msg_count }),
+            ))
         }
         Err(e) => Json(ApiResponse::err(&e.to_string())),
     }
@@ -203,8 +255,13 @@ pub async fn get_usage_stats(
         Err(e) => return Json(ApiResponse::err(&e.to_string())),
     };
     let filtered: Vec<_> = if let Some(ref aid) = query.agent_id {
-        convs.into_iter().filter(|c| c.agent_id.as_deref() == Some(aid)).collect()
-    } else { convs };
+        convs
+            .into_iter()
+            .filter(|c| c.agent_id.as_deref() == Some(aid))
+            .collect()
+    } else {
+        convs
+    };
     let mut total_input_tokens: i64 = 0;
     let mut total_output_tokens: i64 = 0;
     let mut total_messages: u64 = 0;
@@ -215,15 +272,22 @@ pub async fn get_usage_stats(
                 total_messages += 1;
                 if let Some(meta) = &m.metadata {
                     if let Ok(usage) = serde_json::from_str::<serde_json::Value>(meta) {
-                        if let Some(in_t) = usage.get("input_tokens").and_then(|v| v.as_i64()) { total_input_tokens += in_t; }
-                        if let Some(out_t) = usage.get("output_tokens").and_then(|v| v.as_i64()) { total_output_tokens += out_t; }
+                        if let Some(in_t) = usage.get("input_tokens").and_then(|v| v.as_i64()) {
+                            total_input_tokens += in_t;
+                        }
+                        if let Some(out_t) = usage.get("output_tokens").and_then(|v| v.as_i64()) {
+                            total_output_tokens += out_t;
+                        }
                     }
                 }
-                if let Some(model) = &m.model { *model_counts.entry(model.clone()).or_insert(0) += 1; }
+                if let Some(model) = &m.model {
+                    *model_counts.entry(model.clone()).or_insert(0) += 1;
+                }
             }
         }
     }
-    let total_cost: f64 = (total_input_tokens as f64 / 1_000_000.0) * 3.0 + (total_output_tokens as f64 / 1_000_000.0) * 15.0;
+    let total_cost: f64 = (total_input_tokens as f64 / 1_000_000.0) * 3.0
+        + (total_output_tokens as f64 / 1_000_000.0) * 15.0;
     Json(ApiResponse::ok(serde_json::json!({
         "conversationCount": filtered.len(), "messageCount": total_messages,
         "inputTokens": total_input_tokens, "outputTokens": total_output_tokens,
@@ -263,27 +327,35 @@ pub async fn run_doctor_check(
     Extension(_state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     let config = get_app_config().await;
-    let mut api_key_ok = !config.model.custom_api_key.is_empty() || !config.api.api_key.is_empty()
-        || std::env::var("ANTHROPIC_API_KEY").is_ok() || std::env::var("OPENAI_API_KEY").is_ok();
+    let mut api_key_ok = !config.model.custom_api_key.is_empty()
+        || !config.api.api_key.is_empty()
+        || std::env::var("ANTHROPIC_API_KEY").is_ok()
+        || std::env::var("OPENAI_API_KEY").is_ok();
 
     if !api_key_ok {
         let db = claw_db::get_db().await;
         use claw_db::db::agent_entities::agent_configs::Entity as AgentConfigs;
-        use sea_orm::{EntityTrait, QueryFilter, ColumnTrait};
+        use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
         match AgentConfigs::find()
-                .filter(claw_db::db::agent_entities::agent_configs::Column::ConfigKey.eq("agent_model_key"))
-                .all(db).await
-            {
-                Ok(agent_keys) => {
-                    for ak in agent_keys {
-                        if !ak.config_value.is_empty() && ak.config_value != "null" && ak.config_value != "undefined" {
-                            api_key_ok = true;
-                            break;
-                        }
+            .filter(
+                claw_db::db::agent_entities::agent_configs::Column::ConfigKey.eq("agent_model_key"),
+            )
+            .all(db)
+            .await
+        {
+            Ok(agent_keys) => {
+                for ak in agent_keys {
+                    if !ak.config_value.is_empty()
+                        && ak.config_value != "null"
+                        && ak.config_value != "undefined"
+                    {
+                        api_key_ok = true;
+                        break;
                     }
                 }
-                Err(_) => {}
             }
+            Err(_) => {}
+        }
     }
 
     Json(ApiResponse::ok(serde_json::json!([
@@ -297,8 +369,13 @@ pub async fn test_connection(
     Extension(_state): Extension<Arc<AppState>>,
     Json(body): Json<serde_json::Value>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let config_value = body.get("config").ok_or_else(|| Json(ApiResponse::err("Missing config parameter")));
-    let config_value = match config_value { Ok(v) => v, Err(e) => return e };
+    let config_value = body
+        .get("config")
+        .ok_or_else(|| Json(ApiResponse::err("Missing config parameter")));
+    let config_value = match config_value {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
 
     let mut config: AppConfig = match serde_json::from_value(config_value.clone()) {
         Ok(c) => c,
@@ -353,9 +430,20 @@ pub async fn compact_conversation(
     Extension(_state): Extension<Arc<AppState>>,
     Json(req): Json<CompactConversationRequest>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let model_name = req.model_name.unwrap_or_else(|| "claude-sonnet-4".to_string());
-    match claw_rag::rag::compact_conversation_if_needed(&req.conversation_id, None, &model_name, None).await {
-        Ok(compacted) => Json(ApiResponse::ok(serde_json::json!({ "success": true, "compacted": compacted }))),
+    let model_name = req
+        .model_name
+        .unwrap_or_else(|| "claude-sonnet-4".to_string());
+    match claw_rag::rag::compact_conversation_if_needed(
+        &req.conversation_id,
+        None,
+        &model_name,
+        None,
+    )
+    .await
+    {
+        Ok(compacted) => Json(ApiResponse::ok(
+            serde_json::json!({ "success": true, "compacted": compacted }),
+        )),
         Err(e) => Json(ApiResponse::err(&e.to_string())),
     }
 }
@@ -373,9 +461,20 @@ pub async fn rag_compact(
     Extension(_state): Extension<Arc<AppState>>,
     Json(req): Json<RagCompactRequest>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let model_name = req.model_name.unwrap_or_else(|| "claude-sonnet-4".to_string());
-    match claw_rag::rag::compact_conversation_if_needed(&req.conversation_id, None, &model_name, None).await {
-        Ok(compacted) => Json(ApiResponse::ok(serde_json::json!({ "compacted": compacted }))),
+    let model_name = req
+        .model_name
+        .unwrap_or_else(|| "claude-sonnet-4".to_string());
+    match claw_rag::rag::compact_conversation_if_needed(
+        &req.conversation_id,
+        None,
+        &model_name,
+        None,
+    )
+    .await
+    {
+        Ok(compacted) => Json(ApiResponse::ok(
+            serde_json::json!({ "compacted": compacted }),
+        )),
         Err(e) => Json(ApiResponse::err(&e.to_string())),
     }
 }
@@ -407,7 +506,9 @@ pub async fn get_compaction_threshold(
 ) -> Json<ApiResponse<serde_json::Value>> {
     let threshold = claw_rag::rag::calc_compaction_threshold(&query.model_name, None);
     let ctx_window = claw_rag::rag::get_model_context_window(&query.model_name);
-    Json(ApiResponse::ok(serde_json::json!({ "model": query.model_name, "context_window": ctx_window, "compaction_threshold": threshold })))
+    Json(ApiResponse::ok(
+        serde_json::json!({ "model": query.model_name, "context_window": ctx_window, "compaction_threshold": threshold }),
+    ))
 }
 
 /// 压缩所有记忆
@@ -420,7 +521,10 @@ pub async fn compact_all_memories(
             "agents_compacted": count,
             "message": format!("Memory compaction completed for {} agents", count)
         }))),
-        Err(e) => Json(ApiResponse::err(&format!("Memory compaction failed: {}", e))),
+        Err(e) => Json(ApiResponse::err(&format!(
+            "Memory compaction failed: {}",
+            e
+        ))),
     }
 }
 
@@ -431,7 +535,8 @@ pub async fn get_memory_stats(
     let db = claw_db::db::get_db().await;
 
     let total: u64 = match claw_db::db::entities::memory_units::Entity::find()
-        .count(db).await
+        .count(db)
+        .await
     {
         Ok(c) => c,
         Err(_) => 0,
@@ -439,7 +544,8 @@ pub async fn get_memory_stats(
 
     let tool_memories: u64 = match claw_db::db::entities::memory_units::Entity::find()
         .filter(claw_db::db::entities::memory_units::Column::SourceType.eq("tool_init"))
-        .count(db).await
+        .count(db)
+        .await
     {
         Ok(c) => c,
         Err(_) => 0,
@@ -447,7 +553,8 @@ pub async fn get_memory_stats(
 
     let compaction_memories: u64 = match claw_db::db::entities::memory_units::Entity::find()
         .filter(claw_db::db::entities::memory_units::Column::SourceType.eq("compaction"))
-        .count(db).await
+        .count(db)
+        .await
     {
         Ok(c) => c,
         Err(_) => 0,
@@ -475,7 +582,9 @@ pub async fn get_ws_url(
     Extension(_state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match get_ws_port() {
-        Some(port) => Json(ApiResponse::ok(serde_json::json!({ "url": format!("ws://127.0.0.1:{}", port) }))),
+        Some(port) => Json(ApiResponse::ok(
+            serde_json::json!({ "url": format!("ws://127.0.0.1:{}", port) }),
+        )),
         None => Json(ApiResponse::err("WebSocket server not started")),
     }
 }
@@ -490,7 +599,9 @@ pub async fn get_database_status(
 
     let backend = claw_db::db::backend::DatabaseBackend::from(backend_type.as_str());
     match claw_db::db::backend::BackendInitializer::check_status(&backend).await {
-        Ok(status) => Json(ApiResponse::ok(serde_json::to_value(status).unwrap_or(serde_json::Value::Null))),
+        Ok(status) => Json(ApiResponse::ok(
+            serde_json::to_value(status).unwrap_or(serde_json::Value::Null),
+        )),
         Err(e) => Json(ApiResponse::err(&e)),
     }
 }
@@ -510,7 +621,9 @@ pub async fn initialize_database(
                 config.database.initialized = true;
                 let _ = config.save(claw_config::path_resolver::get_app_root());
             }
-            Json(ApiResponse::ok(serde_json::to_value(result).unwrap_or(serde_json::Value::Null)))
+            Json(ApiResponse::ok(
+                serde_json::to_value(result).unwrap_or(serde_json::Value::Null),
+            ))
         }
         Err(e) => Json(ApiResponse::err(&e)),
     }
@@ -521,7 +634,8 @@ pub async fn test_database_connection(
     Extension(_state): Extension<Arc<AppState>>,
     Json(params): Json<serde_json::Value>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let backend_type = params.get("backend")
+    let backend_type = params
+        .get("backend")
         .and_then(|v| v.as_str())
         .unwrap_or("sqlite")
         .to_string();
@@ -538,7 +652,9 @@ pub async fn get_database_config(
     Extension(_state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match claw_config::config::get_config().await {
-        Ok(config) => Json(ApiResponse::ok(serde_json::to_value(&config.database).unwrap_or(serde_json::Value::Null))),
+        Ok(config) => Json(ApiResponse::ok(
+            serde_json::to_value(&config.database).unwrap_or(serde_json::Value::Null),
+        )),
         Err(e) => Json(ApiResponse::err(&e)),
     }
 }
@@ -573,7 +689,9 @@ pub async fn check_database_initialized(
     let initialized = claw_config::config::try_get_config()
         .map(|c| c.database.initialized)
         .unwrap_or(false);
-    Json(ApiResponse::ok(serde_json::json!({ "initialized": initialized })))
+    Json(ApiResponse::ok(
+        serde_json::json!({ "initialized": initialized }),
+    ))
 }
 
 impl ClawRouter for SystemRoutes {
@@ -590,21 +708,33 @@ impl ClawRouter for SystemRoutes {
             .route("/api/system/doctor", get(run_doctor_check))
             .route("/api/system/test-connection", post(test_connection))
             .route("/api/system/logout", post(logout))
-            .route("/api/conversations/:id/clear", post(clear_conversation_messages))
+            .route(
+                "/api/conversations/:id/clear",
+                post(clear_conversation_messages),
+            )
             .route("/api/conversations/compact", post(compact_conversation))
             .route("/api/rag/compact", post(rag_compact))
             .route("/api/conversations/:id/cancel-stream", post(cancel_stream))
             .route("/api/memory/user-profile", get(get_user_profile))
-            .route("/api/memory/compaction-threshold", get(get_compaction_threshold))
+            .route(
+                "/api/memory/compaction-threshold",
+                get(get_compaction_threshold),
+            )
             .route("/api/memory/compact-all", post(compact_all_memories))
             .route("/api/memory/stats", get(get_memory_stats))
             .route("/api/system/metrics", get(get_ws_metrics))
             .route("/api/ws/url", get(get_ws_url))
             .route("/api/database/status", get(get_database_status))
             .route("/api/database/initialize", post(initialize_database))
-            .route("/api/database/test-connection", post(test_database_connection))
+            .route(
+                "/api/database/test-connection",
+                post(test_database_connection),
+            )
             .route("/api/database/config", get(get_database_config))
             .route("/api/database/config", post(update_database_config))
-            .route("/api/database/is-initialized", get(check_database_initialized))
+            .route(
+                "/api/database/is-initialized",
+                get(check_database_initialized),
+            )
     }
 }

@@ -12,20 +12,22 @@
 //   tool_loop.rs     - 工具循环主逻辑 + 工具执行 + 结果处理
 //   llm.rs           - 入口: 类型定义 + 公共API + 辅助函数
 
-pub mod constants;
-pub mod loop_detector;
-pub mod credential_pool;
-pub mod error_classifier;
 pub mod api_client;
-pub mod streaming;
-pub mod prompt_builder;
-pub mod tool_loop;
-pub mod llm;
+pub mod constants;
+pub mod credential_pool;
 pub mod engine;
+pub mod error_classifier;
+pub mod llm;
+pub mod loop_detector;
+pub mod prompt_builder;
+pub mod streaming;
+pub mod tool_loop;
 
 pub use constants::*;
-pub use loop_detector::{LoopDetector, LoopStatus};
 pub use credential_pool::CredentialPool;
-pub use error_classifier::{LlmErrorType, ErrorClassification};
 pub use engine::LlmEngine;
-pub use llm::{ChatResponse, send_chat_message, send_chat_message_streaming, test_llm_connection_detailed};
+pub use error_classifier::{ErrorClassification, LlmErrorType};
+pub use llm::{
+    ChatResponse, send_chat_message, send_chat_message_streaming, test_llm_connection_detailed,
+};
+pub use loop_detector::{LoopDetector, LoopStatus};

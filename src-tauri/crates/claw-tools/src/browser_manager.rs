@@ -1,6 +1,6 @@
 // Claw Desktop - 浏览器管理器 - 管理CDP浏览器实例
-use std::process::Command;
 use serde::{Deserialize, Serialize};
+use std::process::Command;
 
 /// 浏览器信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,7 +85,10 @@ fn get_windows_chrome_paths() -> Vec<String> {
     }
 
     if let Ok(output) = Command::new("reg")
-        .args(["query", "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe"])
+        .args([
+            "query",
+            "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe",
+        ])
         .output()
     {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -140,7 +143,13 @@ fn get_chrome_version(path: &str) -> Option<String> {
     #[cfg(target_os = "windows")]
     {
         if let Ok(output) = Command::new("powershell")
-            .args(["-Command", &format!("(Get-Item '{}').VersionInfo.FileVersion", path.replace("'", "''"))])
+            .args([
+                "-Command",
+                &format!(
+                    "(Get-Item '{}').VersionInfo.FileVersion",
+                    path.replace("'", "''")
+                ),
+            ])
             .output()
         {
             let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -154,12 +163,21 @@ fn get_chrome_version(path: &str) -> Option<String> {
 }
 
 /// 启动Chrome并开启远程调试端口 — 返回实际绑定的调试端口
-pub fn launch_chrome_with_debugging(browser_path: &str, config: &ChromeLaunchConfig) -> Result<u16, String> {
-    log::info!("[Browser] Launching Chrome with debugging on port {}", config.remote_debugging_port);
+pub fn launch_chrome_with_debugging(
+    browser_path: &str,
+    config: &ChromeLaunchConfig,
+) -> Result<u16, String> {
+    log::info!(
+        "[Browser] Launching Chrome with debugging on port {}",
+        config.remote_debugging_port
+    );
 
     let mut args: Vec<String> = Vec::new();
 
-    args.push(format!("--remote-debugging-port={}", config.remote_debugging_port));
+    args.push(format!(
+        "--remote-debugging-port={}",
+        config.remote_debugging_port
+    ));
 
     if config.headless {
         args.push("--headless=new".to_string());
@@ -188,27 +206,22 @@ pub fn launch_chrome_with_debugging(browser_path: &str, config: &ChromeLaunchCon
     args.push("--first-run=no".to_string());
     args.push("--no-default-browser-check".to_string());
 
-    match Command::new(browser_path)
-        .args(&args)
-        .spawn()
-    {
+    match Command::new(browser_path).args(&args).spawn() {
         Ok(_) => {
             log::info!("[Browser] Chrome launched successfully");
             Ok(config.remote_debugging_port)
         }
-        Err(e) => Err(format!("Failed to launch Chrome: {}", e))
+        Err(e) => Err(format!("Failed to launch Chrome: {}", e)),
     }
 }
 
 /// 检查调试端口是否可用 — 尝试TCP连接
 pub fn check_debug_port(port: u16) -> Result<bool, String> {
     use std::net::TcpStream;
-    let addr = format!("127.0.0.1:{}", port).parse()
+    let addr = format!("127.0.0.1:{}", port)
+        .parse()
         .map_err(|e| format!("Failed to parse address: {}", e))?;
-    match TcpStream::connect_timeout(
-        &addr,
-        std::time::Duration::from_millis(500),
-    ) {
+    match TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(500)) {
         Ok(_) => Ok(true),
         Err(_) => Ok(false),
     }
@@ -219,12 +232,10 @@ pub async fn fetch_cdp_version(port: u16) -> Result<serde_json::Value, String> {
     let url = format!("http://127.0.0.1:{}/json/version", port);
 
     match reqwest::get(&url).await {
-        Ok(response) => {
-            match response.json::<serde_json::Value>().await {
-                Ok(json) => Ok(json),
-                Err(e) => Err(format!("Failed to parse CDP response: {}", e)),
-            }
-        }
+        Ok(response) => match response.json::<serde_json::Value>().await {
+            Ok(json) => Ok(json),
+            Err(e) => Err(format!("Failed to parse CDP response: {}", e)),
+        },
         Err(e) => Err(format!("Failed to connect to CDP endpoint: {}", e)),
     }
 }
@@ -234,25 +245,27 @@ pub async fn list_browser_tabs(port: u16) -> Result<Vec<BrowserTab>, String> {
     let url = format!("http://127.0.0.1:{}/json/list", port);
 
     match reqwest::get(&url).await {
-        Ok(response) => {
-            match response.json::<Vec<serde_json::Value>>().await {
-                Ok(tabs) => {
-                    let result: Vec<BrowserTab> = tabs.iter()
-                        .filter_map(|tab| {
-                            Some(BrowserTab {
-                                id: tab.get("id")?.as_str()?.to_string(),
-                                url: tab.get("url")?.as_str().unwrap_or("").to_string(),
-                                title: tab.get("title")?.as_str().unwrap_or("Untitled").to_string(),
-                                web_socket_url: tab.get("webSocketDebuggerUrl")?.as_str()?.to_string(),
-                                devtools_url: tab.get("devtoolsFrontendUrl")?.as_str().map(|s| s.to_string()),
-                            })
+        Ok(response) => match response.json::<Vec<serde_json::Value>>().await {
+            Ok(tabs) => {
+                let result: Vec<BrowserTab> = tabs
+                    .iter()
+                    .filter_map(|tab| {
+                        Some(BrowserTab {
+                            id: tab.get("id")?.as_str()?.to_string(),
+                            url: tab.get("url")?.as_str().unwrap_or("").to_string(),
+                            title: tab.get("title")?.as_str().unwrap_or("Untitled").to_string(),
+                            web_socket_url: tab.get("webSocketDebuggerUrl")?.as_str()?.to_string(),
+                            devtools_url: tab
+                                .get("devtoolsFrontendUrl")?
+                                .as_str()
+                                .map(|s| s.to_string()),
                         })
-                        .collect();
-                    Ok(result)
-                }
-                Err(e) => Err(format!("Failed to parse tabs: {}", e)),
+                    })
+                    .collect();
+                Ok(result)
             }
-        }
+            Err(e) => Err(format!("Failed to parse tabs: {}", e)),
+        },
         Err(e) => Err(format!("Failed to list tabs: {}", e)),
     }
 }

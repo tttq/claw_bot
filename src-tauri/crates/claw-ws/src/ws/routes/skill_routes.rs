@@ -1,17 +1,17 @@
 // Claw Desktop - 技能路由 - 处理技能管理的WS请求
 use axum::{
+    Json, Router,
     extract::{Extension, Path, Query},
     routing::{get, post},
-    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use claw_tools::skills;
+use super::skill_installer;
 use crate::ws::app_state::AppState;
 use crate::ws::response::ApiResponse;
 use crate::ws::router_trait::ClawRouter;
-use super::skill_installer;
+use claw_tools::skills;
 
 /// 技能路由 — 处理技能执行/安装/市场的WS请求
 pub struct SkillRoutes;
@@ -38,7 +38,9 @@ pub struct InstallSkillRequest {
 }
 
 /// 默认版本 — latest
-fn default_version() -> String { "1.0.0".to_string() }
+fn default_version() -> String {
+    "1.0.0".to_string()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -57,14 +59,22 @@ pub struct MarketplaceListQuery {
 }
 
 /// 默认页码 — 1
-fn default_page() -> u16 { 1 }
+fn default_page() -> u16 {
+    1
+}
 /// 默认每页数量 — 20
 /// 默认页码 — 1
-fn default_page_size() -> u16 { 24 }
+fn default_page_size() -> u16 {
+    24
+}
 /// 默认排序 — updated
-fn default_sort_by() -> String { "score".to_string() }
+fn default_sort_by() -> String {
+    "score".to_string()
+}
 /// 默认排序方向 — desc
-fn default_order() -> String { "desc".to_string() }
+fn default_order() -> String {
+    "desc".to_string()
+}
 
 pub async fn skill_list(
     Extension(_state): Extension<Arc<AppState>>,
@@ -161,11 +171,22 @@ pub async fn skill_marketplace_list(
 ) -> Json<ApiResponse<serde_json::Value>> {
     let mut url = format!(
         "https://api.skillhub.cn/api/skills?page={}&pageSize={}&sortBy={}&order={}",
-        query.page, query.page_size, urlencoding::encode(&query.sort_by), urlencoding::encode(&query.order)
+        query.page,
+        query.page_size,
+        urlencoding::encode(&query.sort_by),
+        urlencoding::encode(&query.order)
     );
-    
-    if let Some(ref k) = query.keyword { if !k.is_empty() { url.push_str(&format!("&keyword={}", urlencoding::encode(k))); } }
-    if let Some(ref c) = query.category { if !c.is_empty() { url.push_str(&format!("&category={}", urlencoding::encode(c))); } }
+
+    if let Some(ref k) = query.keyword {
+        if !k.is_empty() {
+            url.push_str(&format!("&keyword={}", urlencoding::encode(k)));
+        }
+    }
+    if let Some(ref c) = query.category {
+        if !c.is_empty() {
+            url.push_str(&format!("&category={}", urlencoding::encode(c)));
+        }
+    }
 
     log::info!("[SkillMarketplace] Proxying: {}", url);
     let client = match reqwest::Client::builder()
@@ -173,21 +194,33 @@ pub async fn skill_marketplace_list(
         .build()
     {
         Ok(c) => c,
-        Err(e) => return Json(ApiResponse::err(&format!("Failed to build HTTP client: {}", e))),
+        Err(e) => {
+            return Json(ApiResponse::err(&format!(
+                "Failed to build HTTP client: {}",
+                e
+            )));
+        }
     };
-    
-    match client.get(&url)
+
+    match client
+        .get(&url)
         .header("Accept", "application/json")
         .send()
         .await
     {
         Ok(resp) => {
             if !resp.status().is_success() {
-                return Json(ApiResponse::err(&format!("API returned HTTP {}", resp.status())));
+                return Json(ApiResponse::err(&format!(
+                    "API returned HTTP {}",
+                    resp.status()
+                )));
             }
             match resp.json().await {
                 Ok(data) => Json(ApiResponse::ok(data)),
-                Err(e) => Json(ApiResponse::err(&format!("Failed to parse response: {}", e))),
+                Err(e) => Json(ApiResponse::err(&format!(
+                    "Failed to parse response: {}",
+                    e
+                ))),
             }
         }
         Err(e) => Json(ApiResponse::err(&format!("Request failed: {}", e))),
@@ -206,21 +239,33 @@ pub async fn skill_marketplace_files(
         .build()
     {
         Ok(c) => c,
-        Err(e) => return Json(ApiResponse::err(&format!("Failed to build HTTP client: {}", e))),
+        Err(e) => {
+            return Json(ApiResponse::err(&format!(
+                "Failed to build HTTP client: {}",
+                e
+            )));
+        }
     };
-    
-    match client.get(&url)
+
+    match client
+        .get(&url)
         .header("Accept", "application/json")
         .send()
         .await
     {
         Ok(resp) => {
             if !resp.status().is_success() {
-                return Json(ApiResponse::err(&format!("API returned HTTP {}", resp.status())));
+                return Json(ApiResponse::err(&format!(
+                    "API returned HTTP {}",
+                    resp.status()
+                )));
             }
             match resp.json().await {
                 Ok(data) => Json(ApiResponse::ok(data)),
-                Err(e) => Json(ApiResponse::err(&format!("Failed to parse response: {}", e))),
+                Err(e) => Json(ApiResponse::err(&format!(
+                    "Failed to parse response: {}",
+                    e
+                ))),
             }
         }
         Err(e) => Json(ApiResponse::err(&format!("Request failed: {}", e))),
@@ -234,9 +279,15 @@ impl ClawRouter for SkillRoutes {
             .route("/api/skills/execute", get(skill_execute))
             .route("/api/skills/install", post(skill_install))
             .route("/api/skills/marketplace", get(skill_marketplace_list))
-            .route("/api/skills/marketplace/:slug/files", get(skill_marketplace_files))
+            .route(
+                "/api/skills/marketplace/:slug/files",
+                get(skill_marketplace_files),
+            )
             .route("/api/skills/permission/add", post(skill_permission_add))
-            .route("/api/skills/permission/remove", post(skill_permission_remove))
+            .route(
+                "/api/skills/permission/remove",
+                post(skill_permission_remove),
+            )
             .route("/api/skills/permission/list", get(skill_permissions_list))
             .route("/api/skills/telemetry/list", get(skill_telemetry_list))
             .route("/api/skills/telemetry/clear", post(skill_telemetry_clear))
@@ -267,7 +318,8 @@ pub async fn skill_permission_add(
         tool_name: req.tool_name,
         rule_content: req.rule_content,
         behavior: beh,
-    }).await;
+    })
+    .await;
     Json(ApiResponse::ok(serde_json::json!({ "success": true })))
 }
 
@@ -304,7 +356,9 @@ pub struct TelemetryListQuery {
 }
 
 /// 默认遥测限制 — 100
-fn default_telemetry_limit() -> usize { 50 }
+fn default_telemetry_limit() -> usize {
+    50
+}
 
 /// 列出技能遥测
 pub async fn skill_telemetry_list(
@@ -312,7 +366,9 @@ pub async fn skill_telemetry_list(
     Query(query): Query<TelemetryListQuery>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     let events = claw_tools::skills::get_telemetry_log(query.limit).await;
-    Json(ApiResponse::ok(serde_json::json!({ "count": events.len(), "events": events })))
+    Json(ApiResponse::ok(
+        serde_json::json!({ "count": events.len(), "events": events }),
+    ))
 }
 
 /// 清除技能遥测
@@ -337,6 +393,10 @@ pub async fn skill_register_mcp(
     Extension(_state): Extension<Arc<AppState>>,
     Json(req): Json<RegisterMcpRequest>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let skill = claw_tools::skills::register_mcp_skill(req.name, req.description, req.prompt_template).await;
-    Json(ApiResponse::ok(serde_json::json!({ "registered": true, "skill": { "name": skill.name } })))
+    let skill =
+        claw_tools::skills::register_mcp_skill(req.name, req.description, req.prompt_template)
+            .await;
+    Json(ApiResponse::ok(
+        serde_json::json!({ "registered": true, "skill": { "name": skill.name } }),
+    ))
 }

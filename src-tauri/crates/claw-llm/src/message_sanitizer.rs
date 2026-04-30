@@ -16,7 +16,7 @@ pub fn sanitize_messages(messages: &mut Vec<Value>) {
 /// 过滤掉角色名无效的消息（不在合法角色列表中的消息会被丢弃）
 fn filter_invalid_roles(messages: &mut Vec<Value>) {
     let mut valid_messages: Vec<Value> = Vec::new();
-    
+
     for msg in messages.drain(..) {
         if let Some(role) = msg.get("role").and_then(|v| v.as_str()) {
             if VALID_ROLES.contains(&role) {
@@ -26,7 +26,7 @@ fn filter_invalid_roles(messages: &mut Vec<Value>) {
             }
         }
     }
-    
+
     *messages = valid_messages;
 }
 
@@ -36,7 +36,7 @@ fn filter_invalid_roles(messages: &mut Vec<Value>) {
 fn fix_orphaned_tool_results(messages: &mut Vec<Value>) {
     // 收集所有助手消息中的工具调用ID
     let mut surviving_call_ids: HashSet<String> = HashSet::new();
-    
+
     for msg in messages.iter() {
         if msg.get("role").and_then(|v| v.as_str()) == Some("assistant") {
             if let Some(tool_calls) = msg.get("tool_calls").and_then(|v| v.as_array()) {
@@ -54,7 +54,7 @@ fn fix_orphaned_tool_results(messages: &mut Vec<Value>) {
     // 识别孤立的工具结果（没有对应工具调用的结果消息）
     let mut result_call_ids: HashSet<String> = HashSet::new();
     let mut orphaned_indices: Vec<usize> = Vec::new();
-    
+
     for (idx, msg) in messages.iter().enumerate() {
         if msg.get("role").and_then(|v| v.as_str()) == Some("tool") {
             if let Some(call_id) = msg.get("tool_call_id").and_then(|v| v.as_str()) {
@@ -68,7 +68,10 @@ fn fix_orphaned_tool_results(messages: &mut Vec<Value>) {
 
     // 移除孤立的工具结果消息
     if !orphaned_indices.is_empty() {
-        log::debug!("[Sanitizer] Removing {} orphaned tool results", orphaned_indices.len());
+        log::debug!(
+            "[Sanitizer] Removing {} orphaned tool results",
+            orphaned_indices.len()
+        );
         for idx in orphaned_indices.into_iter().rev() {
             messages.remove(idx);
         }
@@ -82,13 +85,16 @@ fn fix_orphaned_tool_results(messages: &mut Vec<Value>) {
 
     // 为缺失的工具调用补充占位结果消息
     if !missing_results.is_empty() {
-        log::debug!("[Sanitizer] Adding {} stub tool results", missing_results.len());
+        log::debug!(
+            "[Sanitizer] Adding {} stub tool results",
+            missing_results.len()
+        );
         let missing_set: HashSet<&str> = missing_results.iter().map(|s| s.as_str()).collect();
-        
+
         let mut new_messages: Vec<Value> = Vec::new();
         for msg in messages.iter() {
             new_messages.push(msg.clone());
-            
+
             if msg.get("role").and_then(|v| v.as_str()) == Some("assistant") {
                 if let Some(tool_calls) = msg.get("tool_calls").and_then(|v| v.as_array()) {
                     for tc in tool_calls {
@@ -105,7 +111,7 @@ fn fix_orphaned_tool_results(messages: &mut Vec<Value>) {
                 }
             }
         }
-        
+
         *messages = new_messages;
     }
 }
@@ -122,7 +128,7 @@ pub fn deduplicate_tool_calls(tool_calls: &[Value]) -> Vec<Value> {
             .and_then(|n| n.as_str())
             .unwrap_or("")
             .to_string();
-        
+
         let args = tc
             .get("function")
             .and_then(|f| f.get("arguments"))

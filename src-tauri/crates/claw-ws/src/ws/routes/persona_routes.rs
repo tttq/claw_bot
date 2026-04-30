@@ -1,9 +1,5 @@
 // Claw Desktop - 画像路由 - 处理Agent人物画像的WS请求
-use axum::{
-    extract::Extension,
-    routing::post,
-    Json, Router,
-};
+use axum::{Json, Router, extract::Extension, routing::post};
 use std::sync::Arc;
 
 use crate::ws::app_state::AppState;
@@ -34,7 +30,10 @@ pub async fn persona_get(
         }
         None => {
             log::warn!("[PersonaRoutes:get] Not found | agent_id={}", agent_id);
-            Json(ApiResponse::err(&format!("Persona '{}' not found", agent_id)))
+            Json(ApiResponse::err(&format!(
+                "Persona '{}' not found",
+                agent_id
+            )))
         }
     }
 }
@@ -57,7 +56,10 @@ pub async fn persona_save(
     let mut mgr = state.persona_manager.lock().await;
     match mgr.save_persona(&persona) {
         Ok(_) => {
-            log::info!("[PersonaRoutes:save] Success | agent_id={}", persona.agent_id);
+            log::info!(
+                "[PersonaRoutes:save] Success | agent_id={}",
+                persona.agent_id
+            );
             Json(ApiResponse::ok(serde_json::json!({ "success": true })))
         }
         Err(e) => {
@@ -85,12 +87,19 @@ pub async fn persona_update_field(
         None => return Json(ApiResponse::err("Missing value")),
     };
 
-    log::info!("[PersonaRoutes:update_field] agent_id={} field={}", agent_id, field);
+    log::info!(
+        "[PersonaRoutes:update_field] agent_id={} field={}",
+        agent_id,
+        field
+    );
 
     let mut mgr = state.persona_manager.lock().await;
     match mgr.update_persona_field(&agent_id, &field, &value) {
         Ok(_) => {
-            log::info!("[PersonaRoutes:update_field] Success | agent_id={}", agent_id);
+            log::info!(
+                "[PersonaRoutes:update_field] Success | agent_id={}",
+                agent_id
+            );
             Json(ApiResponse::ok(serde_json::json!({ "success": true })))
         }
         Err(e) => {
@@ -136,7 +145,9 @@ pub async fn persona_list(
     let personas = mgr.list_personas();
     let count = personas.len();
     log::info!("[PersonaRoutes:list] Success | count={}", count);
-    Json(ApiResponse::ok(serde_json::json!({ "count": count, "personas": personas })))
+    Json(ApiResponse::ok(
+        serde_json::json!({ "count": count, "personas": personas }),
+    ))
 }
 
 /// 构建画像提示词 — 将画像信息融合到系统提示词中
@@ -148,13 +159,21 @@ pub async fn persona_build_prompt(
         Some(id) => id.to_string(),
         None => return Json(ApiResponse::err("Missing agent_id")),
     };
-    let base_prompt = params.get("base_prompt").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let base_prompt = params
+        .get("base_prompt")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
     log::info!("[PersonaRoutes:build_prompt] agent_id={}", agent_id);
 
     let mut mgr = state.persona_manager.lock().await;
     let prompt = mgr.build_enhanced_system_prompt(&agent_id, &base_prompt);
-    log::info!("[PersonaRoutes:build_prompt] Success | agent_id={} prompt_len={}", agent_id, prompt.len());
+    log::info!(
+        "[PersonaRoutes:build_prompt] Success | agent_id={} prompt_len={}",
+        agent_id,
+        prompt.len()
+    );
     Json(ApiResponse::ok(serde_json::json!({ "prompt": prompt })))
 }
 

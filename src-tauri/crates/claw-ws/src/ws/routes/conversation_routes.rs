@@ -1,9 +1,9 @@
 // Claw Desktop - 会话路由 - 处理会话/消息相关的WS请求
 use axum::{
-    extract::{Extension, Path},
-    routing::{delete, get, post, put},
     Json, Router,
-    response::{sse::Sse, IntoResponse},
+    extract::{Extension, Path},
+    response::{IntoResponse, sse::Sse},
+    routing::{delete, get, post, put},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -50,7 +50,9 @@ pub struct RagSearchQuery {
 }
 
 /// 默认返回数量 — 50
-fn default_limit() -> usize { 10 }
+fn default_limit() -> usize {
+    10
+}
 
 /// 列出会话
 pub async fn list_conversations(
@@ -67,7 +69,9 @@ pub async fn create_conversation(
     Json(query): Json<CreateConversationQuery>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match claw_db::database::Database::create_conversation(query.agent_id).await {
-        Ok(conv) => Json(ApiResponse::ok(serde_json::to_value(conv).unwrap_or(serde_json::Value::Null))),
+        Ok(conv) => Json(ApiResponse::ok(
+            serde_json::to_value(conv).unwrap_or(serde_json::Value::Null),
+        )),
         Err(e) => Json(ApiResponse::err(&e.to_string())),
     }
 }
@@ -89,25 +93,58 @@ pub async fn send_message(
     Json(req): Json<SendMessageRequest>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     let config = state.get_config().await;
-    
+
     let has_api_key = !config.model.custom_api_key.is_empty() || !config.api.api_key.is_empty();
     let has_model = !config.model.default_model.is_empty();
     if !has_api_key || !has_model {
-        let missing = if !has_api_key && !has_model { "API Key and model name" }
-                       else if !has_api_key { "API Key" }
-                       else { "model name" };
-        return Json(ApiResponse::err(&format!("Model not configured (missing {}). Please configure in global settings first.", missing)));
+        let missing = if !has_api_key && !has_model {
+            "API Key and model name"
+        } else if !has_api_key {
+            "API Key"
+        } else {
+            "model name"
+        };
+        return Json(ApiResponse::err(&format!(
+            "Model not configured (missing {}). Please configure in global settings first.",
+            missing
+        )));
     }
 
-    if let Err(e) = claw_db::database::Database::add_message(&req.conversation_id, "user", &req.content, None, None, None).await {
+    if let Err(e) = claw_db::database::Database::add_message(
+        &req.conversation_id,
+        "user",
+        &req.content,
+        None,
+        None,
+        None,
+    )
+    .await
+    {
         return Json(ApiResponse::err(&e.to_string()));
     }
 
-    match claw_llm::llm::send_chat_message(&config, &req.conversation_id, &req.content, req.images.as_deref()).await {
+    match claw_llm::llm::send_chat_message(
+        &config,
+        &req.conversation_id,
+        &req.content,
+        req.images.as_deref(),
+    )
+    .await
+    {
         Ok(response) => {
-            let result = claw_llm::llm::build_send_message_result(response, &config.model.default_model);
+            let result =
+                claw_llm::llm::build_send_message_result(response, &config.model.default_model);
 
-            if let Err(e) = claw_db::database::Database::add_message(&req.conversation_id, "assistant", &result.reply_text, None, result.total_tokens, result.metadata_str).await {
+            if let Err(e) = claw_db::database::Database::add_message(
+                &req.conversation_id,
+                "assistant",
+                &result.reply_text,
+                None,
+                result.total_tokens,
+                result.metadata_str,
+            )
+            .await
+            {
                 log::error!("[HTTP:Message] Failed to save assistant message: {}", e);
             }
 
@@ -129,42 +166,94 @@ pub async fn send_message_streaming(
 ) -> Json<ApiResponse<serde_json::Value>> {
     let mut config = state.get_config().await;
 
-    if let Ok(Some(agent_id)) = claw_db::database::Database::get_conversation_agent_id(&req.conversation_id).await {
-        if let Some(url) = claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_url".into()).await.ok().flatten().filter(|s| !s.is_empty()) { 
-            config.model.custom_url = url.clone(); 
-            config.api.base_url = url; 
+    if let Ok(Some(agent_id)) =
+        claw_db::database::Database::get_conversation_agent_id(&req.conversation_id).await
+    {
+        if let Some(url) =
+            claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_url".into())
+                .await
+                .ok()
+                .flatten()
+                .filter(|s| !s.is_empty())
+        {
+            config.model.custom_url = url.clone();
+            config.api.base_url = url;
         }
-        if let Some(key) = claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_key".into()).await.ok().flatten().filter(|s| !s.is_empty()) { 
-            config.model.custom_api_key = key.clone(); 
-            config.api.api_key = key.clone(); 
+        if let Some(key) =
+            claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_key".into())
+                .await
+                .ok()
+                .flatten()
+                .filter(|s| !s.is_empty())
+        {
+            config.model.custom_api_key = key.clone();
+            config.api.api_key = key.clone();
         }
-        if let Some(fmt) = claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_format".into()).await.ok().flatten().filter(|s| !s.is_empty()) {
+        if let Some(fmt) =
+            claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_format".into())
+                .await
+                .ok()
+                .flatten()
+                .filter(|s| !s.is_empty())
+        {
             config.model.provider = fmt.to_lowercase();
             config.model.api_format = fmt.to_lowercase();
         }
-        if let Some(model) = claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_default".into()).await.ok().flatten().filter(|s| !s.is_empty()) { 
-            config.model.default_model = model; 
+        if let Some(model) = claw_tools::agent_session::iso_get_config(
+            agent_id.clone(),
+            "agent_model_default".into(),
+        )
+        .await
+        .ok()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        {
+            config.model.default_model = model;
+        } else if let Some(model) =
+            claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_name".into())
+                .await
+                .ok()
+                .flatten()
+                .filter(|s| !s.is_empty())
+        {
+            config.model.default_model = model;
         }
-        else if let Some(model) = claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_name".into()).await.ok().flatten().filter(|s| !s.is_empty()) { 
-            config.model.default_model = model; 
-        }
-        
+
         if let Ok(Some(agent)) = claw_tools::agent_session::iso_agent_get(agent_id.clone()).await {
-            if let Some(ref om) = agent.model_override { if !om.is_empty() { config.model.default_model = om.clone(); } }
+            if let Some(ref om) = agent.model_override {
+                if !om.is_empty() {
+                    config.model.default_model = om.clone();
+                }
+            }
         }
     }
 
     let has_api_key = !config.model.custom_api_key.is_empty() || !config.api.api_key.is_empty();
     let has_model = !config.model.default_model.is_empty();
     if !has_api_key || !has_model {
-        let missing = if !has_api_key && !has_model { "API Key and model name" }
-                       else if !has_api_key { "API Key" }
-                       else { "model name" };
-        return Json(ApiResponse::err(&format!("Model not configured (missing {}). Please configure in Agent config panel or global settings first.", missing)));
+        let missing = if !has_api_key && !has_model {
+            "API Key and model name"
+        } else if !has_api_key {
+            "API Key"
+        } else {
+            "model name"
+        };
+        return Json(ApiResponse::err(&format!(
+            "Model not configured (missing {}). Please configure in Agent config panel or global settings first.",
+            missing
+        )));
     }
 
-    if let Err(e) = claw_db::database::Database::add_message(&req.conversation_id, "user", &req.content, None, None, None)
-        .await {
+    if let Err(e) = claw_db::database::Database::add_message(
+        &req.conversation_id,
+        "user",
+        &req.content,
+        None,
+        None,
+        None,
+    )
+    .await
+    {
         return Json(ApiResponse::err(&e.to_string()));
     }
 
@@ -178,10 +267,21 @@ pub async fn send_message_streaming(
         match app_handle {
             Some(handle) => {
                 let images_ref = images_clone.as_deref();
-                let result = claw_llm::llm::send_chat_message_streaming(&config_clone, &conv_id, &content_clone, handle, images_ref).await;
+                let result = claw_llm::llm::send_chat_message_streaming(
+                    &config_clone,
+                    &conv_id,
+                    &content_clone,
+                    handle,
+                    images_ref,
+                )
+                .await;
                 match &result {
                     Ok((text, usage)) => {
-                        log::info!("[HTTP:Stream] Completed for conv={}, text_len={}", claw_types::truncate_str_safe(&conv_id, 16), text.len());
+                        log::info!(
+                            "[HTTP:Stream] Completed for conv={}, text_len={}",
+                            claw_types::truncate_str_safe(&conv_id, 16),
+                            text.len()
+                        );
                         let (total_tokens, metadata_str) = match usage {
                             Some(u) => {
                                 let total = u.input_tokens + u.output_tokens;
@@ -200,17 +300,33 @@ pub async fn send_message_streaming(
                                 (Some(est), meta)
                             }
                         };
-                        if let Err(e) = claw_db::database::Database::add_message(&conv_id, "assistant", text, None, total_tokens, metadata_str).await {
+                        if let Err(e) = claw_db::database::Database::add_message(
+                            &conv_id,
+                            "assistant",
+                            text,
+                            None,
+                            total_tokens,
+                            metadata_str,
+                        )
+                        .await
+                        {
                             log::error!("[HTTP:Stream] Failed to save assistant message: {}", e);
                         }
                         if !text.is_empty() {
-                            let title = if content_clone.len() > 50 { 
-                                let safe_end = content_clone.char_indices().take(50).last().map(|(i, _)| i).unwrap_or(0);
-                                format!("{}...", &content_clone[..safe_end]) 
-                            } else { 
-                                content_clone.clone() 
+                            let title = if content_clone.len() > 50 {
+                                let safe_end = content_clone
+                                    .char_indices()
+                                    .take(50)
+                                    .last()
+                                    .map(|(i, _)| i)
+                                    .unwrap_or(0);
+                                format!("{}...", &content_clone[..safe_end])
+                            } else {
+                                content_clone.clone()
                             };
-                            let _ = claw_db::database::Database::rename_conversation(&conv_id, &title).await;
+                            let _ =
+                                claw_db::database::Database::rename_conversation(&conv_id, &title)
+                                    .await;
                         }
                     }
                     Err(e) => {
@@ -221,14 +337,20 @@ pub async fn send_message_streaming(
             }
             None => {
                 log::error!("[HTTP:Stream] No app_handle available for streaming");
-                crate::ws::server::emit_stream("send_message_streaming", "error", serde_json::json!({
-                    "type": "error", "conversation_id": conv_id, "content": "Server not ready"
-                }));
+                crate::ws::server::emit_stream(
+                    "send_message_streaming",
+                    "error",
+                    serde_json::json!({
+                        "type": "error", "conversation_id": conv_id, "content": "Server not ready"
+                    }),
+                );
             }
         }
     });
 
-    Json(ApiResponse::ok(serde_json::json!({ "streamed": true, "conversation_id": req.conversation_id })))
+    Json(ApiResponse::ok(
+        serde_json::json!({ "streamed": true, "conversation_id": req.conversation_id }),
+    ))
 }
 
 /// 删除会话
@@ -280,48 +402,110 @@ pub async fn chat_stream(
 ) -> axum::response::Response {
     let mut config = state.get_config().await;
 
-    if let Ok(Some(agent_id)) = claw_db::database::Database::get_conversation_agent_id(&req.conversation_id).await {
-        if let Some(url) = claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_url".into()).await.ok().flatten().filter(|s| !s.is_empty()) {
+    if let Ok(Some(agent_id)) =
+        claw_db::database::Database::get_conversation_agent_id(&req.conversation_id).await
+    {
+        if let Some(url) =
+            claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_url".into())
+                .await
+                .ok()
+                .flatten()
+                .filter(|s| !s.is_empty())
+        {
             config.model.custom_url = url.clone();
             config.api.base_url = url;
         }
-        if let Some(key) = claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_key".into()).await.ok().flatten().filter(|s| !s.is_empty()) {
+        if let Some(key) =
+            claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_key".into())
+                .await
+                .ok()
+                .flatten()
+                .filter(|s| !s.is_empty())
+        {
             config.model.custom_api_key = key.clone();
             config.api.api_key = key.clone();
         }
-        if let Some(fmt) = claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_format".into()).await.ok().flatten().filter(|s| !s.is_empty()) {
+        if let Some(fmt) =
+            claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_format".into())
+                .await
+                .ok()
+                .flatten()
+                .filter(|s| !s.is_empty())
+        {
             config.model.provider = fmt.to_lowercase();
             config.model.api_format = fmt.to_lowercase();
         }
-        if let Some(model) = claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_default".into()).await.ok().flatten().filter(|s| !s.is_empty()) {
+        if let Some(model) = claw_tools::agent_session::iso_get_config(
+            agent_id.clone(),
+            "agent_model_default".into(),
+        )
+        .await
+        .ok()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        {
             config.model.default_model = model;
-        }
-        else if let Some(model) = claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_name".into()).await.ok().flatten().filter(|s| !s.is_empty()) {
+        } else if let Some(model) =
+            claw_tools::agent_session::iso_get_config(agent_id.clone(), "agent_model_name".into())
+                .await
+                .ok()
+                .flatten()
+                .filter(|s| !s.is_empty())
+        {
             config.model.default_model = model;
         }
 
         if let Ok(Some(agent)) = claw_tools::agent_session::iso_agent_get(agent_id.clone()).await {
-            if let Some(ref om) = agent.model_override { if !om.is_empty() { config.model.default_model = om.clone(); } }
+            if let Some(ref om) = agent.model_override {
+                if !om.is_empty() {
+                    config.model.default_model = om.clone();
+                }
+            }
         }
     }
 
     let has_api_key = !config.model.custom_api_key.is_empty() || !config.api.api_key.is_empty();
     let has_model = !config.model.default_model.is_empty();
     if !has_api_key || !has_model {
-        let missing = if !has_api_key && !has_model { "API Key and model name" }
-                       else if !has_api_key { "API Key" }
-                       else { "model name" };
+        let missing = if !has_api_key && !has_model {
+            "API Key and model name"
+        } else if !has_api_key {
+            "API Key"
+        } else {
+            "model name"
+        };
         let error_event = serde_json::json!({ "type": "error", "message": format!("Model not configured (missing {})", missing) });
-        return Sse::new(futures_util::stream::iter(vec![
-            Ok::<_, std::convert::Infallible>(axum::response::sse::Event::default().data(serde_json::to_string(&error_event).unwrap_or_else(|_| "{}".to_string())))
-        ])).keep_alive(axum::response::sse::KeepAlive::default()).into_response();
+        return Sse::new(futures_util::stream::iter(vec![Ok::<
+            _,
+            std::convert::Infallible,
+        >(
+            axum::response::sse::Event::default()
+                .data(serde_json::to_string(&error_event).unwrap_or_else(|_| "{}".to_string())),
+        )]))
+        .keep_alive(axum::response::sse::KeepAlive::default())
+        .into_response();
     }
 
-    if let Err(e) = claw_db::database::Database::add_message(&req.conversation_id, "user", &req.content, None, None, None).await {
+    if let Err(e) = claw_db::database::Database::add_message(
+        &req.conversation_id,
+        "user",
+        &req.content,
+        None,
+        None,
+        None,
+    )
+    .await
+    {
         let error_event = serde_json::json!({ "type": "error", "message": e.to_string() });
-        return Sse::new(futures_util::stream::iter(vec![
-            Ok::<_, std::convert::Infallible>(axum::response::sse::Event::default().data(serde_json::to_string(&error_event).unwrap_or_else(|_| "{}".to_string())))
-        ])).keep_alive(axum::response::sse::KeepAlive::default()).into_response();
+        return Sse::new(futures_util::stream::iter(vec![Ok::<
+            _,
+            std::convert::Infallible,
+        >(
+            axum::response::sse::Event::default()
+                .data(serde_json::to_string(&error_event).unwrap_or_else(|_| "{}".to_string())),
+        )]))
+        .keep_alive(axum::response::sse::KeepAlive::default())
+        .into_response();
     }
 
     let (tx, rx) = tokio::sync::mpsc::channel::<serde_json::Value>(256);
@@ -333,9 +517,15 @@ pub async fn chat_stream(
         Some(h) => h,
         None => {
             let error_event = serde_json::json!({ "type": "error", "message": "Server not ready" });
-            return Sse::new(futures_util::stream::iter(vec![
-                Ok::<_, std::convert::Infallible>(axum::response::sse::Event::default().data(serde_json::to_string(&error_event).unwrap_or_else(|_| "{}".to_string())))
-            ])).keep_alive(axum::response::sse::KeepAlive::default()).into_response();
+            return Sse::new(futures_util::stream::iter(vec![Ok::<
+                _,
+                std::convert::Infallible,
+            >(
+                axum::response::sse::Event::default()
+                    .data(serde_json::to_string(&error_event).unwrap_or_else(|_| "{}".to_string())),
+            )]))
+            .keep_alive(axum::response::sse::KeepAlive::default())
+            .into_response();
         }
     };
 
@@ -348,9 +538,19 @@ pub async fn chat_stream(
     });
 
     tokio::spawn(async move {
-        let _ = tx.send(serde_json::json!({ "type": "session_start", "conversation_id": conv_id })).await;
+        let _ = tx
+            .send(serde_json::json!({ "type": "session_start", "conversation_id": conv_id }))
+            .await;
 
-        match claw_llm::llm::send_chat_message_streaming(&config_clone, &conv_id, &content_clone, app_handle, None).await {
+        match claw_llm::llm::send_chat_message_streaming(
+            &config_clone,
+            &conv_id,
+            &content_clone,
+            app_handle,
+            None,
+        )
+        .await
+        {
             Ok((text, usage)) => {
                 let (total_tokens, metadata_str) = match &usage {
                     Some(u) => {
@@ -369,21 +569,38 @@ pub async fn chat_stream(
                         (Some(est), meta)
                     }
                 };
-                if let Err(e) = claw_db::database::Database::add_message(&conv_id, "assistant", &text, None, total_tokens, metadata_str).await {
+                if let Err(e) = claw_db::database::Database::add_message(
+                    &conv_id,
+                    "assistant",
+                    &text,
+                    None,
+                    total_tokens,
+                    metadata_str,
+                )
+                .await
+                {
                     log::error!("[ChatStream] Failed to save message: {}", e);
                 }
                 if !text.is_empty() {
-                    let title = if content_clone.len() > 50 { 
-                        let safe_end = content_clone.char_indices().take(50).last().map(|(i, _)| i).unwrap_or(0);
-                        format!("{}...", &content_clone[..safe_end]) 
-                    } else { 
-                        content_clone.clone() 
+                    let title = if content_clone.len() > 50 {
+                        let safe_end = content_clone
+                            .char_indices()
+                            .take(50)
+                            .last()
+                            .map(|(i, _)| i)
+                            .unwrap_or(0);
+                        format!("{}...", &content_clone[..safe_end])
+                    } else {
+                        content_clone.clone()
                     };
-                    let _ = claw_db::database::Database::rename_conversation(&conv_id, &title).await;
+                    let _ =
+                        claw_db::database::Database::rename_conversation(&conv_id, &title).await;
                 }
             }
             Err(e) => {
-                let _ = tx.send(serde_json::json!({ "type": "error", "message": e.to_string() })).await;
+                let _ = tx
+                    .send(serde_json::json!({ "type": "error", "message": e.to_string() }))
+                    .await;
             }
         }
     });
@@ -394,9 +611,11 @@ pub async fn chat_stream(
     Sse::new(ReceiverStream::new(rx).map(|data| {
         Ok::<_, std::convert::Infallible>(
             axum::response::sse::Event::default()
-                .data(serde_json::to_string(&data).unwrap_or_default())
+                .data(serde_json::to_string(&data).unwrap_or_default()),
         )
-    })).keep_alive(axum::response::sse::KeepAlive::new()).into_response()
+    }))
+    .keep_alive(axum::response::sse::KeepAlive::new())
+    .into_response()
 }
 
 impl ClawRouter for ConversationRoutes {

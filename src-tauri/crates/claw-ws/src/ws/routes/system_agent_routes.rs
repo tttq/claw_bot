@@ -1,8 +1,8 @@
 // Claw Desktop - 系统Agent路由 - 处理系统级Agent的WS请求
 use axum::{
+    Json, Router,
     extract::{Extension, Path},
     routing::{get, post},
-    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -10,11 +10,18 @@ use std::sync::Arc;
 use crate::ws::app_state::AppState;
 use crate::ws::response::ApiResponse;
 
-static MGR: std::sync::OnceLock<std::sync::Arc<tokio::sync::Mutex<claw_tools::agent_manager::AgentManager>>> = std::sync::OnceLock::new();
+static MGR: std::sync::OnceLock<
+    std::sync::Arc<tokio::sync::Mutex<claw_tools::agent_manager::AgentManager>>,
+> = std::sync::OnceLock::new();
 
 /// 获取Agent管理器单例
 fn get_agent_mgr() -> std::sync::Arc<tokio::sync::Mutex<claw_tools::agent_manager::AgentManager>> {
-    MGR.get_or_init(|| std::sync::Arc::new(tokio::sync::Mutex::new(claw_tools::agent_manager::AgentManager::new()))).clone()
+    MGR.get_or_init(|| {
+        std::sync::Arc::new(tokio::sync::Mutex::new(
+            claw_tools::agent_manager::AgentManager::new(),
+        ))
+    })
+    .clone()
 }
 
 /// 列出Agent工作区文件
@@ -24,7 +31,9 @@ pub async fn agent_list_workspace(
 ) -> Json<ApiResponse<serde_json::Value>> {
     let mgr = get_agent_mgr();
     match mgr.lock().await.list_workspace_files(&id) {
-        Ok(files) => Json(ApiResponse::ok(serde_json::json!({ "count": files.len(), "files": files }))),
+        Ok(files) => Json(ApiResponse::ok(
+            serde_json::json!({ "count": files.len(), "files": files }),
+        )),
         Err(e) => Json(ApiResponse::err(&e)),
     }
 }
@@ -44,8 +53,14 @@ pub async fn agent_write_file(
     Json(req): Json<WriteFileRequest>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     let mgr = get_agent_mgr();
-    match mgr.lock().await.write_workspace_file(&id, &req.rel_path, &req.content) {
-        Ok(full_path) => Json(ApiResponse::ok(serde_json::json!({ "success": true, "path": full_path }))),
+    match mgr
+        .lock()
+        .await
+        .write_workspace_file(&id, &req.rel_path, &req.content)
+    {
+        Ok(full_path) => Json(ApiResponse::ok(
+            serde_json::json!({ "success": true, "path": full_path }),
+        )),
         Err(e) => Json(ApiResponse::err(&e)),
     }
 }
@@ -99,7 +114,9 @@ pub async fn agents_dir_path(
     Extension(_state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     let mgr = get_agent_mgr();
-    Json(ApiResponse::ok(serde_json::json!({ "path": mgr.lock().await.agents_dir_path() })))
+    Json(ApiResponse::ok(
+        serde_json::json!({ "path": mgr.lock().await.agents_dir_path() }),
+    ))
 }
 
 /// 注册系统Agent路由

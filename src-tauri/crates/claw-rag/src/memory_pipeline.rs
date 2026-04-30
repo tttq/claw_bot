@@ -4,12 +4,15 @@
 
 use crate::memory_layers::*;
 use crate::rag::{
-    store_enhanced_memory, hybrid_retrieve, embed_text, vector_to_bytes,
-    bytes_to_vector, cosine_similarity, calc_importance_score,
+    bytes_to_vector, calc_importance_score, cosine_similarity, embed_text, hybrid_retrieve,
+    store_enhanced_memory, vector_to_bytes,
 };
-use claw_db::db::get_db;
 use claw_db::db::entities::memory_units;
-use sea_orm::{EntityTrait, ColumnTrait, QueryFilter, Set, ActiveModelTrait, QueryOrder, QuerySelect, ConnectionTrait};
+use claw_db::db::get_db;
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, QueryOrder,
+    QuerySelect, Set,
+};
 use std::collections::HashMap;
 
 const DEDUP_CANDIDATE_LIMIT: usize = 20;
@@ -116,12 +119,14 @@ impl MemoryPipeline {
             &request.text,
             layer,
             layer_config.dedup_similarity_threshold,
-        ).await;
+        )
+        .await;
 
         if let Some((existing_id, existing_text)) = dedup_result {
             log::info!(
                 "[MemoryPipeline:ingest] Dedup hit: layer={}, existing={}, similarity_threshold={}",
-                layer, &existing_id[..8.min(existing_id.len())],
+                layer,
+                &existing_id[..8.min(existing_id.len())],
                 layer_config.dedup_similarity_threshold
             );
 
@@ -173,7 +178,9 @@ impl MemoryPipeline {
                 &request.source_type,
                 request.context.as_deref(),
                 request.tags.as_deref(),
-            ).await {
+            )
+            .await
+            {
                 Ok(id) => {
                     if expires_at.is_some() {
                         Self::set_expires_at(&id, expires_at).await.ok();
@@ -182,7 +189,9 @@ impl MemoryPipeline {
 
                     log::info!(
                         "[MemoryPipeline:ingest] Stored: layer={}, id={:.8}, importance={:.1}",
-                        layer, id, importance
+                        layer,
+                        id,
+                        importance
                     );
 
                     return IngestionResult {
@@ -199,12 +208,15 @@ impl MemoryPipeline {
                     last_error = e.clone();
                     log::warn!(
                         "[MemoryPipeline:ingest] Store attempt {}/{} failed: {}",
-                        attempt + 1, MAX_PIPELINE_RETRIES, e
+                        attempt + 1,
+                        MAX_PIPELINE_RETRIES,
+                        e
                     );
                     if attempt < MAX_PIPELINE_RETRIES - 1 {
-                        tokio::time::sleep(
-                            std::time::Duration::from_millis(RETRY_DELAY_MS * (attempt as u64 + 1))
-                        ).await;
+                        tokio::time::sleep(std::time::Duration::from_millis(
+                            RETRY_DELAY_MS * (attempt as u64 + 1),
+                        ))
+                        .await;
                     }
                 }
             }
@@ -287,7 +299,8 @@ impl MemoryPipeline {
         let mut facts = Vec::new();
         let mut entities = Vec::new();
 
-        let sentences: Vec<&str> = text.split(|c: char| c == '.' || c == '。' || c == '\n')
+        let sentences: Vec<&str> = text
+            .split(|c: char| c == '.' || c == '。' || c == '\n')
             .map(|s| s.trim())
             .filter(|s| s.len() > 15)
             .collect();
@@ -326,9 +339,15 @@ impl MemoryPipeline {
         }
 
         let tech_keywords = [
-            ("Rust", "technology"), ("Python", "technology"), ("TypeScript", "technology"),
-            ("React", "technology"), ("Docker", "technology"), ("Kubernetes", "technology"),
-            ("API", "concept"), ("REST", "concept"), ("GraphQL", "concept"),
+            ("Rust", "technology"),
+            ("Python", "technology"),
+            ("TypeScript", "technology"),
+            ("React", "technology"),
+            ("Docker", "technology"),
+            ("Kubernetes", "technology"),
+            ("API", "concept"),
+            ("REST", "concept"),
+            ("GraphQL", "concept"),
         ];
 
         for (keyword, entity_type) in &tech_keywords {
@@ -361,35 +380,46 @@ impl MemoryPipeline {
 
         let all_units = memory_units::Entity::find()
             .filter(memory_units::Column::AgentId.eq(agent_id))
-            .all(db).await
+            .all(db)
+            .await
             .map_err(|e| e.to_string())?;
 
-        let layered_units: Vec<LayeredMemoryUnit> = all_units.iter().map(|u| {
-            let layer = u.memory_layer.as_deref()
-                .map(|s| MemoryLayer::from_str(s))
-                .unwrap_or_else(|| classify_to_layer(
-                    &u.fact_type, &u.source_type, u.tags.as_deref(), u.importance_score
-                ));
+        let layered_units: Vec<LayeredMemoryUnit> = all_units
+            .iter()
+            .map(|u| {
+                let layer = u
+                    .memory_layer
+                    .as_deref()
+                    .map(|s| MemoryLayer::from_str(s))
+                    .unwrap_or_else(|| {
+                        classify_to_layer(
+                            &u.fact_type,
+                            &u.source_type,
+                            u.tags.as_deref(),
+                            u.importance_score,
+                        )
+                    });
 
-            let expires_at = u.expires_at;
+                let expires_at = u.expires_at;
 
-            LayeredMemoryUnit {
-                id: u.id.clone(),
-                layer,
-                text: u.text.clone(),
-                fact_type: u.fact_type.clone(),
-                context: u.context.clone(),
-                occurred_at: u.occurred_at,
-                expires_at,
-                source_type: u.source_type.clone(),
-                tags: u.tags.clone(),
-                importance_score: u.importance_score,
-                access_count: u.access_count,
-                agent_id: u.agent_id.clone(),
-                conversation_id: u.conversation_id.clone(),
-                metadata: u.metadata.clone(),
-            }
-        }).collect();
+                LayeredMemoryUnit {
+                    id: u.id.clone(),
+                    layer,
+                    text: u.text.clone(),
+                    fact_type: u.fact_type.clone(),
+                    context: u.context.clone(),
+                    occurred_at: u.occurred_at,
+                    expires_at,
+                    source_type: u.source_type.clone(),
+                    tags: u.tags.clone(),
+                    importance_score: u.importance_score,
+                    access_count: u.access_count,
+                    agent_id: u.agent_id.clone(),
+                    conversation_id: u.conversation_id.clone(),
+                    metadata: u.metadata.clone(),
+                }
+            })
+            .collect();
 
         let plans = plan_consolidation(&layered_units);
 
@@ -404,14 +434,13 @@ impl MemoryPipeline {
                             promoted += 1;
                             log::info!(
                                 "[MemoryPipeline:consolidate] Promoted {} → {} ({})",
-                                plan.source_layer, plan.target_layer,
+                                plan.source_layer,
+                                plan.target_layer,
                                 &unit_id[..8.min(unit_id.len())]
                             );
                         }
                         Err(e) => {
-                            log::warn!(
-                                "[MemoryPipeline:consolidate] Promotion failed: {}", e
-                            );
+                            log::warn!("[MemoryPipeline:consolidate] Promotion failed: {}", e);
                         }
                     }
                 }
@@ -428,7 +457,8 @@ impl MemoryPipeline {
                     Err(e) => {
                         log::warn!(
                             "[MemoryPipeline:consolidate] Forget failed for {}: {}",
-                            &unit.id[..8.min(unit.id.len())], e
+                            &unit.id[..8.min(unit.id.len())],
+                            e
                         );
                     }
                 }
@@ -445,7 +475,7 @@ impl MemoryPipeline {
             let trigger = (config.max_units as f64 * config.compaction_trigger_ratio) as usize;
             if *count > trigger {
                 let to_remove = count.saturating_sub(
-                    (config.max_units as f64 * config.compaction_retain_ratio) as usize
+                    (config.max_units as f64 * config.compaction_retain_ratio) as usize,
                 );
                 if to_remove > 0 {
                     match Self::compact_layer(agent_id, *layer, to_remove).await {
@@ -454,7 +484,8 @@ impl MemoryPipeline {
                         }
                         Err(e) => {
                             log::warn!(
-                                "[MemoryPipeline:consolidate] Layer compaction failed: {}", e
+                                "[MemoryPipeline:consolidate] Layer compaction failed: {}",
+                                e
                             );
                         }
                     }
@@ -464,7 +495,11 @@ impl MemoryPipeline {
 
         log::info!(
             "[MemoryPipeline:consolidate] Agent={}: promoted={}, merged={}, forgotten={}, protected={}",
-            &agent_id[..8.min(agent_id.len())], promoted, merged, forgotten, protected
+            &agent_id[..8.min(agent_id.len())],
+            promoted,
+            merged,
+            forgotten,
+            protected
         );
 
         Ok(ConsolidationResult {
@@ -490,27 +525,36 @@ impl MemoryPipeline {
 
         let db = get_db().await;
 
-        match db.query_all(sea_orm::Statement::from_sql_and_values(
-            db.get_database_backend(),
-            "SELECT mv.memory_unit_id, mu.text, \
+        match db
+            .query_all(sea_orm::Statement::from_sql_and_values(
+                db.get_database_backend(),
+                "SELECT mv.memory_unit_id, mu.text, \
              1.0 - vector_distance_cosine(mv.embedding, ?1) AS similarity \
              FROM memory_vectors mv \
              JOIN memory_units mu ON mu.id = mv.memory_unit_id \
              WHERE mv.agent_id = ?2 \
              AND 1.0 - vector_distance_cosine(mv.embedding, ?1) > ?3 \
              ORDER BY similarity DESC LIMIT ?4",
-            [
-                query_bytes.into(),
-                agent_id.to_string().into(),
-                threshold.into(),
-                (DEDUP_CANDIDATE_LIMIT as i64).into(),
-            ],
-        )).await {
+                [
+                    query_bytes.into(),
+                    agent_id.to_string().into(),
+                    threshold.into(),
+                    (DEDUP_CANDIDATE_LIMIT as i64).into(),
+                ],
+            ))
+            .await
+        {
             Ok(rows) => {
                 for row in rows {
-                    let Some(id) = row.try_get::<String>("", "memory_unit_id").ok() else { continue; };
-                    let Some(existing_text) = row.try_get::<String>("", "text").ok() else { continue; };
-                    let Some(sim) = row.try_get::<f64>("", "similarity").ok() else { continue; };
+                    let Some(id) = row.try_get::<String>("", "memory_unit_id").ok() else {
+                        continue;
+                    };
+                    let Some(existing_text) = row.try_get::<String>("", "text").ok() else {
+                        continue;
+                    };
+                    let Some(sim) = row.try_get::<f64>("", "similarity").ok() else {
+                        continue;
+                    };
                     if sim >= threshold {
                         return Some((id, existing_text));
                     }
@@ -522,7 +566,8 @@ impl MemoryPipeline {
                     .filter(memory_units::Column::AgentId.eq(agent_id))
                     .order_by_desc(memory_units::Column::CreatedAt)
                     .limit(DEDUP_CANDIDATE_LIMIT as u64)
-                    .all(db).await
+                    .all(db)
+                    .await
                     .ok()?;
 
                 for unit in units {
@@ -548,7 +593,8 @@ impl MemoryPipeline {
         for attempt in 0..MAX_PIPELINE_RETRIES {
             let db = get_db().await;
             let unit = memory_units::Entity::find_by_id(memory_id.to_string())
-                .one(db).await
+                .one(db)
+                .await
                 .map_err(|e| e.to_string())?;
 
             if let Some(model) = unit {
@@ -575,21 +621,22 @@ impl MemoryPipeline {
                         )).await;
 
                         let db = get_db().await;
-                        let _ = db.execute(sea_orm::Statement::from_sql_and_values(
-                            db.get_database_backend(),
-                            "INSERT INTO memory_units_fts(rowid, text) VALUES(?1, ?2) \
+                        let _ = db
+                            .execute(sea_orm::Statement::from_sql_and_values(
+                                db.get_database_backend(),
+                                "INSERT INTO memory_units_fts(rowid, text) VALUES(?1, ?2) \
                              ON CONFLICT(rowid) DO UPDATE SET text = excluded.text",
-                            [memory_id.into(), new_text.into()],
-                        )).await;
+                                [memory_id.into(), new_text.into()],
+                            ))
+                            .await;
 
                         return Ok(());
                     }
                     Err(e) => {
                         last_error = e.to_string();
                         if attempt < MAX_PIPELINE_RETRIES - 1 {
-                            tokio::time::sleep(
-                                std::time::Duration::from_millis(RETRY_DELAY_MS)
-                            ).await;
+                            tokio::time::sleep(std::time::Duration::from_millis(RETRY_DELAY_MS))
+                                .await;
                         }
                     }
                 }
@@ -604,7 +651,8 @@ impl MemoryPipeline {
     async fn increment_access_count(memory_id: &str) -> Result<(), String> {
         let db = get_db().await;
         let unit = memory_units::Entity::find_by_id(memory_id.to_string())
-            .one(db).await
+            .one(db)
+            .await
             .map_err(|e| e.to_string())?;
 
         if let Some(model) = unit {
@@ -626,11 +674,13 @@ impl MemoryPipeline {
     async fn set_expires_at(memory_id: &str, expires_at: Option<i64>) -> Result<(), String> {
         let db = get_db().await;
         let unit = memory_units::Entity::find_by_id(memory_id.to_string())
-            .one(db).await
+            .one(db)
+            .await
             .map_err(|e| e.to_string())?;
 
         if let Some(model) = unit {
-            let mut metadata_map: HashMap<String, serde_json::Value> = model.metadata
+            let mut metadata_map: HashMap<String, serde_json::Value> = model
+                .metadata
                 .as_deref()
                 .and_then(|m| serde_json::from_str(m).ok())
                 .unwrap_or_default();
@@ -640,7 +690,9 @@ impl MemoryPipeline {
             }
 
             let mut am: memory_units::ActiveModel = model.into();
-            am.metadata = Set(Some(serde_json::to_string(&metadata_map).unwrap_or_default()));
+            am.metadata = Set(Some(
+                serde_json::to_string(&metadata_map).unwrap_or_default(),
+            ));
 
             let db = get_db().await;
             am.update(db).await.map_err(|e| e.to_string())?;
@@ -652,19 +704,26 @@ impl MemoryPipeline {
     async fn set_memory_layer(memory_id: &str, layer: &MemoryLayer) -> Result<(), String> {
         let db = get_db().await;
         let unit = memory_units::Entity::find_by_id(memory_id.to_string())
-            .one(db).await
+            .one(db)
+            .await
             .map_err(|e| e.to_string())?;
 
         if let Some(model) = unit {
-            let mut metadata_map: HashMap<String, serde_json::Value> = model.metadata
+            let mut metadata_map: HashMap<String, serde_json::Value> = model
+                .metadata
                 .as_deref()
                 .and_then(|m| serde_json::from_str(m).ok())
                 .unwrap_or_default();
 
-            metadata_map.insert("memory_layer".to_string(), serde_json::json!(layer.as_str()));
+            metadata_map.insert(
+                "memory_layer".to_string(),
+                serde_json::json!(layer.as_str()),
+            );
 
             let mut am: memory_units::ActiveModel = model.into();
-            am.metadata = Set(Some(serde_json::to_string(&metadata_map).unwrap_or_default()));
+            am.metadata = Set(Some(
+                serde_json::to_string(&metadata_map).unwrap_or_default(),
+            ));
 
             let db = get_db().await;
             am.update(db).await.map_err(|e| e.to_string())?;
@@ -681,7 +740,8 @@ impl MemoryPipeline {
 
         let db = get_db().await;
         let unit = memory_units::Entity::find_by_id(memory_id.to_string())
-            .one(db).await
+            .one(db)
+            .await
             .map_err(|e| e.to_string())?;
 
         if let Some(model) = unit {
@@ -713,29 +773,36 @@ impl MemoryPipeline {
     async fn forget_memory(memory_id: &str) -> Result<(), String> {
         let db = get_db().await;
 
-        let _ = db.execute(sea_orm::Statement::from_sql_and_values(
-            db.get_database_backend(),
-            "DELETE FROM memory_vectors WHERE memory_unit_id = ?1",
-            [memory_id.into()],
-        )).await;
+        let _ = db
+            .execute(sea_orm::Statement::from_sql_and_values(
+                db.get_database_backend(),
+                "DELETE FROM memory_vectors WHERE memory_unit_id = ?1",
+                [memory_id.into()],
+            ))
+            .await;
 
         let db = get_db().await;
-        let _ = db.execute(sea_orm::Statement::from_sql_and_values(
-            db.get_database_backend(),
-            "DELETE FROM memory_units_fts WHERE rowid = ?1",
-            [memory_id.into()],
-        )).await;
+        let _ = db
+            .execute(sea_orm::Statement::from_sql_and_values(
+                db.get_database_backend(),
+                "DELETE FROM memory_units_fts WHERE rowid = ?1",
+                [memory_id.into()],
+            ))
+            .await;
 
         let db = get_db().await;
-        let _ = db.execute(sea_orm::Statement::from_sql_and_values(
-            db.get_database_backend(),
-            "DELETE FROM unit_entities WHERE unit_id = ?1",
-            [memory_id.into()],
-        )).await;
+        let _ = db
+            .execute(sea_orm::Statement::from_sql_and_values(
+                db.get_database_backend(),
+                "DELETE FROM unit_entities WHERE unit_id = ?1",
+                [memory_id.into()],
+            ))
+            .await;
 
         let db = get_db().await;
         memory_units::Entity::delete_by_id(memory_id.to_string())
-            .exec(db).await
+            .exec(db)
+            .await
             .map_err(|e| e.to_string())?;
 
         Ok(())
@@ -755,36 +822,60 @@ impl MemoryPipeline {
         let layer_str = layer.as_str();
         let units = memory_units::Entity::find()
             .filter(memory_units::Column::AgentId.eq(agent_id))
-            .all(db).await
+            .all(db)
+            .await
             .map_err(|e| e.to_string())?;
 
-        let mut candidates: Vec<_> = units.iter()
+        let mut candidates: Vec<_> = units
+            .iter()
             .filter(|u| {
-                let unit_layer = u.metadata.as_deref()
-                    .and_then(|m| serde_json::from_str::<HashMap<String, serde_json::Value>>(m).ok())
-                    .and_then(|m| m.get("memory_layer").and_then(|v| v.as_str()).map(|s| s.to_string()))
-                    .unwrap_or_else(|| classify_to_layer(
-                        &u.fact_type, &u.source_type, u.tags.as_deref(), u.importance_score
-                    ).as_str().to_string());
+                let unit_layer = u
+                    .metadata
+                    .as_deref()
+                    .and_then(|m| {
+                        serde_json::from_str::<HashMap<String, serde_json::Value>>(m).ok()
+                    })
+                    .and_then(|m| {
+                        m.get("memory_layer")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string())
+                    })
+                    .unwrap_or_else(|| {
+                        classify_to_layer(
+                            &u.fact_type,
+                            &u.source_type,
+                            u.tags.as_deref(),
+                            u.importance_score,
+                        )
+                        .as_str()
+                        .to_string()
+                    });
                 unit_layer == layer_str
             })
             .filter(|u| {
-                if layer == MemoryLayer::Procedural { return false; }
-                u.tags.as_deref() != Some("tool_knowledge") && u.tags.as_deref() != Some("skill_knowledge")
+                if layer == MemoryLayer::Procedural {
+                    return false;
+                }
+                u.tags.as_deref() != Some("tool_knowledge")
+                    && u.tags.as_deref() != Some("skill_knowledge")
             })
             .collect();
 
         candidates.sort_by(|a, b| {
             let score_a = a.importance_score * a.access_count as f64;
             let score_b = b.importance_score * b.access_count as f64;
-            score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
+            score_a
+                .partial_cmp(&score_b)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         let mut removed = 0;
         let mut group: Vec<&claw_db::db::entities::memory_units::Model> = Vec::new();
 
         for unit in &candidates {
-            if removed >= to_remove { break; }
+            if removed >= to_remove {
+                break;
+            }
 
             if unit.importance_score < 1.0 {
                 Self::forget_memory(&unit.id).await.ok();
@@ -792,7 +883,8 @@ impl MemoryPipeline {
             } else {
                 group.push(unit);
                 if group.len() >= 5 {
-                    let combined: String = group.iter()
+                    let combined: String = group
+                        .iter()
                         .map(|u| u.text.as_str())
                         .collect::<Vec<&str>>()
                         .join("\n");
@@ -807,7 +899,9 @@ impl MemoryPipeline {
                         "compaction",
                         Some(&format!("layer_compaction:{}", layer_str)),
                         None,
-                    ).await.ok();
+                    )
+                    .await
+                    .ok();
 
                     for u in &group {
                         Self::forget_memory(&u.id).await.ok();
@@ -819,7 +913,8 @@ impl MemoryPipeline {
         }
 
         if !group.is_empty() && removed < to_remove {
-            let combined: String = group.iter()
+            let combined: String = group
+                .iter()
                 .map(|u| u.text.as_str())
                 .collect::<Vec<&str>>()
                 .join("\n");
@@ -833,7 +928,9 @@ impl MemoryPipeline {
                 "compaction",
                 Some(&format!("layer_compaction:{}", layer_str)),
                 None,
-            ).await.ok();
+            )
+            .await
+            .ok();
 
             for u in &group {
                 Self::forget_memory(&u.id).await.ok();
@@ -846,9 +943,9 @@ impl MemoryPipeline {
 
     /// 计算过期时间 — 根据层级配置的TTL计算expires_at时间戳
     fn calc_expires_at(_layer: &MemoryLayer, config: &LayerConfig) -> Option<i64> {
-        config.ttl_seconds.map(|ttl| {
-            chrono::Utc::now().timestamp() + ttl
-        })
+        config
+            .ttl_seconds
+            .map(|ttl| chrono::Utc::now().timestamp() + ttl)
     }
 }
 
@@ -889,7 +986,8 @@ fn summarize_for_layer(text: &str, layer: &MemoryLayer) -> String {
         MemoryLayer::Procedural => "[Procedural Memory Compressed]",
     };
 
-    let sentences: Vec<&str> = text.split(|c: char| c == '\n' || c == '.')
+    let sentences: Vec<&str> = text
+        .split(|c: char| c == '\n' || c == '.')
         .map(|s| s.trim())
         .filter(|s| s.len() > 10)
         .collect();
@@ -901,7 +999,11 @@ fn summarize_for_layer(text: &str, layer: &MemoryLayer) -> String {
     let mut keywords = std::collections::HashMap::new();
     for sentence in &sentences {
         for word in sentence.split_whitespace() {
-            let w: String = word.to_lowercase().chars().filter(|c| c.is_alphanumeric()).collect();
+            let w: String = word
+                .to_lowercase()
+                .chars()
+                .filter(|c| c.is_alphanumeric())
+                .collect();
             if w.len() > 3 {
                 *keywords.entry(w).or_insert(0) += 1;
             }
@@ -910,18 +1012,33 @@ fn summarize_for_layer(text: &str, layer: &MemoryLayer) -> String {
 
     let mut top_keywords: Vec<_> = keywords.iter().collect();
     top_keywords.sort_by(|a, b| b.1.cmp(a.1));
-    let top_kw: Vec<&str> = top_keywords.iter().take(6).map(|(k, _)| k.as_str()).collect();
+    let top_kw: Vec<&str> = top_keywords
+        .iter()
+        .take(6)
+        .map(|(k, _)| k.as_str())
+        .collect();
 
-    let key_points: Vec<&str> = sentences.iter()
+    let key_points: Vec<&str> = sentences
+        .iter()
         .filter(|s| top_kw.iter().any(|kw| s.to_lowercase().contains(*kw)))
         .take(4)
         .cloned()
         .collect();
 
     if key_points.is_empty() {
-        format!("{} Key topics: {}. {}", prefix, top_kw.join(", "), &sentences[0])
+        format!(
+            "{} Key topics: {}. {}",
+            prefix,
+            top_kw.join(", "),
+            &sentences[0]
+        )
     } else {
-        format!("{} Key topics: {}\n{}", prefix, top_kw.join(", "), key_points.join(". "))
+        format!(
+            "{} Key topics: {}\n{}",
+            prefix,
+            top_kw.join(", "),
+            key_points.join(". ")
+        )
     }
 }
 
@@ -936,37 +1053,57 @@ pub async fn retrieve_by_layers(
     layer_weights: Option<&HashMap<MemoryLayer, f64>>,
     limit: usize,
 ) -> Result<Vec<LayeredMemoryUnit>, String> {
-    let weights = layer_weights.cloned().unwrap_or_else(calc_layer_retrieval_weights);
+    let weights = layer_weights
+        .cloned()
+        .unwrap_or_else(calc_layer_retrieval_weights);
 
     let all_results = hybrid_retrieve(query, agent_id, conversation_id, limit * 3).await?;
 
-    let mut layered: Vec<LayeredMemoryUnit> = all_results.into_iter().map(|r| {
-        let layer = r.metadata.as_ref()
-            .and_then(|m| serde_json::from_str::<HashMap<String, serde_json::Value>>(m).ok())
-            .and_then(|m| m.get("memory_layer").and_then(|v| v.as_str()).map(|s| MemoryLayer::from_str(s)))
-            .unwrap_or_else(|| classify_to_layer(&r.fact_type, &r.source_type, r.tags.as_deref(), r.importance_score));
+    let mut layered: Vec<LayeredMemoryUnit> = all_results
+        .into_iter()
+        .map(|r| {
+            let layer = r
+                .metadata
+                .as_ref()
+                .and_then(|m| serde_json::from_str::<HashMap<String, serde_json::Value>>(m).ok())
+                .and_then(|m| {
+                    m.get("memory_layer")
+                        .and_then(|v| v.as_str())
+                        .map(|s| MemoryLayer::from_str(s))
+                })
+                .unwrap_or_else(|| {
+                    classify_to_layer(
+                        &r.fact_type,
+                        &r.source_type,
+                        r.tags.as_deref(),
+                        r.importance_score,
+                    )
+                });
 
-        let expires_at = r.metadata.as_ref()
-            .and_then(|m| serde_json::from_str::<HashMap<String, serde_json::Value>>(m).ok())
-            .and_then(|m| m.get("expires_at").and_then(|v| v.as_i64()));
+            let expires_at = r
+                .metadata
+                .as_ref()
+                .and_then(|m| serde_json::from_str::<HashMap<String, serde_json::Value>>(m).ok())
+                .and_then(|m| m.get("expires_at").and_then(|v| v.as_i64()));
 
-        LayeredMemoryUnit {
-            id: r.id,
-            layer,
-            text: r.text,
-            fact_type: r.fact_type,
-            context: r.context,
-            occurred_at: r.occurred_at,
-            expires_at,
-            source_type: r.source_type,
-            tags: r.tags,
-            importance_score: r.importance_score,
-            access_count: 0,
-            agent_id: agent_id.to_string(),
-            conversation_id: conversation_id.map(|s| s.to_string()),
-            metadata: None,
-        }
-    }).collect();
+            LayeredMemoryUnit {
+                id: r.id,
+                layer,
+                text: r.text,
+                fact_type: r.fact_type,
+                context: r.context,
+                occurred_at: r.occurred_at,
+                expires_at,
+                source_type: r.source_type,
+                tags: r.tags,
+                importance_score: r.importance_score,
+                access_count: 0,
+                agent_id: agent_id.to_string(),
+                conversation_id: conversation_id.map(|s| s.to_string()),
+                metadata: None,
+            }
+        })
+        .collect();
 
     for unit in &mut layered {
         let layer_weight = weights.get(&unit.layer).copied().unwrap_or(0.25);
@@ -974,7 +1111,8 @@ pub async fn retrieve_by_layers(
     }
 
     layered.sort_by(|a, b| {
-        b.importance_score.partial_cmp(&a.importance_score)
+        b.importance_score
+            .partial_cmp(&a.importance_score)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 

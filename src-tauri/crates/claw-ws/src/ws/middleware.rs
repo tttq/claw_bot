@@ -1,12 +1,12 @@
-﻿// Claw Desktop - WS中间件 - 认证检查、日志等中间件
+// Claw Desktop - WS中间件 - 认证检查、日志等中间件
+use crate::ws::auth;
 use axum::{
-    extract::Request,
-    http::{header, StatusCode},
     Json,
+    extract::Request,
+    http::{StatusCode, header},
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use crate::ws::auth;
 
 /// 认证中间件 — 检查Bearer Token，跳过/api/auth/和/ws/路径
 pub async fn auth_middleware(req: Request, next: Next) -> Response {
@@ -24,10 +24,14 @@ pub async fn auth_middleware(req: Request, next: Next) -> Response {
         .unwrap_or("");
 
     if token.is_empty() || !auth::is_token_valid(token) {
-        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
-            "success": false,
-            "error": "Unauthorized: invalid or expired token"
-        }))).into_response();
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "Unauthorized: invalid or expired token"
+            })),
+        )
+            .into_response();
     }
 
     next.run(req).await

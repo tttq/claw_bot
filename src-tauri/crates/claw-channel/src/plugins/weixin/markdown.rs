@@ -26,31 +26,35 @@ pub fn normalize_markdown_for_weixin(content: &str) -> String {
 
 fn convert_tables_to_kv(content: &str) -> String {
     let table_re = Regex::new(r"(?s)(\|.+\|\n\|[-| :]+\|\n((?:\|.+\|\n?)+))").unwrap();
-    table_re.replace_all(&content, |caps: &regex::Captures| {
-        let table_text = &caps[1];
-        let mut lines = table_text.lines();
-        let header_line = lines.next().unwrap_or("");
-        let headers: Vec<&str> = header_line.split('|')
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-            .collect();
-
-        let mut result = String::new();
-        for line in lines.skip(0) {
-            let cells: Vec<&str> = line.split('|')
+    table_re
+        .replace_all(&content, |caps: &regex::Captures| {
+            let table_text = &caps[1];
+            let mut lines = table_text.lines();
+            let header_line = lines.next().unwrap_or("");
+            let headers: Vec<&str> = header_line
+                .split('|')
                 .map(|s| s.trim())
-                .filter(|s| !s.is_empty() && !s.starts_with('-'))
+                .filter(|s| !s.is_empty())
                 .collect();
-            if cells.len() >= 2 && cells.len() == headers.len() {
-                for (i, cell) in cells.iter().enumerate() {
-                    if i < headers.len() {
-                        result.push_str(&format!("- {}: {}\n", headers[i], cell));
+
+            let mut result = String::new();
+            for line in lines.skip(0) {
+                let cells: Vec<&str> = line
+                    .split('|')
+                    .map(|s| s.trim())
+                    .filter(|s| !s.is_empty() && !s.starts_with('-'))
+                    .collect();
+                if cells.len() >= 2 && cells.len() == headers.len() {
+                    for (i, cell) in cells.iter().enumerate() {
+                        if i < headers.len() {
+                            result.push_str(&format!("- {}: {}\n", headers[i], cell));
+                        }
                     }
                 }
             }
-        }
-        result
-    }).to_string()
+            result
+        })
+        .to_string()
 }
 
 pub fn split_text_for_weixin(content: &str, max_length: usize, compact: bool) -> Vec<String> {

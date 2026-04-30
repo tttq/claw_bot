@@ -7,7 +7,7 @@ pub struct ClawLlmCaller;
 
 #[async_trait::async_trait]
 impl LlmCaller for ClawLlmCaller {
-/// 单次LLM调用 — 根据is_openai标志选择OpenAI或Anthropic API
+    /// 单次LLM调用 — 根据is_openai标志选择OpenAI或Anthropic API
     async fn call_once(
         &self,
         api_key: &str,
@@ -20,9 +20,25 @@ impl LlmCaller for ClawLlmCaller {
         let client = crate::llm::http_client();
 
         if is_openai {
-            call_openai_once(client, base_url, api_key, model, system_prompt, user_message).await
+            call_openai_once(
+                client,
+                base_url,
+                api_key,
+                model,
+                system_prompt,
+                user_message,
+            )
+            .await
         } else {
-            call_anthropic_once(client, base_url, api_key, model, system_prompt, user_message).await
+            call_anthropic_once(
+                client,
+                base_url,
+                api_key,
+                model,
+                system_prompt,
+                user_message,
+            )
+            .await
         }
     }
 
@@ -39,9 +55,27 @@ impl LlmCaller for ClawLlmCaller {
         let client = crate::llm::http_client();
 
         if is_openai {
-            call_openai_vision_once(client, base_url, api_key, model, system_prompt, user_message, image_base64).await
+            call_openai_vision_once(
+                client,
+                base_url,
+                api_key,
+                model,
+                system_prompt,
+                user_message,
+                image_base64,
+            )
+            .await
         } else {
-            call_anthropic_vision_once(client, base_url, api_key, model, system_prompt, user_message, image_base64).await
+            call_anthropic_vision_once(
+                client,
+                base_url,
+                api_key,
+                model,
+                system_prompt,
+                user_message,
+                image_base64,
+            )
+            .await
         }
     }
 }
@@ -87,7 +121,10 @@ async fn call_openai_once(
     let status = resp.status();
     if !status.is_success() {
         let error_text = resp.text().await.unwrap_or_default();
-        return Err(format!("[LlmCaller:OpenAI] API error (HTTP {}): {}", status, error_text));
+        return Err(format!(
+            "[LlmCaller:OpenAI] API error (HTTP {}): {}",
+            status, error_text
+        ));
     }
 
     let v: serde_json::Value = resp
@@ -147,7 +184,10 @@ async fn call_anthropic_once(
     let status = resp.status();
     if !status.is_success() {
         let error_text = resp.text().await.unwrap_or_default();
-        return Err(format!("[LlmCaller:Anthropic] API error (HTTP {}): {}", status, error_text));
+        return Err(format!(
+            "[LlmCaller:Anthropic] API error (HTTP {}): {}",
+            status, error_text
+        ));
     }
 
     let v: serde_json::Value = resp
@@ -155,10 +195,7 @@ async fn call_anthropic_once(
         .await
         .map_err(|e| format!("[LlmCaller:Anthropic] Parse error: {}", e))?;
 
-    let content = v["content"][0]["text"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
+    let content = v["content"][0]["text"].as_str().unwrap_or("").to_string();
 
     Ok(content)
 }
@@ -216,7 +253,10 @@ async fn call_openai_vision_once(
     let status = resp.status();
     if !status.is_success() {
         let error_text = resp.text().await.unwrap_or_default();
-        return Err(format!("[LlmCaller:OpenAI:Vision] API error (HTTP {}): {}", status, error_text));
+        return Err(format!(
+            "[LlmCaller:OpenAI:Vision] API error (HTTP {}): {}",
+            status, error_text
+        ));
     }
 
     let v: serde_json::Value = resp
@@ -281,7 +321,10 @@ async fn call_anthropic_vision_once(
     let status = resp.status();
     if !status.is_success() {
         let error_text = resp.text().await.unwrap_or_default();
-        return Err(format!("[LlmCaller:Anthropic:Vision] API error (HTTP {}): {}", status, error_text));
+        return Err(format!(
+            "[LlmCaller:Anthropic:Vision] API error (HTTP {}): {}",
+            status, error_text
+        ));
     }
 
     let v: serde_json::Value = resp
@@ -289,10 +332,7 @@ async fn call_anthropic_vision_once(
         .await
         .map_err(|e| format!("[LlmCaller:Anthropic:Vision] Parse error: {}", e))?;
 
-    let content = v["content"][0]["text"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
+    let content = v["content"][0]["text"].as_str().unwrap_or("").to_string();
 
     Ok(content)
 }

@@ -25,7 +25,7 @@ pub fn launch_application(name: &str) -> Result<()> {
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
         Err(AutomaticallyError::PlatformNotSupported(
-            "Application launching not supported on this platform".to_string()
+            "Application launching not supported on this platform".to_string(),
         ))
     }
 }
@@ -52,7 +52,7 @@ pub fn list_installed_apps(filter: Option<&str>) -> Result<Vec<AppInfo>> {
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
         Err(AutomaticallyError::PlatformNotSupported(
-            "Application listing not supported on this platform".to_string()
+            "Application listing not supported on this platform".to_string(),
         ))
     }
 }
@@ -64,11 +64,16 @@ fn launch_application_windows(name: &str) -> Result<()> {
 
     let lower = name.to_lowercase();
 
-    if lower.ends_with(".exe") || lower.ends_with(".msi") || lower.ends_with(".bat") || lower.ends_with(".lnk") {
+    if lower.ends_with(".exe")
+        || lower.ends_with(".msi")
+        || lower.ends_with(".bat")
+        || lower.ends_with(".lnk")
+    {
         let target_path = name;
         if !std::path::Path::new(target_path).exists() {
             return Err(AutomaticallyError::Automation(format!(
-                "File not found: '{}'", target_path
+                "File not found: '{}'",
+                target_path
             )));
         }
         return launch_via_powershell(target_path);
@@ -82,17 +87,27 @@ fn launch_application_windows(name: &str) -> Result<()> {
     if let Some(app) = apps.first() {
         if let Some(ref app_id) = app.launch_command {
             if !app_id.is_empty() {
-                log::info!("[AppLauncher:launch_application] Found '{}' with AppID: {}", app.name, app_id);
+                log::info!(
+                    "[AppLauncher:launch_application] Found '{}' with AppID: {}",
+                    app.name,
+                    app_id
+                );
                 if app_id.contains('\\') || app_id.contains('/') || app_id.ends_with(".lnk") {
                     if std::path::Path::new(app_id).exists() {
                         match launch_via_powershell(app_id) {
                             Ok(()) => return Ok(()),
                             Err(e) => {
-                                log::warn!("[AppLauncher:launch_application] Path launch failed: {}, trying other methods", e);
+                                log::warn!(
+                                    "[AppLauncher:launch_application] Path launch failed: {}, trying other methods",
+                                    e
+                                );
                             }
                         }
                     } else {
-                        log::warn!("[AppLauncher:launch_application] Path does not exist: {}", app_id);
+                        log::warn!(
+                            "[AppLauncher:launch_application] Path does not exist: {}",
+                            app_id
+                        );
                     }
                 }
 
@@ -132,19 +147,32 @@ if ($launched) {
 "#;
                 let ps_script_filled = ps_script.replace("{0}", app_id);
                 let output = Command::new("powershell")
-                    .args(["-NoProfile", "-NonInteractive", "-Command", &ps_script_filled])
+                    .args([
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-Command",
+                        &ps_script_filled,
+                    ])
                     .output();
                 if let Ok(out) = output {
                     let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                    if stdout == "OK" { return Ok(()); }
+                    if stdout == "OK" {
+                        return Ok(());
+                    }
                 }
             }
         }
         if !app.executable_path.is_empty() && std::path::Path::new(&app.executable_path).exists() {
-            log::info!("[AppLauncher:launch_application] Launching via executable path: {}", app.executable_path);
+            log::info!(
+                "[AppLauncher:launch_application] Launching via executable path: {}",
+                app.executable_path
+            );
             match launch_via_powershell(&app.executable_path) {
                 Ok(()) => return Ok(()),
-                Err(e) => log::warn!("[AppLauncher:launch_application] Executable path launch failed: {}", e),
+                Err(e) => log::warn!(
+                    "[AppLauncher:launch_application] Executable path launch failed: {}",
+                    e
+                ),
             }
         }
     }
@@ -193,14 +221,21 @@ if ($found) {
     }
     if stdout.starts_with("LAUNCH_FAILED:") {
         return Err(AutomaticallyError::Automation(format!(
-            "Found '{}' but failed to launch: {}", name, stdout.strip_prefix("LAUNCH_FAILED:").unwrap_or("unknown error")
+            "Found '{}' but failed to launch: {}",
+            name,
+            stdout
+                .strip_prefix("LAUNCH_FAILED:")
+                .unwrap_or("unknown error")
         )));
     }
 
     Err(AutomaticallyError::Automation(format!(
         "Application '{}' not found. Searched Start Menu, Desktop, PATH, and registry. Available similar apps: {}",
         name,
-        apps.iter().map(|a| a.name.as_str()).collect::<Vec<_>>().join(", ")
+        apps.iter()
+            .map(|a| a.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
     )))
 }
 
@@ -210,22 +245,22 @@ fn launch_via_powershell(target: &str) -> Result<()> {
     use std::process::Command;
 
     let escaped = target.replace("'", "''");
-    let ps_script = format!(
-        "Start-Process -FilePath '{}' -ErrorAction Stop",
-        escaped
-    );
+    let ps_script = format!("Start-Process -FilePath '{}' -ErrorAction Stop", escaped);
 
     let output = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", &ps_script])
         .output()
-        .map_err(|e| AutomaticallyError::Automation(format!("Failed to execute PowerShell launch: {}", e)))?;
+        .map_err(|e| {
+            AutomaticallyError::Automation(format!("Failed to execute PowerShell launch: {}", e))
+        })?;
 
     if output.status.success() {
         Ok(())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
         Err(AutomaticallyError::Automation(format!(
-            "Failed to launch '{}': {}", target, stderr
+            "Failed to launch '{}': {}",
+            target, stderr
         )))
     }
 }
@@ -306,12 +341,30 @@ $results | ConvertTo-Json -Compress
     if let Ok(json_array) = serde_json::from_str::<serde_json::Value>(&stdout) {
         if let Some(arr) = json_array.as_array() {
             for item in arr {
-                let app_name = item.get("Name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                let app_id = item.get("AppID").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                let _app_type = item.get("Type").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                let app_path = item.get("Path").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let app_name = item
+                    .get("Name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let app_id = item
+                    .get("AppID")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let _app_type = item
+                    .get("Type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let app_path = item
+                    .get("Path")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
 
-                if app_name.is_empty() { continue; }
+                if app_name.is_empty() {
+                    continue;
+                }
                 if let Some(f) = filter {
                     if !app_name.to_lowercase().contains(&f.to_lowercase()) {
                         continue;
@@ -324,7 +377,11 @@ $results | ConvertTo-Json -Compress
                     description: None,
                     publisher: None,
                     version: None,
-                    launch_command: if app_id.is_empty() { Some(app_path.clone()) } else { Some(app_id) },
+                    launch_command: if app_id.is_empty() {
+                        Some(app_path.clone())
+                    } else {
+                        Some(app_id)
+                    },
                     app_source: "start_menu".to_string(),
                     keywords: Vec::new(),
                 });
@@ -344,7 +401,9 @@ fn launch_application_linux(name: &str) -> Result<()> {
         .arg("-c")
         .arg(format!("nohup {} &>/dev/null &", name))
         .spawn()
-        .map_err(|e| AutomaticallyError::Automation(format!("Failed to launch '{}': {}", name, e)))?;
+        .map_err(|e| {
+            AutomaticallyError::Automation(format!("Failed to launch '{}': {}", name, e))
+        })?;
 
     Ok(())
 }
@@ -354,7 +413,10 @@ fn launch_application_linux(name: &str) -> Result<()> {
 fn list_installed_apps_linux(filter: Option<&str>) -> Result<Vec<AppInfo>> {
     let desktop_dirs = [
         "/usr/share/applications",
-        &format!("{}/.local/share/applications", std::env::var("HOME").unwrap_or_default()),
+        &format!(
+            "{}/.local/share/applications",
+            std::env::var("HOME").unwrap_or_default()
+        ),
     ];
 
     let mut apps = Vec::new();
@@ -399,7 +461,11 @@ fn list_installed_apps_linux(filter: Option<&str>) -> Result<Vec<AppInfo>> {
                     apps.push(AppInfo {
                         name: app_name,
                         executable_path: path.to_string_lossy().to_string(),
-                        description: if app_comment.is_empty() { None } else { Some(app_comment) },
+                        description: if app_comment.is_empty() {
+                            None
+                        } else {
+                            Some(app_comment)
+                        },
                         publisher: None,
                         version: None,
                         launch_command: Some(app_exec),
@@ -423,7 +489,9 @@ fn launch_application_macos(name: &str) -> Result<()> {
         .arg("-a")
         .arg(name)
         .spawn()
-        .map_err(|e| AutomaticallyError::Automation(format!("Failed to launch '{}': {}", name, e)))?;
+        .map_err(|e| {
+            AutomaticallyError::Automation(format!("Failed to launch '{}': {}", name, e))
+        })?;
 
     Ok(())
 }
@@ -437,12 +505,14 @@ fn list_installed_apps_macos(filter: Option<&str>) -> Result<Vec<AppInfo>> {
     if let Ok(entries) = std::fs::read_dir(apps_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            let name = path.file_stem()
+            let name = path
+                .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or("")
                 .to_string();
 
-            let is_app = path.extension()
+            let is_app = path
+                .extension()
                 .and_then(|e| e.to_str())
                 .map_or(false, |e| e == "app")
                 || path.to_string_lossy().ends_with(".app");

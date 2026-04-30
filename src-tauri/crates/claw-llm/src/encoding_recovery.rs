@@ -6,9 +6,9 @@ use std::sync::Mutex;
 
 /// 编码恢复状态 - 追踪Unicode清理次数和强制ASCII模式
 pub struct EncodingRecoveryState {
-    pub unicode_sanitization_passes: Mutex<usize>,   // 已执行的Unicode清理次数
-    pub force_ascii_payload: Mutex<bool>,             // 是否强制使用ASCII载荷
-    pub max_sanitization_passes: usize,               // 最大允许清理次数
+    pub unicode_sanitization_passes: Mutex<usize>, // 已执行的Unicode清理次数
+    pub force_ascii_payload: Mutex<bool>,          // 是否强制使用ASCII载荷
+    pub max_sanitization_passes: usize,            // 最大允许清理次数
 }
 
 impl EncodingRecoveryState {
@@ -25,7 +25,10 @@ impl EncodingRecoveryState {
     /// 判断是否还应尝试Unicode清理（未超过最大次数）
     pub fn should_attempt_sanitization(&self) -> bool {
         let passes = self.unicode_sanitization_passes.lock().unwrap_or_else(|e| {
-            log::error!("[EncodingRecovery:should_attempt_sanitization] Mutex poisoned, recovering: {}", e);
+            log::error!(
+                "[EncodingRecovery:should_attempt_sanitization] Mutex poisoned, recovering: {}",
+                e
+            );
             e.into_inner()
         });
         *passes < self.max_sanitization_passes
@@ -34,7 +37,10 @@ impl EncodingRecoveryState {
     /// 记录一次Unicode清理操作
     pub fn record_sanitization_pass(&self) {
         let mut passes = self.unicode_sanitization_passes.lock().unwrap_or_else(|e| {
-            log::error!("[EncodingRecovery:record_sanitization_pass] Mutex poisoned, recovering: {}", e);
+            log::error!(
+                "[EncodingRecovery:record_sanitization_pass] Mutex poisoned, recovering: {}",
+                e
+            );
             e.into_inner()
         });
         *passes += 1;
@@ -43,7 +49,10 @@ impl EncodingRecoveryState {
     /// 启用强制ASCII模式（移除所有非ASCII字符）
     pub fn enable_force_ascii(&self) {
         let mut flag = self.force_ascii_payload.lock().unwrap_or_else(|e| {
-            log::error!("[EncodingRecovery:enable_force_ascii] Mutex poisoned, recovering: {}", e);
+            log::error!(
+                "[EncodingRecovery:enable_force_ascii] Mutex poisoned, recovering: {}",
+                e
+            );
             e.into_inner()
         });
         *flag = true;
@@ -52,7 +61,10 @@ impl EncodingRecoveryState {
     /// 检查是否已启用强制ASCII模式
     pub fn is_force_ascii_enabled(&self) -> bool {
         let flag = self.force_ascii_payload.lock().unwrap_or_else(|e| {
-            log::error!("[EncodingRecovery:is_force_ascii_enabled] Mutex poisoned, recovering: {}", e);
+            log::error!(
+                "[EncodingRecovery:is_force_ascii_enabled] Mutex poisoned, recovering: {}",
+                e
+            );
             e.into_inner()
         });
         *flag
@@ -66,7 +78,10 @@ impl EncodingRecoveryState {
         });
         *passes = 0;
         let mut flag = self.force_ascii_payload.lock().unwrap_or_else(|e| {
-            log::error!("[EncodingRecovery:reset] force_ascii_payload Mutex poisoned, recovering: {}", e);
+            log::error!(
+                "[EncodingRecovery:reset] force_ascii_payload Mutex poisoned, recovering: {}",
+                e
+            );
             e.into_inner()
         });
         *flag = false;
@@ -82,15 +97,13 @@ pub fn is_surrogate(c: char) -> bool {
 
 /// 清理字符串中的代理对字符，返回清理后的字符串
 pub fn sanitize_surrogates_in_string(input: &str) -> String {
-    input.chars()
-        .filter(|c| !is_surrogate(*c))
-        .collect()
+    input.chars().filter(|c| !is_surrogate(*c)).collect()
 }
 
 /// 清理消息列表中的代理对字符，返回是否发现了需要清理的字符
 pub fn sanitize_messages_surrogates(messages: &mut [serde_json::Value]) -> bool {
     let mut found_surrogates = false;
-    
+
     for msg in messages.iter_mut() {
         if let Some(content) = msg.get_mut("content") {
             found_surrogates |= sanitize_value_surrogates(content);
@@ -113,7 +126,7 @@ pub fn sanitize_messages_surrogates(messages: &mut [serde_json::Value]) -> bool 
             }
         }
     }
-    
+
     found_surrogates
 }
 
@@ -149,21 +162,19 @@ fn sanitize_value_surrogates(value: &mut serde_json::Value) -> bool {
 
 /// 清理字符串中的非ASCII字符，仅保留ASCII字符
 pub fn sanitize_non_ascii_in_string(input: &str) -> String {
-    input.chars()
-        .filter(|c| c.is_ascii())
-        .collect()
+    input.chars().filter(|c| c.is_ascii()).collect()
 }
 
 /// 清理消息列表中的非ASCII字符，返回是否发现了需要清理的字符
 pub fn sanitize_messages_non_ascii(messages: &mut [serde_json::Value]) -> bool {
     let mut found_non_ascii = false;
-    
+
     for msg in messages.iter_mut() {
         if let Some(content) = msg.get_mut("content") {
             found_non_ascii |= sanitize_value_non_ascii(content);
         }
     }
-    
+
     found_non_ascii
 }
 

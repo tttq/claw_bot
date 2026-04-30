@@ -1,9 +1,9 @@
 // Claw Desktop - Mano-P 推理引擎
 // 封装本地模型推理和VLM降级推理，将截图+任务描述转换为桌面操作动作序列
-use super::{ManoPModelVersion, ManoPInferenceResult, ManoPTaskRequest, ManoPAction};
+use super::{ManoPAction, ManoPInferenceResult, ManoPModelVersion, ManoPTaskRequest};
+use crate::AutomaticallyConfig;
 use crate::error::{AutomaticallyError, Result};
 use crate::types::{ImageFrame, Point};
-use crate::AutomaticallyConfig;
 use std::path::PathBuf;
 
 /// Mano-P推理引擎 — 封装本地模型推理和VLM降级推理
@@ -73,7 +73,9 @@ impl ManoPInferenceEngine {
 
         let processed_image = self.preprocess_image(&request.screenshot).await?;
         let prompt = self.build_prompt(request, &processed_image);
-        let raw_output = self.run_model_inference(&prompt, &request.screenshot).await?;
+        let raw_output = self
+            .run_model_inference(&prompt, &request.screenshot)
+            .await?;
         let action_sequence = self.parse_output(&raw_output)?;
         let confidence = self.calculate_confidence(&action_sequence);
         let inference_time_ms = start_time.elapsed().as_millis() as u64;
@@ -139,7 +141,7 @@ impl ManoPInferenceEngine {
             - screenshot(): Take a screenshot for verification\n\n\
             Please provide the next action in the format: action(parameters)\n\
             <|im_end|>\n\
-            <|im_start|>assistant\n"
+            <|im_start|>assistant\n",
         );
 
         prompt
@@ -150,7 +152,9 @@ impl ManoPInferenceEngine {
         if let Some(config) = &self.config {
             if let Some(caller) = claw_traits::llm_caller::get_llm_caller() {
                 if config.llm_api_key.is_some() {
-                    return self.vlm_inference(&caller, config, prompt, screenshot).await;
+                    return self
+                        .vlm_inference(&caller, config, prompt, screenshot)
+                        .await;
                 }
             }
         }
@@ -160,7 +164,7 @@ impl ManoPInferenceEngine {
                 dirs::config_dir()
                     .unwrap_or_default()
                     .join("claw-desktop")
-                    .join("config.toml")
+                    .join("config.toml"),
             ) {
                 log::info!("[ManoPInferenceEngine] Attempting VLM inference via LlmCaller");
             }
@@ -193,20 +197,29 @@ impl ManoPInferenceEngine {
             base_url
         );
 
-        let response = caller.call_once_vision(
-            api_key,
-            base_url,
-            model,
-            &system_prompt,
-            prompt,
-            &screenshot_b64,
-            is_openai,
-        ).await.map_err(|e| {
-            log::error!("[ManoPInferenceEngine:vlm_inference] VLM call failed: {}", e);
-            AutomaticallyError::InferenceEngine(format!("VLM call failed: {}", e))
-        })?;
+        let response = caller
+            .call_once_vision(
+                api_key,
+                base_url,
+                model,
+                &system_prompt,
+                prompt,
+                &screenshot_b64,
+                is_openai,
+            )
+            .await
+            .map_err(|e| {
+                log::error!(
+                    "[ManoPInferenceEngine:vlm_inference] VLM call failed: {}",
+                    e
+                );
+                AutomaticallyError::InferenceEngine(format!("VLM call failed: {}", e))
+            })?;
 
-        log::info!("[ManoPInferenceEngine:vlm_inference] VLM response length: {} chars", response.len());
+        log::info!(
+            "[ManoPInferenceEngine:vlm_inference] VLM response length: {} chars",
+            response.len()
+        );
         Ok(response)
     }
 
@@ -216,7 +229,10 @@ impl ManoPInferenceEngine {
 
         if task_lower.contains("click") || task_lower.contains("open") {
             Ok("click(500, 300)\n".to_string())
-        } else if task_lower.contains("type") || task_lower.contains("enter") || task_lower.contains("input") {
+        } else if task_lower.contains("type")
+            || task_lower.contains("enter")
+            || task_lower.contains("input")
+        {
             Ok("type(Hello World)\n".to_string())
         } else if task_lower.contains("scroll") {
             Ok("scroll(down, 3)\n".to_string())
@@ -240,14 +256,18 @@ impl ManoPInferenceEngine {
             match self.parse_action_line(line) {
                 Ok(action) => actions.push(action),
                 Err(e) => {
-                    log::warn!("[ManoPInferenceEngine] Failed to parse action '{}': {}", line, e);
+                    log::warn!(
+                        "[ManoPInferenceEngine] Failed to parse action '{}': {}",
+                        line,
+                        e
+                    );
                 }
             }
         }
 
         if actions.is_empty() {
             return Err(AutomaticallyError::ManoP(
-                "No valid actions found in model output".to_string()
+                "No valid actions found in model output".to_string(),
             ));
         }
 
@@ -262,8 +282,12 @@ impl ManoPInferenceEngine {
             let params = params.strip_suffix(")").unwrap_or(params);
             let coords: Vec<&str> = params.split(',').map(|s| s.trim()).collect();
             if coords.len() == 2 {
-                let x = coords[0].parse::<i32>().map_err(|_| AutomaticallyError::ManoP("Invalid x coordinate".to_string()))?;
-                let y = coords[1].parse::<i32>().map_err(|_| AutomaticallyError::ManoP("Invalid y coordinate".to_string()))?;
+                let x = coords[0]
+                    .parse::<i32>()
+                    .map_err(|_| AutomaticallyError::ManoP("Invalid x coordinate".to_string()))?;
+                let y = coords[1]
+                    .parse::<i32>()
+                    .map_err(|_| AutomaticallyError::ManoP("Invalid y coordinate".to_string()))?;
                 return Ok(ManoPAction::Click {
                     element_id: format!("point_{}_{}", x, y),
                     point: Point { x, y },
@@ -275,8 +299,12 @@ impl ManoPInferenceEngine {
             let params = params.strip_suffix(")").unwrap_or(params);
             let coords: Vec<&str> = params.split(',').map(|s| s.trim()).collect();
             if coords.len() == 2 {
-                let x = coords[0].parse::<i32>().map_err(|_| AutomaticallyError::ManoP("Invalid x coordinate".to_string()))?;
-                let y = coords[1].parse::<i32>().map_err(|_| AutomaticallyError::ManoP("Invalid y coordinate".to_string()))?;
+                let x = coords[0]
+                    .parse::<i32>()
+                    .map_err(|_| AutomaticallyError::ManoP("Invalid x coordinate".to_string()))?;
+                let y = coords[1]
+                    .parse::<i32>()
+                    .map_err(|_| AutomaticallyError::ManoP("Invalid y coordinate".to_string()))?;
                 return Ok(ManoPAction::DoubleClick {
                     element_id: format!("point_{}_{}", x, y),
                     point: Point { x, y },
@@ -288,8 +316,12 @@ impl ManoPInferenceEngine {
             let params = params.strip_suffix(")").unwrap_or(params);
             let coords: Vec<&str> = params.split(',').map(|s| s.trim()).collect();
             if coords.len() == 2 {
-                let x = coords[0].parse::<i32>().map_err(|_| AutomaticallyError::ManoP("Invalid x coordinate".to_string()))?;
-                let y = coords[1].parse::<i32>().map_err(|_| AutomaticallyError::ManoP("Invalid y coordinate".to_string()))?;
+                let x = coords[0]
+                    .parse::<i32>()
+                    .map_err(|_| AutomaticallyError::ManoP("Invalid x coordinate".to_string()))?;
+                let y = coords[1]
+                    .parse::<i32>()
+                    .map_err(|_| AutomaticallyError::ManoP("Invalid y coordinate".to_string()))?;
                 return Ok(ManoPAction::RightClick {
                     element_id: format!("point_{}_{}", x, y),
                     point: Point { x, y },
@@ -314,9 +346,16 @@ impl ManoPInferenceEngine {
                     "down" => super::ScrollDirection::Down,
                     "left" => super::ScrollDirection::Left,
                     "right" => super::ScrollDirection::Right,
-                    _ => return Err(AutomaticallyError::ManoP(format!("Invalid scroll direction: {}", parts[0]))),
+                    _ => {
+                        return Err(AutomaticallyError::ManoP(format!(
+                            "Invalid scroll direction: {}",
+                            parts[0]
+                        )));
+                    }
                 };
-                let amount = parts[1].parse::<i32>().map_err(|_| AutomaticallyError::ManoP("Invalid scroll amount".to_string()))?;
+                let amount = parts[1]
+                    .parse::<i32>()
+                    .map_err(|_| AutomaticallyError::ManoP("Invalid scroll amount".to_string()))?;
                 return Ok(ManoPAction::Scroll {
                     element_id: "scroll_area".to_string(),
                     direction,
@@ -329,12 +368,23 @@ impl ManoPInferenceEngine {
             let params = params.strip_suffix(")").unwrap_or(params);
             let coords: Vec<&str> = params.split(',').map(|s| s.trim()).collect();
             if coords.len() == 4 {
-                let from_x = coords[0].parse::<i32>().map_err(|_| AutomaticallyError::ManoP("Invalid from_x".to_string()))?;
-                let from_y = coords[1].parse::<i32>().map_err(|_| AutomaticallyError::ManoP("Invalid from_y".to_string()))?;
-                let to_x = coords[2].parse::<i32>().map_err(|_| AutomaticallyError::ManoP("Invalid to_x".to_string()))?;
-                let to_y = coords[3].parse::<i32>().map_err(|_| AutomaticallyError::ManoP("Invalid to_y".to_string()))?;
+                let from_x = coords[0]
+                    .parse::<i32>()
+                    .map_err(|_| AutomaticallyError::ManoP("Invalid from_x".to_string()))?;
+                let from_y = coords[1]
+                    .parse::<i32>()
+                    .map_err(|_| AutomaticallyError::ManoP("Invalid from_y".to_string()))?;
+                let to_x = coords[2]
+                    .parse::<i32>()
+                    .map_err(|_| AutomaticallyError::ManoP("Invalid to_x".to_string()))?;
+                let to_y = coords[3]
+                    .parse::<i32>()
+                    .map_err(|_| AutomaticallyError::ManoP("Invalid to_y".to_string()))?;
                 return Ok(ManoPAction::Drag {
-                    from: Point { x: from_x, y: from_y },
+                    from: Point {
+                        x: from_x,
+                        y: from_y,
+                    },
                     to: Point { x: to_x, y: to_y },
                 });
             }
@@ -342,12 +392,16 @@ impl ManoPInferenceEngine {
 
         if let Some(params) = line.strip_prefix("wait(") {
             let ms_str = params.strip_suffix(")").unwrap_or(params);
-            let duration_ms = ms_str.parse::<u64>().map_err(|_| AutomaticallyError::ManoP("Invalid wait duration".to_string()))?;
+            let duration_ms = ms_str
+                .parse::<u64>()
+                .map_err(|_| AutomaticallyError::ManoP("Invalid wait duration".to_string()))?;
             return Ok(ManoPAction::Wait { duration_ms });
         }
 
         if line == "screenshot()" {
-            return Ok(ManoPAction::ScreenshotVerify { expected_elements: Vec::new() });
+            return Ok(ManoPAction::ScreenshotVerify {
+                expected_elements: Vec::new(),
+            });
         }
 
         if let Some(params) = line.strip_prefix("hotkey(") {
@@ -356,7 +410,10 @@ impl ManoPInferenceEngine {
             return Ok(ManoPAction::Hotkey { keys });
         }
 
-        Err(AutomaticallyError::ManoP(format!("Unknown action format: {}", line)))
+        Err(AutomaticallyError::ManoP(format!(
+            "Unknown action format: {}",
+            line
+        )))
     }
 
     /// 计算置信度 — 基础0.7 + 动作数量奖励(最多0.25)
@@ -377,10 +434,15 @@ struct ProcessedImage {
 /// 缩放图像 — 使用Lanczos3算法将帧缩放到指定尺寸
 fn resize_image(frame: &ImageFrame, target_width: u32, target_height: u32) -> Vec<u8> {
     let img = image::RgbImage::from_raw(frame.width, frame.height, frame.data.clone())
-        .unwrap_or_else(|| image::RgbImage::from_pixel(frame.width, frame.height, image::Rgb([0, 0, 0])));
+        .unwrap_or_else(|| {
+            image::RgbImage::from_pixel(frame.width, frame.height, image::Rgb([0, 0, 0]))
+        });
 
-    let resized = image::DynamicImage::ImageRgb8(img)
-        .resize_exact(target_width, target_height, image::imageops::FilterType::Lanczos3);
+    let resized = image::DynamicImage::ImageRgb8(img).resize_exact(
+        target_width,
+        target_height,
+        image::imageops::FilterType::Lanczos3,
+    );
 
     let rgb = resized.to_rgb8();
     rgb.into_raw()

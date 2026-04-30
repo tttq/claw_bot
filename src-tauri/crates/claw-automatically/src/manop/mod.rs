@@ -1,13 +1,13 @@
 // Claw Desktop - Mano-P 桌面操作推理引擎
 // 管理Mano-P模型的状态（本地/云端/VLM降级）、初始化、推理任务执行，
 // 支持点击/双击/输入/滚动/拖拽/快捷键/窗口操作等桌面动作
-pub mod model_manager;
-pub mod inference_engine;
 pub mod action_executor;
 pub mod config;
+pub mod inference_engine;
+pub mod model_manager;
 
 use crate::error::Result;
-use crate::types::{ImageFrame, UiElement, Point};
+use crate::types::{ImageFrame, Point, UiElement};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -54,16 +54,43 @@ pub struct ManoPInferenceResult {
 /// Mano-P桌面动作枚举 — 支持点击/双击/右键/输入/滚动/拖拽/等待/截图/快捷键/窗口操作
 #[derive(Debug, Clone)]
 pub enum ManoPAction {
-    Click { element_id: String, point: Point },
-    DoubleClick { element_id: String, point: Point },
-    RightClick { element_id: String, point: Point },
-    TypeText { element_id: String, text: String },
-    Scroll { element_id: String, direction: ScrollDirection, amount: i32 },
-    Drag { from: Point, to: Point },
-    Wait { duration_ms: u64 },
-    ScreenshotVerify { expected_elements: Vec<String> },
-    Hotkey { keys: Vec<String> },
-    WindowAction { action: WindowActionType },
+    Click {
+        element_id: String,
+        point: Point,
+    },
+    DoubleClick {
+        element_id: String,
+        point: Point,
+    },
+    RightClick {
+        element_id: String,
+        point: Point,
+    },
+    TypeText {
+        element_id: String,
+        text: String,
+    },
+    Scroll {
+        element_id: String,
+        direction: ScrollDirection,
+        amount: i32,
+    },
+    Drag {
+        from: Point,
+        to: Point,
+    },
+    Wait {
+        duration_ms: u64,
+    },
+    ScreenshotVerify {
+        expected_elements: Vec<String>,
+    },
+    Hotkey {
+        keys: Vec<String>,
+    },
+    WindowAction {
+        action: WindowActionType,
+    },
 }
 
 /// 滚动方向枚举
@@ -126,7 +153,8 @@ impl ManoPExecutionResult {
             self.inference_time_ms,
             self.action_count,
             self.success,
-            self.error_message.as_ref()
+            self.error_message
+                .as_ref()
                 .map(|e| format!("- Error: {}", e))
                 .unwrap_or_default()
         )
@@ -224,7 +252,9 @@ impl ManoPState {
     }
 
     /// 获取推理引擎Arc引用
-    pub fn get_inference_engine(&self) -> Option<Arc<Mutex<inference_engine::ManoPInferenceEngine>>> {
+    pub fn get_inference_engine(
+        &self,
+    ) -> Option<Arc<Mutex<inference_engine::ManoPInferenceEngine>>> {
         self.inference_engine.clone()
     }
 
@@ -268,7 +298,10 @@ pub async fn initialize_mano_p() -> Result<()> {
 
     if local_support.supported {
         let model_manager = model_manager::ManoPModelManager::new();
-        if model_manager.is_model_complete(state_guard.model_version()).await {
+        if model_manager
+            .is_model_complete(state_guard.model_version())
+            .await
+        {
             log::info!("[ManoP:initialize] Local model found, creating inference engine");
             match inference_engine::ManoPInferenceEngine::new(state_guard.model_version()).await {
                 Ok(engine) => {
@@ -277,7 +310,10 @@ pub async fn initialize_mano_p() -> Result<()> {
                     return Ok(());
                 }
                 Err(e) => {
-                    log::warn!("[ManoP:initialize] Local model engine creation failed: {}, falling back to cloud", e);
+                    log::warn!(
+                        "[ManoP:initialize] Local model engine creation failed: {}, falling back to cloud",
+                        e
+                    );
                     state_guard.set_cloud_mode();
                     return Ok(());
                 }
@@ -301,25 +337,41 @@ pub async fn initialize_mano_p() -> Result<()> {
     );
     state_guard.set_cloud_mode();
 
-    log::info!("[ManoP:initialize] Initialization completed (mode: {})", state_guard.mode());
+    log::info!(
+        "[ManoP:initialize] Initialization completed (mode: {})",
+        state_guard.mode()
+    );
     Ok(())
 }
 
 /// 使用云端配置初始化Mano-P — 设置API地址和密钥，切换为云端模式
-pub async fn initialize_mano_p_with_config(cloud_api_url: &str, cloud_api_key: Option<&str>) -> Result<()> {
+pub async fn initialize_mano_p_with_config(
+    cloud_api_url: &str,
+    cloud_api_key: Option<&str>,
+) -> Result<()> {
     log::info!(
         "[ManoP:initialize_with_config] Starting Mano-P initialization with cloud config | url={} | key={}",
         cloud_api_url,
-        cloud_api_key.map(|k| format!("{}...{}", &k[..k.len().min(4)], &k[k.len().saturating_sub(4)..])).unwrap_or_else(|| "None".to_string())
+        cloud_api_key
+            .map(|k| format!(
+                "{}...{}",
+                &k[..k.len().min(4)],
+                &k[k.len().saturating_sub(4)..]
+            ))
+            .unwrap_or_else(|| "None".to_string())
     );
 
     let state = get_mano_p_state();
     let mut state_guard = state.lock().await;
 
-    state_guard.cloud_manager_mut().set_cloud_api_url(cloud_api_url.to_string());
+    state_guard
+        .cloud_manager_mut()
+        .set_cloud_api_url(cloud_api_url.to_string());
     if let Some(key) = cloud_api_key {
         if !key.is_empty() {
-            state_guard.cloud_manager_mut().set_cloud_api_key(key.to_string());
+            state_guard
+                .cloud_manager_mut()
+                .set_cloud_api_key(key.to_string());
         }
     }
 
@@ -364,47 +416,44 @@ pub async fn execute_task(request: ManoPTaskRequest) -> Result<ManoPInferenceRes
             drop(state_guard);
             execute_cloud_task(&request).await
         }
-        ManoPMode::Local => {
-            match state_guard.get_inference_engine() {
-                Some(engine_arc) => {
-                    drop(state_guard);
-                    let engine = engine_arc.lock().await;
-                    engine.infer(&request).await
-                }
-                None => {
-                    drop(state_guard);
-                    log::warn!("[ManoP:execute_task] Local engine not available, falling back to cloud");
-                    execute_cloud_task(&request).await
-                }
+        ManoPMode::Local => match state_guard.get_inference_engine() {
+            Some(engine_arc) => {
+                drop(state_guard);
+                let engine = engine_arc.lock().await;
+                engine.infer(&request).await
             }
-        }
-        ManoPMode::VlmFallback => {
-            match state_guard.get_inference_engine() {
-                Some(engine_arc) => {
-                    drop(state_guard);
-                    let engine = engine_arc.lock().await;
-                    engine.infer(&request).await
-                }
-                None => {
-                    drop(state_guard);
-                    log::warn!("[ManoP:execute_task] No engine available, returning mock result");
-                    Ok(ManoPInferenceResult {
-                        intent: request.task_description.clone(),
-                        target_elements: Vec::new(),
-                        action_sequence: vec![
-                            ManoPAction::ScreenshotVerify { expected_elements: vec!["desktop".to_string()] },
-                        ],
-                        confidence: 0.3,
-                        inference_time_ms: 10,
-                    })
-                }
+            None => {
+                drop(state_guard);
+                log::warn!(
+                    "[ManoP:execute_task] Local engine not available, falling back to cloud"
+                );
+                execute_cloud_task(&request).await
             }
-        }
-        ManoPMode::Unavailable => {
-            Err(crate::error::AutomaticallyError::ManoP(
-                "Mano-P is not available. No local model, cloud API, or VLM fallback configured.".to_string()
-            ))
-        }
+        },
+        ManoPMode::VlmFallback => match state_guard.get_inference_engine() {
+            Some(engine_arc) => {
+                drop(state_guard);
+                let engine = engine_arc.lock().await;
+                engine.infer(&request).await
+            }
+            None => {
+                drop(state_guard);
+                log::warn!("[ManoP:execute_task] No engine available, returning mock result");
+                Ok(ManoPInferenceResult {
+                    intent: request.task_description.clone(),
+                    target_elements: Vec::new(),
+                    action_sequence: vec![ManoPAction::ScreenshotVerify {
+                        expected_elements: vec!["desktop".to_string()],
+                    }],
+                    confidence: 0.3,
+                    inference_time_ms: 10,
+                })
+            }
+        },
+        ManoPMode::Unavailable => Err(crate::error::AutomaticallyError::ManoP(
+            "Mano-P is not available. No local model, cloud API, or VLM fallback configured."
+                .to_string(),
+        )),
     }
 }
 
@@ -418,18 +467,19 @@ async fn execute_cloud_task(request: &ManoPTaskRequest) -> Result<ManoPInference
 
     let screenshot_b64 = request.screenshot.to_base64();
 
-    match cloud_mgr.cloud_inference(
-        &request.task_description,
-        &screenshot_b64,
-        None,
-    ).await {
+    match cloud_mgr
+        .cloud_inference(&request.task_description, &screenshot_b64, None)
+        .await
+    {
         Ok(cloud_resp) => {
             let inference_time_ms = start_time.elapsed().as_millis() as u64;
 
             if !cloud_resp.success {
                 return Err(crate::error::AutomaticallyError::ManoP(format!(
                     "Cloud inference failed: {}",
-                    cloud_resp.error.unwrap_or_else(|| "Unknown error".to_string())
+                    cloud_resp
+                        .error
+                        .unwrap_or_else(|| "Unknown error".to_string())
                 )));
             }
 
@@ -444,12 +494,17 @@ async fn execute_cloud_task(request: &ManoPTaskRequest) -> Result<ManoPInference
             })
         }
         Err(e) => {
-            log::warn!("[ManoP:execute_cloud_task] Cloud inference failed: {}, trying VLM fallback", e);
+            log::warn!(
+                "[ManoP:execute_cloud_task] Cloud inference failed: {}, trying VLM fallback",
+                e
+            );
             drop(state_guard);
 
             if let Some(_caller) = claw_traits::llm_caller::get_llm_caller() {
                 log::info!("[ManoP:execute_cloud_task] Using VLM caller as fallback");
-                let engine = inference_engine::ManoPInferenceEngine::new(ManoPModelVersion::Quantized4B).await?;
+                let engine =
+                    inference_engine::ManoPInferenceEngine::new(ManoPModelVersion::Quantized4B)
+                        .await?;
                 engine.infer(request).await
             } else {
                 Err(e)
@@ -478,14 +533,21 @@ fn parse_cloud_action(action_type: &str, params: &serde_json::Value) -> ManoPAct
             }
         }
         "type" | "type_text" => {
-            let text = params.get("text").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let text = params
+                .get("text")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             ManoPAction::TypeText {
                 element_id: "cloud_input".to_string(),
                 text,
             }
         }
         "scroll" => {
-            let direction = params.get("direction").and_then(|v| v.as_str()).unwrap_or("down");
+            let direction = params
+                .get("direction")
+                .and_then(|v| v.as_str())
+                .unwrap_or("down");
             let amount = params.get("amount").and_then(|v| v.as_i64()).unwrap_or(3) as i32;
             ManoPAction::Scroll {
                 element_id: "cloud_scroll".to_string(),
@@ -499,9 +561,14 @@ fn parse_cloud_action(action_type: &str, params: &serde_json::Value) -> ManoPAct
             }
         }
         "hotkey" => {
-            let keys = params.get("keys")
+            let keys = params
+                .get("keys")
                 .and_then(|v| v.as_array())
-                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
                 .unwrap_or_default();
             ManoPAction::Hotkey { keys }
         }
@@ -510,8 +577,13 @@ fn parse_cloud_action(action_type: &str, params: &serde_json::Value) -> ManoPAct
             ManoPAction::Wait { duration_ms: ms }
         }
         _ => {
-            log::warn!("[ManoP:parse_cloud_action] Unknown action type: {}, defaulting to screenshot verify", action_type);
-            ManoPAction::ScreenshotVerify { expected_elements: Vec::new() }
+            log::warn!(
+                "[ManoP:parse_cloud_action] Unknown action type: {}, defaulting to screenshot verify",
+                action_type
+            );
+            ManoPAction::ScreenshotVerify {
+                expected_elements: Vec::new(),
+            }
         }
     }
 }

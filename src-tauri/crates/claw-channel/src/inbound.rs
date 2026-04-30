@@ -1,9 +1,9 @@
 // Claw Desktop - 入站消息 - 处理从渠道接收的消息
+use crate::error::{ChannelError, ChannelResult};
+use crate::types::*;
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use crate::error::{ChannelError, ChannelResult};
-use crate::types::*;
 
 pub struct InboundPipeline {
     debounce: DebouncePolicy,
@@ -39,8 +39,13 @@ impl InboundPipeline {
             self.check_group_policy(&message, group_config)?;
 
             // 4. @提及检测
-            if !self.mention_gating.should_process(&message, group_config.require_mention) {
-                return Err(ChannelError::Internal("Mention required but not found".to_string()));
+            if !self
+                .mention_gating
+                .should_process(&message, group_config.require_mention)
+            {
+                return Err(ChannelError::Internal(
+                    "Mention required but not found".to_string(),
+                ));
             }
         }
 
@@ -123,7 +128,9 @@ impl DebouncePolicy {
     pub async fn is_duplicate(&self, message: &InboundMessage) -> bool {
         let key = format!(
             "{}:{}:{}",
-            message.channel_id, message.message_id, message.content.to_display_string()
+            message.channel_id,
+            message.message_id,
+            message.content.to_display_string()
         );
 
         let mut seen = self.seen_messages.write().await;
@@ -192,7 +199,9 @@ impl MentionGating {
 
         bot_usernames.iter().any(|username| {
             text.contains(&format!("@{}", username))
-                || text.to_lowercase().contains(&format!("@{}", username.to_lowercase()))
+                || text
+                    .to_lowercase()
+                    .contains(&format!("@{}", username.to_lowercase()))
         })
     }
 }

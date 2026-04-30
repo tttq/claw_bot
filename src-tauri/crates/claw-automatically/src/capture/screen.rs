@@ -23,7 +23,7 @@ pub fn capture_screen() -> Result<ImageFrame> {
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
         Err(AutomaticallyError::PlatformNotSupported(
-            "Screen capture not supported on this platform".to_string()
+            "Screen capture not supported on this platform".to_string(),
         ))
     }
 }
@@ -38,7 +38,10 @@ pub fn capture_region(x: u32, y: u32, width: u32, height: u32) -> Result<ImageFr
 fn crop_frame(frame: &ImageFrame, x: u32, y: u32, width: u32, height: u32) -> Result<ImageFrame> {
     if x + width > frame.width || y + height > frame.height {
         return Err(AutomaticallyError::InvalidCoordinates(
-            x as f64, y as f64, frame.width, frame.height,
+            x as f64,
+            y as f64,
+            frame.width,
+            frame.height,
         ));
     }
 
@@ -72,7 +75,7 @@ pub fn ocr_screen_text() -> Result<String> {
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
         Err(AutomaticallyError::PlatformNotSupported(
-            "OCR not supported on this platform".to_string()
+            "OCR not supported on this platform".to_string(),
         ))
     }
 }
@@ -81,7 +84,9 @@ pub fn ocr_screen_text() -> Result<String> {
 #[cfg(target_os = "windows")]
 fn ocr_screen_text_windows() -> Result<String> {
     let frame = capture_screen_windows()?;
-    let png_data = frame.to_png().map_err(|e| AutomaticallyError::Capture(format!("PNG encode failed: {}", e)))?;
+    let png_data = frame
+        .to_png()
+        .map_err(|e| AutomaticallyError::Capture(format!("PNG encode failed: {}", e)))?;
 
     let temp_dir = std::env::temp_dir();
     let png_path = temp_dir.join(format!("claw_ocr_{}.png", uuid::Uuid::new_v4()));
@@ -185,10 +190,9 @@ fn ocr_screen_text_macos() -> Result<String> {
 #[cfg(target_os = "windows")]
 fn capture_screen_windows() -> Result<ImageFrame> {
     use windows::Win32::Graphics::Gdi::{
-        BitBlt, CreateCompatibleDC, CreateDIBSection,
-        DeleteDC, DeleteObject, GetDC, ReleaseDC, SelectObject,
-        BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, SRCCOPY,
-        GetDeviceCaps, HORZRES, VERTRES,
+        BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BitBlt, CreateCompatibleDC, CreateDIBSection,
+        DIB_RGB_COLORS, DeleteDC, DeleteObject, GetDC, GetDeviceCaps, HORZRES, ReleaseDC, SRCCOPY,
+        SelectObject, VERTRES,
     };
     use windows::Win32::UI::WindowsAndMessaging::GetDesktopWindow;
 
@@ -196,7 +200,9 @@ fn capture_screen_windows() -> Result<ImageFrame> {
         let hwnd = GetDesktopWindow();
         let hdc_screen = GetDC(hwnd);
         if hdc_screen.0.is_null() {
-            return Err(AutomaticallyError::Capture("Failed to get screen DC".to_string()));
+            return Err(AutomaticallyError::Capture(
+                "Failed to get screen DC".to_string(),
+            ));
         }
 
         let width = GetDeviceCaps(hdc_screen, HORZRES) as i32;
@@ -205,7 +211,9 @@ fn capture_screen_windows() -> Result<ImageFrame> {
         let hdc_mem = CreateCompatibleDC(hdc_screen);
         if hdc_mem.0.is_null() {
             ReleaseDC(hwnd, hdc_screen);
-            return Err(AutomaticallyError::Capture("Failed to create compatible DC".to_string()));
+            return Err(AutomaticallyError::Capture(
+                "Failed to create compatible DC".to_string(),
+            ));
         }
 
         let bmi = BITMAPINFO {
@@ -229,12 +237,15 @@ fn capture_screen_windows() -> Result<ImageFrame> {
             &mut ppv_bits as *mut _ as *mut _,
             None,
             0,
-        ).map_err(|e| AutomaticallyError::Capture(format!("CreateDIBSection failed: {}", e)))?;
+        )
+        .map_err(|e| AutomaticallyError::Capture(format!("CreateDIBSection failed: {}", e)))?;
 
         if h_bitmap.is_invalid() {
             let _ = DeleteDC(hdc_mem);
             ReleaseDC(hwnd, hdc_screen);
-            return Err(AutomaticallyError::Capture("Failed to create DIB section".to_string()));
+            return Err(AutomaticallyError::Capture(
+                "Failed to create DIB section".to_string(),
+            ));
         }
 
         SelectObject(hdc_mem, h_bitmap);
@@ -264,7 +275,9 @@ fn capture_screen_windows() -> Result<ImageFrame> {
         ReleaseDC(hwnd, hdc_screen);
 
         if rgb_data.is_empty() {
-            return Err(AutomaticallyError::Capture("Captured empty screen data".to_string()));
+            return Err(AutomaticallyError::Capture(
+                "Captured empty screen data".to_string(),
+            ));
         }
 
         Ok(ImageFrame::new(width as u32, height as u32, rgb_data))
@@ -279,7 +292,9 @@ fn capture_screen_linux() -> Result<ImageFrame> {
     unsafe {
         let display = x11::xlib::XOpenDisplay(std::ptr::null());
         if display.is_null() {
-            return Err(AutomaticallyError::Capture("Cannot open X display".to_string()));
+            return Err(AutomaticallyError::Capture(
+                "Cannot open X display".to_string(),
+            ));
         }
 
         let screen = x11::xlib::XDefaultScreen(display);
@@ -288,8 +303,12 @@ fn capture_screen_linux() -> Result<ImageFrame> {
         let height = x11::xlib::XDisplayHeight(display, screen) as u32;
 
         let ximage = x11::xlib::XGetImage(
-            display, root,
-            0, 0, width, height,
+            display,
+            root,
+            0,
+            0,
+            width,
+            height,
             x11::xlib::XAllPlanes(),
             x11::xlib::ZPixmap,
         );
@@ -300,10 +319,8 @@ fn capture_screen_linux() -> Result<ImageFrame> {
         }
 
         let image = &*ximage;
-        let data = std::slice::from_raw_parts(
-            image.data as *const u8,
-            (width * height * 4) as usize,
-        );
+        let data =
+            std::slice::from_raw_parts(image.data as *const u8, (width * height * 4) as usize);
 
         let mut rgb_data = Vec::with_capacity((width * height * 3) as usize);
         for i in 0..(width * height) as usize {
@@ -328,13 +345,15 @@ fn capture_screen_macos() -> Result<ImageFrame> {
     let display_id = CGMainDisplayID();
     let display = CGDisplay::new(display_id);
 
-    let image = display.image()
-        .ok_or_else(|| AutomaticallyError::Capture("Failed to capture screen on macOS".to_string()))?;
+    let image = display.image().ok_or_else(|| {
+        AutomaticallyError::Capture("Failed to capture screen on macOS".to_string())
+    })?;
 
     let width = image.width() as u32;
     let height = image.height() as u32;
 
-    let data_provider = image.data_provider()
+    let data_provider = image
+        .data_provider()
         .ok_or_else(|| AutomaticallyError::Capture("No data provider".to_string()))?;
     let data = data_provider.data();
     let bytes = data.bytes();

@@ -4,10 +4,10 @@
 // 开发环境: .build_temp/skills/
 // 生产环境: 安装目录/skills/ + ~/.claw-desktop/skills/
 
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use once_cell::sync::Lazy;
 
 /// 自动化技能 — 定义一个应用的完整操作知识
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,7 +99,8 @@ impl SkillRegistry {
         for alias in &skill.aliases {
             self.alias_index.insert(alias.to_lowercase(), key.clone());
         }
-        self.alias_index.insert(skill.app_name.to_lowercase(), key.clone());
+        self.alias_index
+            .insert(skill.app_name.to_lowercase(), key.clone());
         self.skills.insert(key, skill);
     }
 
@@ -149,7 +150,10 @@ pub fn init_skills() {
     scan_skill_directories(&mut registry);
 
     registry.loaded = true;
-    log::info!("[AutomationSkill] Initialized with {} skills", registry.skills.len());
+    log::info!(
+        "[AutomationSkill] Initialized with {} skills",
+        registry.skills.len()
+    );
 }
 
 /// 强制重新加载技能 — 用于热扫描新增/修改的技能文件
@@ -163,7 +167,10 @@ pub fn reload_skills() {
     scan_skill_directories(&mut registry);
 
     registry.loaded = true;
-    log::info!("[AutomationSkill] Reloaded with {} skills", registry.skills.len());
+    log::info!(
+        "[AutomationSkill] Reloaded with {} skills",
+        registry.skills.len()
+    );
 }
 
 pub fn match_skill(instruction: &str) -> Option<AutomationSkill> {
@@ -227,7 +234,11 @@ fn scan_skill_directories(registry: &mut SkillRegistry) {
         if !dir.exists() {
             continue;
         }
-        log::info!("[AutomationSkill] Scanning {} skills from: {:?}", source, dir);
+        log::info!(
+            "[AutomationSkill] Scanning {} skills from: {:?}",
+            source,
+            dir
+        );
         scan_skill_dir(dir, source, registry, &mut seen_names);
     }
 }
@@ -249,13 +260,16 @@ fn scan_skill_dir(
                         if seen_names.insert(skill.name.clone()) {
                             log::info!(
                                 "[AutomationSkill] Loaded {} skill: {} from {:?}",
-                                source, skill.name, skill_file
+                                source,
+                                skill.name,
+                                skill_file
                             );
                             registry.register(skill);
                         } else {
                             log::debug!(
                                 "[AutomationSkill] Skipped duplicate skill: {} from {:?}",
-                                skill.name, skill_file
+                                skill.name,
+                                skill_file
                             );
                         }
                     }
@@ -267,7 +281,9 @@ fn scan_skill_dir(
                     if seen_names.insert(skill.name.clone()) {
                         log::info!(
                             "[AutomationSkill] Loaded {} skill: {} from {:?}",
-                            source, skill.name, path
+                            source,
+                            skill.name,
+                            path
                         );
                         registry.register(skill);
                     }
@@ -324,7 +340,10 @@ pub fn format_skill_for_prompt(skill: &AutomationSkill) -> String {
     if !skill.operations.is_empty() {
         prompt.push_str("KNOWN OPERATIONS (follow these step sequences when applicable):\n");
         for (op_name, op) in &skill.operations {
-            prompt.push_str(&format!("\n  Operation: {} — {}\n", op_name, op.description));
+            prompt.push_str(&format!(
+                "\n  Operation: {} — {}\n",
+                op_name, op.description
+            ));
             for (i, step) in op.steps.iter().enumerate() {
                 let mut step_desc = format!("    {}. {}", i + 1, step.action);
                 if let Some(ref target) = step.target {
@@ -407,45 +426,166 @@ fn create_wechat_skill() -> AutomationSkill {
     shortcuts.insert("文件传输".to_string(), "Ctrl+Shift+F".to_string());
 
     let mut operations = HashMap::new();
-    operations.insert("send_message".to_string(), SkillOperation {
-        description: "发送消息给联系人".to_string(),
-        steps: vec![
-            OperationStep { action: "确认微信已打开".to_string(), target: Some("微信窗口/任务栏图标".into()), shortcut: None, input_placeholder: None, wait_after_ms: 2000, note: Some("若未打开则使用open_app打开微信".into()) },
-            OperationStep { action: "检查登录状态".to_string(), target: Some("登录二维码/主界面".into()), shortcut: None, input_placeholder: None, wait_after_ms: 1000, note: Some("若显示二维码则提示用户扫码".into()) },
-            OperationStep { action: "打开搜索框".to_string(), target: Some("搜索框".into()), shortcut: Some("Ctrl+F".into()), input_placeholder: None, wait_after_ms: 500, note: None },
-            OperationStep { action: "输入联系人名称".to_string(), target: Some("搜索输入框".into()), shortcut: None, input_placeholder: Some("contact_name".into()), wait_after_ms: 800, note: Some("输入后等待搜索结果".into()) },
-            OperationStep { action: "点击搜索结果中的联系人".to_string(), target: Some("搜索结果列表".into()), shortcut: None, input_placeholder: None, wait_after_ms: 500, note: Some("点击第一个匹配结果".into()) },
-            OperationStep { action: "点击聊天输入框".to_string(), target: Some("消息输入框".into()), shortcut: None, input_placeholder: None, wait_after_ms: 300, note: None },
-            OperationStep { action: "输入消息内容".to_string(), target: Some("消息输入框".into()), shortcut: None, input_placeholder: Some("message".into()), wait_after_ms: 300, note: None },
-            OperationStep { action: "发送消息".to_string(), target: None, shortcut: Some("Enter".into()), input_placeholder: None, wait_after_ms: 500, note: Some("确认消息已发送".into()) },
-        ],
-    });
-    operations.insert("open_chat".to_string(), SkillOperation {
-        description: "打开与某人的聊天窗口".to_string(),
-        steps: vec![
-            OperationStep { action: "确认微信已打开并登录".to_string(), target: None, shortcut: None, input_placeholder: None, wait_after_ms: 2000, note: None },
-            OperationStep { action: "打开搜索".to_string(), target: None, shortcut: Some("Ctrl+F".into()), input_placeholder: None, wait_after_ms: 500, note: None },
-            OperationStep { action: "输入联系人名称".to_string(), target: Some("搜索框".into()), shortcut: None, input_placeholder: Some("contact_name".into()), wait_after_ms: 800, note: None },
-            OperationStep { action: "点击联系人".to_string(), target: Some("搜索结果".into()), shortcut: None, input_placeholder: None, wait_after_ms: 500, note: None },
-        ],
-    });
+    operations.insert(
+        "send_message".to_string(),
+        SkillOperation {
+            description: "发送消息给联系人".to_string(),
+            steps: vec![
+                OperationStep {
+                    action: "确认微信已打开".to_string(),
+                    target: Some("微信窗口/任务栏图标".into()),
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 2000,
+                    note: Some("若未打开则使用open_app打开微信".into()),
+                },
+                OperationStep {
+                    action: "检查登录状态".to_string(),
+                    target: Some("登录二维码/主界面".into()),
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 1000,
+                    note: Some("若显示二维码则提示用户扫码".into()),
+                },
+                OperationStep {
+                    action: "打开搜索框".to_string(),
+                    target: Some("搜索框".into()),
+                    shortcut: Some("Ctrl+F".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+                OperationStep {
+                    action: "输入联系人名称".to_string(),
+                    target: Some("搜索输入框".into()),
+                    shortcut: None,
+                    input_placeholder: Some("contact_name".into()),
+                    wait_after_ms: 800,
+                    note: Some("输入后等待搜索结果".into()),
+                },
+                OperationStep {
+                    action: "点击搜索结果中的联系人".to_string(),
+                    target: Some("搜索结果列表".into()),
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: Some("点击第一个匹配结果".into()),
+                },
+                OperationStep {
+                    action: "点击聊天输入框".to_string(),
+                    target: Some("消息输入框".into()),
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 300,
+                    note: None,
+                },
+                OperationStep {
+                    action: "输入消息内容".to_string(),
+                    target: Some("消息输入框".into()),
+                    shortcut: None,
+                    input_placeholder: Some("message".into()),
+                    wait_after_ms: 300,
+                    note: None,
+                },
+                OperationStep {
+                    action: "发送消息".to_string(),
+                    target: None,
+                    shortcut: Some("Enter".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: Some("确认消息已发送".into()),
+                },
+            ],
+        },
+    );
+    operations.insert(
+        "open_chat".to_string(),
+        SkillOperation {
+            description: "打开与某人的聊天窗口".to_string(),
+            steps: vec![
+                OperationStep {
+                    action: "确认微信已打开并登录".to_string(),
+                    target: None,
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 2000,
+                    note: None,
+                },
+                OperationStep {
+                    action: "打开搜索".to_string(),
+                    target: None,
+                    shortcut: Some("Ctrl+F".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+                OperationStep {
+                    action: "输入联系人名称".to_string(),
+                    target: Some("搜索框".into()),
+                    shortcut: None,
+                    input_placeholder: Some("contact_name".into()),
+                    wait_after_ms: 800,
+                    note: None,
+                },
+                OperationStep {
+                    action: "点击联系人".to_string(),
+                    target: Some("搜索结果".into()),
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+            ],
+        },
+    );
 
     AutomationSkill {
         name: "wechat".to_string(),
         app_name: "微信".to_string(),
-        aliases: vec!["WeChat".to_string(), "wechat".to_string(), "weixin".to_string()],
+        aliases: vec![
+            "WeChat".to_string(),
+            "wechat".to_string(),
+            "weixin".to_string(),
+        ],
         description: "微信桌面客户端 — 支持发送消息、搜索联系人、文件传输等操作".to_string(),
         shortcuts,
         operations,
         ui_hints: vec![
-            UiHint { element: "搜索框".to_string(), description: "微信主界面顶部的搜索区域".to_string(), typical_position: Some("窗口顶部居中".into()), look_for: Some("搜索图标或\"搜索\"文字".into()) },
-            UiHint { element: "聊天输入框".to_string(), description: "聊天窗口底部的文字输入区域".to_string(), typical_position: Some("窗口底部".into()), look_for: Some("空白输入区域或\"按Enter发送\"提示".into()) },
-            UiHint { element: "联系人列表".to_string(), description: "左侧的聊天/联系人列表".to_string(), typical_position: Some("窗口左侧".into()), look_for: Some("头像和名称列表".into()) },
+            UiHint {
+                element: "搜索框".to_string(),
+                description: "微信主界面顶部的搜索区域".to_string(),
+                typical_position: Some("窗口顶部居中".into()),
+                look_for: Some("搜索图标或\"搜索\"文字".into()),
+            },
+            UiHint {
+                element: "聊天输入框".to_string(),
+                description: "聊天窗口底部的文字输入区域".to_string(),
+                typical_position: Some("窗口底部".into()),
+                look_for: Some("空白输入区域或\"按Enter发送\"提示".into()),
+            },
+            UiHint {
+                element: "联系人列表".to_string(),
+                description: "左侧的聊天/联系人列表".to_string(),
+                typical_position: Some("窗口左侧".into()),
+                look_for: Some("头像和名称列表".into()),
+            },
         ],
         error_states: vec![
-            ErrorState { name: "未登录".to_string(), detection: "显示二维码登录界面".to_string(), recovery: "提示用户需要扫码登录，使用fail结束任务".to_string() },
-            ErrorState { name: "联系人不存在".to_string(), detection: "搜索结果为空或显示\"无搜索结果\"".to_string(), recovery: "告知用户找不到该联系人，使用fail结束".to_string() },
-            ErrorState { name: "消息发送失败".to_string(), detection: "消息旁显示红色感叹号".to_string(), recovery: "等待几秒后重试发送".to_string() },
+            ErrorState {
+                name: "未登录".to_string(),
+                detection: "显示二维码登录界面".to_string(),
+                recovery: "提示用户需要扫码登录，使用fail结束任务".to_string(),
+            },
+            ErrorState {
+                name: "联系人不存在".to_string(),
+                detection: "搜索结果为空或显示\"无搜索结果\"".to_string(),
+                recovery: "告知用户找不到该联系人，使用fail结束".to_string(),
+            },
+            ErrorState {
+                name: "消息发送失败".to_string(),
+                detection: "消息旁显示红色感叹号".to_string(),
+                recovery: "等待几秒后重试发送".to_string(),
+            },
         ],
         source_path: None,
     }
@@ -458,34 +598,110 @@ fn create_qq_skill() -> AutomationSkill {
     shortcuts.insert("换行".to_string(), "Ctrl+Enter".to_string());
 
     let mut operations = HashMap::new();
-    operations.insert("send_message".to_string(), SkillOperation {
-        description: "发送消息给QQ好友".to_string(),
-        steps: vec![
-            OperationStep { action: "确认QQ已打开".to_string(), target: None, shortcut: None, input_placeholder: None, wait_after_ms: 2000, note: None },
-            OperationStep { action: "检查登录状态".to_string(), target: Some("登录界面/主面板".into()), shortcut: None, input_placeholder: None, wait_after_ms: 1000, note: Some("若显示登录界面则提示用户登录".into()) },
-            OperationStep { action: "打开搜索".to_string(), target: None, shortcut: Some("Ctrl+F".into()), input_placeholder: None, wait_after_ms: 500, note: None },
-            OperationStep { action: "输入联系人名称或QQ号".to_string(), target: Some("搜索框".into()), shortcut: None, input_placeholder: Some("contact_name".into()), wait_after_ms: 800, note: None },
-            OperationStep { action: "点击搜索结果中的联系人".to_string(), target: Some("搜索结果".into()), shortcut: None, input_placeholder: None, wait_after_ms: 500, note: None },
-            OperationStep { action: "点击聊天输入框".to_string(), target: Some("消息输入框".into()), shortcut: None, input_placeholder: None, wait_after_ms: 300, note: None },
-            OperationStep { action: "输入消息内容".to_string(), target: None, shortcut: None, input_placeholder: Some("message".into()), wait_after_ms: 300, note: None },
-            OperationStep { action: "发送消息".to_string(), target: None, shortcut: Some("Enter".into()), input_placeholder: None, wait_after_ms: 500, note: None },
-        ],
-    });
+    operations.insert(
+        "send_message".to_string(),
+        SkillOperation {
+            description: "发送消息给QQ好友".to_string(),
+            steps: vec![
+                OperationStep {
+                    action: "确认QQ已打开".to_string(),
+                    target: None,
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 2000,
+                    note: None,
+                },
+                OperationStep {
+                    action: "检查登录状态".to_string(),
+                    target: Some("登录界面/主面板".into()),
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 1000,
+                    note: Some("若显示登录界面则提示用户登录".into()),
+                },
+                OperationStep {
+                    action: "打开搜索".to_string(),
+                    target: None,
+                    shortcut: Some("Ctrl+F".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+                OperationStep {
+                    action: "输入联系人名称或QQ号".to_string(),
+                    target: Some("搜索框".into()),
+                    shortcut: None,
+                    input_placeholder: Some("contact_name".into()),
+                    wait_after_ms: 800,
+                    note: None,
+                },
+                OperationStep {
+                    action: "点击搜索结果中的联系人".to_string(),
+                    target: Some("搜索结果".into()),
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+                OperationStep {
+                    action: "点击聊天输入框".to_string(),
+                    target: Some("消息输入框".into()),
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 300,
+                    note: None,
+                },
+                OperationStep {
+                    action: "输入消息内容".to_string(),
+                    target: None,
+                    shortcut: None,
+                    input_placeholder: Some("message".into()),
+                    wait_after_ms: 300,
+                    note: None,
+                },
+                OperationStep {
+                    action: "发送消息".to_string(),
+                    target: None,
+                    shortcut: Some("Enter".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+            ],
+        },
+    );
 
     AutomationSkill {
         name: "qq".to_string(),
         app_name: "QQ".to_string(),
-        aliases: vec!["腾讯QQ".to_string(), "qq".to_string(), "TIM".to_string(), "tim".to_string()],
+        aliases: vec![
+            "腾讯QQ".to_string(),
+            "qq".to_string(),
+            "TIM".to_string(),
+            "tim".to_string(),
+        ],
         description: "QQ桌面客户端 — 支持发送消息、搜索好友等操作".to_string(),
         shortcuts,
         operations,
         ui_hints: vec![
-            UiHint { element: "搜索框".to_string(), description: "QQ主面板顶部的搜索区域".to_string(), typical_position: Some("面板顶部".into()), look_for: Some("搜索图标".into()) },
-            UiHint { element: "聊天输入框".to_string(), description: "聊天窗口底部的输入区域".to_string(), typical_position: Some("窗口底部".into()), look_for: Some("空白输入区域".into()) },
+            UiHint {
+                element: "搜索框".to_string(),
+                description: "QQ主面板顶部的搜索区域".to_string(),
+                typical_position: Some("面板顶部".into()),
+                look_for: Some("搜索图标".into()),
+            },
+            UiHint {
+                element: "聊天输入框".to_string(),
+                description: "聊天窗口底部的输入区域".to_string(),
+                typical_position: Some("窗口底部".into()),
+                look_for: Some("空白输入区域".into()),
+            },
         ],
-        error_states: vec![
-            ErrorState { name: "未登录".to_string(), detection: "显示登录界面".to_string(), recovery: "提示用户需要登录".to_string() },
-        ],
+        error_states: vec![ErrorState {
+            name: "未登录".to_string(),
+            detection: "显示登录界面".to_string(),
+            recovery: "提示用户需要登录".to_string(),
+        }],
         source_path: None,
     }
 }
@@ -496,19 +712,78 @@ fn create_dingtalk_skill() -> AutomationSkill {
     shortcuts.insert("发送消息".to_string(), "Enter".to_string());
 
     let mut operations = HashMap::new();
-    operations.insert("send_message".to_string(), SkillOperation {
-        description: "发送钉钉消息给联系人".to_string(),
-        steps: vec![
-            OperationStep { action: "确认钉钉已打开".to_string(), target: None, shortcut: None, input_placeholder: None, wait_after_ms: 2000, note: None },
-            OperationStep { action: "检查登录状态".to_string(), target: None, shortcut: None, input_placeholder: None, wait_after_ms: 1000, note: Some("若显示登录界面则提示用户登录".into()) },
-            OperationStep { action: "打开搜索".to_string(), target: None, shortcut: Some("Ctrl+F".into()), input_placeholder: None, wait_after_ms: 500, note: None },
-            OperationStep { action: "输入联系人名称".to_string(), target: Some("搜索框".into()), shortcut: None, input_placeholder: Some("contact_name".into()), wait_after_ms: 800, note: None },
-            OperationStep { action: "点击搜索结果".to_string(), target: Some("搜索结果".into()), shortcut: None, input_placeholder: None, wait_after_ms: 500, note: None },
-            OperationStep { action: "点击聊天输入框".to_string(), target: Some("消息输入框".into()), shortcut: None, input_placeholder: None, wait_after_ms: 300, note: None },
-            OperationStep { action: "输入消息内容".to_string(), target: None, shortcut: None, input_placeholder: Some("message".into()), wait_after_ms: 300, note: None },
-            OperationStep { action: "发送消息".to_string(), target: None, shortcut: Some("Enter".into()), input_placeholder: None, wait_after_ms: 500, note: None },
-        ],
-    });
+    operations.insert(
+        "send_message".to_string(),
+        SkillOperation {
+            description: "发送钉钉消息给联系人".to_string(),
+            steps: vec![
+                OperationStep {
+                    action: "确认钉钉已打开".to_string(),
+                    target: None,
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 2000,
+                    note: None,
+                },
+                OperationStep {
+                    action: "检查登录状态".to_string(),
+                    target: None,
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 1000,
+                    note: Some("若显示登录界面则提示用户登录".into()),
+                },
+                OperationStep {
+                    action: "打开搜索".to_string(),
+                    target: None,
+                    shortcut: Some("Ctrl+F".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+                OperationStep {
+                    action: "输入联系人名称".to_string(),
+                    target: Some("搜索框".into()),
+                    shortcut: None,
+                    input_placeholder: Some("contact_name".into()),
+                    wait_after_ms: 800,
+                    note: None,
+                },
+                OperationStep {
+                    action: "点击搜索结果".to_string(),
+                    target: Some("搜索结果".into()),
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+                OperationStep {
+                    action: "点击聊天输入框".to_string(),
+                    target: Some("消息输入框".into()),
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 300,
+                    note: None,
+                },
+                OperationStep {
+                    action: "输入消息内容".to_string(),
+                    target: None,
+                    shortcut: None,
+                    input_placeholder: Some("message".into()),
+                    wait_after_ms: 300,
+                    note: None,
+                },
+                OperationStep {
+                    action: "发送消息".to_string(),
+                    target: None,
+                    shortcut: Some("Enter".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+            ],
+        },
+    );
 
     AutomationSkill {
         name: "dingtalk".to_string(),
@@ -517,12 +792,17 @@ fn create_dingtalk_skill() -> AutomationSkill {
         description: "钉钉桌面客户端 — 支持发送消息、搜索联系人等操作".to_string(),
         shortcuts,
         operations,
-        ui_hints: vec![
-            UiHint { element: "搜索框".to_string(), description: "钉钉主界面顶部的搜索区域".to_string(), typical_position: Some("窗口顶部".into()), look_for: Some("搜索图标".into()) },
-        ],
-        error_states: vec![
-            ErrorState { name: "未登录".to_string(), detection: "显示登录界面".to_string(), recovery: "提示用户需要登录".to_string() },
-        ],
+        ui_hints: vec![UiHint {
+            element: "搜索框".to_string(),
+            description: "钉钉主界面顶部的搜索区域".to_string(),
+            typical_position: Some("窗口顶部".into()),
+            look_for: Some("搜索图标".into()),
+        }],
+        error_states: vec![ErrorState {
+            name: "未登录".to_string(),
+            detection: "显示登录界面".to_string(),
+            recovery: "提示用户需要登录".to_string(),
+        }],
         source_path: None,
     }
 }
@@ -533,33 +813,102 @@ fn create_feishu_skill() -> AutomationSkill {
     shortcuts.insert("发送消息".to_string(), "Enter".to_string());
 
     let mut operations = HashMap::new();
-    operations.insert("send_message".to_string(), SkillOperation {
-        description: "发送飞书消息给联系人".to_string(),
-        steps: vec![
-            OperationStep { action: "确认飞书已打开".to_string(), target: None, shortcut: None, input_placeholder: None, wait_after_ms: 2000, note: None },
-            OperationStep { action: "检查登录状态".to_string(), target: None, shortcut: None, input_placeholder: None, wait_after_ms: 1000, note: Some("若显示登录界面则提示用户登录".into()) },
-            OperationStep { action: "打开搜索".to_string(), target: None, shortcut: Some("Ctrl+K".into()), input_placeholder: None, wait_after_ms: 500, note: None },
-            OperationStep { action: "输入联系人名称".to_string(), target: Some("搜索框".into()), shortcut: None, input_placeholder: Some("contact_name".into()), wait_after_ms: 800, note: None },
-            OperationStep { action: "点击搜索结果".to_string(), target: Some("搜索结果".into()), shortcut: None, input_placeholder: None, wait_after_ms: 500, note: None },
-            OperationStep { action: "点击聊天输入框".to_string(), target: Some("消息输入框".into()), shortcut: None, input_placeholder: None, wait_after_ms: 300, note: None },
-            OperationStep { action: "输入消息内容".to_string(), target: None, shortcut: None, input_placeholder: Some("message".into()), wait_after_ms: 300, note: None },
-            OperationStep { action: "发送消息".to_string(), target: None, shortcut: Some("Enter".into()), input_placeholder: None, wait_after_ms: 500, note: None },
-        ],
-    });
+    operations.insert(
+        "send_message".to_string(),
+        SkillOperation {
+            description: "发送飞书消息给联系人".to_string(),
+            steps: vec![
+                OperationStep {
+                    action: "确认飞书已打开".to_string(),
+                    target: None,
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 2000,
+                    note: None,
+                },
+                OperationStep {
+                    action: "检查登录状态".to_string(),
+                    target: None,
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 1000,
+                    note: Some("若显示登录界面则提示用户登录".into()),
+                },
+                OperationStep {
+                    action: "打开搜索".to_string(),
+                    target: None,
+                    shortcut: Some("Ctrl+K".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+                OperationStep {
+                    action: "输入联系人名称".to_string(),
+                    target: Some("搜索框".into()),
+                    shortcut: None,
+                    input_placeholder: Some("contact_name".into()),
+                    wait_after_ms: 800,
+                    note: None,
+                },
+                OperationStep {
+                    action: "点击搜索结果".to_string(),
+                    target: Some("搜索结果".into()),
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+                OperationStep {
+                    action: "点击聊天输入框".to_string(),
+                    target: Some("消息输入框".into()),
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 300,
+                    note: None,
+                },
+                OperationStep {
+                    action: "输入消息内容".to_string(),
+                    target: None,
+                    shortcut: None,
+                    input_placeholder: Some("message".into()),
+                    wait_after_ms: 300,
+                    note: None,
+                },
+                OperationStep {
+                    action: "发送消息".to_string(),
+                    target: None,
+                    shortcut: Some("Enter".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+            ],
+        },
+    );
 
     AutomationSkill {
         name: "feishu".to_string(),
         app_name: "飞书".to_string(),
-        aliases: vec!["Feishu".to_string(), "feishu".to_string(), "Lark".to_string(), "lark".to_string()],
+        aliases: vec![
+            "Feishu".to_string(),
+            "feishu".to_string(),
+            "Lark".to_string(),
+            "lark".to_string(),
+        ],
         description: "飞书桌面客户端 — 支持发送消息、搜索联系人等操作".to_string(),
         shortcuts,
         operations,
-        ui_hints: vec![
-            UiHint { element: "搜索框".to_string(), description: "飞书主界面顶部的搜索区域".to_string(), typical_position: Some("窗口顶部".into()), look_for: Some("搜索图标或Ctrl+K提示".into()) },
-        ],
-        error_states: vec![
-            ErrorState { name: "未登录".to_string(), detection: "显示登录界面".to_string(), recovery: "提示用户需要登录".to_string() },
-        ],
+        ui_hints: vec![UiHint {
+            element: "搜索框".to_string(),
+            description: "飞书主界面顶部的搜索区域".to_string(),
+            typical_position: Some("窗口顶部".into()),
+            look_for: Some("搜索图标或Ctrl+K提示".into()),
+        }],
+        error_states: vec![ErrorState {
+            name: "未登录".to_string(),
+            detection: "显示登录界面".to_string(),
+            recovery: "提示用户需要登录".to_string(),
+        }],
         source_path: None,
     }
 }
@@ -575,35 +924,104 @@ fn create_chrome_skill() -> AutomationSkill {
     shortcuts.insert("开发者工具".to_string(), "F12".to_string());
 
     let mut operations = HashMap::new();
-    operations.insert("open_url".to_string(), SkillOperation {
-        description: "在Chrome中打开URL".to_string(),
-        steps: vec![
-            OperationStep { action: "确认Chrome已打开".to_string(), target: None, shortcut: None, input_placeholder: None, wait_after_ms: 1500, note: None },
-            OperationStep { action: "聚焦地址栏".to_string(), target: None, shortcut: Some("Ctrl+L".into()), input_placeholder: None, wait_after_ms: 300, note: None },
-            OperationStep { action: "输入URL".to_string(), target: Some("地址栏".into()), shortcut: None, input_placeholder: Some("url".into()), wait_after_ms: 300, note: None },
-            OperationStep { action: "导航到页面".to_string(), target: None, shortcut: Some("Enter".into()), input_placeholder: None, wait_after_ms: 2000, note: Some("等待页面加载".into()) },
-        ],
-    });
-    operations.insert("search".to_string(), SkillOperation {
-        description: "在Chrome中搜索内容".to_string(),
-        steps: vec![
-            OperationStep { action: "确认Chrome已打开".to_string(), target: None, shortcut: None, input_placeholder: None, wait_after_ms: 1500, note: None },
-            OperationStep { action: "新建标签页".to_string(), target: None, shortcut: Some("Ctrl+T".into()), input_placeholder: None, wait_after_ms: 500, note: None },
-            OperationStep { action: "输入搜索关键词".to_string(), target: Some("地址栏".into()), shortcut: None, input_placeholder: Some("query".into()), wait_after_ms: 300, note: None },
-            OperationStep { action: "执行搜索".to_string(), target: None, shortcut: Some("Enter".into()), input_placeholder: None, wait_after_ms: 2000, note: None },
-        ],
-    });
+    operations.insert(
+        "open_url".to_string(),
+        SkillOperation {
+            description: "在Chrome中打开URL".to_string(),
+            steps: vec![
+                OperationStep {
+                    action: "确认Chrome已打开".to_string(),
+                    target: None,
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 1500,
+                    note: None,
+                },
+                OperationStep {
+                    action: "聚焦地址栏".to_string(),
+                    target: None,
+                    shortcut: Some("Ctrl+L".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 300,
+                    note: None,
+                },
+                OperationStep {
+                    action: "输入URL".to_string(),
+                    target: Some("地址栏".into()),
+                    shortcut: None,
+                    input_placeholder: Some("url".into()),
+                    wait_after_ms: 300,
+                    note: None,
+                },
+                OperationStep {
+                    action: "导航到页面".to_string(),
+                    target: None,
+                    shortcut: Some("Enter".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 2000,
+                    note: Some("等待页面加载".into()),
+                },
+            ],
+        },
+    );
+    operations.insert(
+        "search".to_string(),
+        SkillOperation {
+            description: "在Chrome中搜索内容".to_string(),
+            steps: vec![
+                OperationStep {
+                    action: "确认Chrome已打开".to_string(),
+                    target: None,
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 1500,
+                    note: None,
+                },
+                OperationStep {
+                    action: "新建标签页".to_string(),
+                    target: None,
+                    shortcut: Some("Ctrl+T".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+                OperationStep {
+                    action: "输入搜索关键词".to_string(),
+                    target: Some("地址栏".into()),
+                    shortcut: None,
+                    input_placeholder: Some("query".into()),
+                    wait_after_ms: 300,
+                    note: None,
+                },
+                OperationStep {
+                    action: "执行搜索".to_string(),
+                    target: None,
+                    shortcut: Some("Enter".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 2000,
+                    note: None,
+                },
+            ],
+        },
+    );
 
     AutomationSkill {
         name: "chrome".to_string(),
         app_name: "Chrome".to_string(),
-        aliases: vec!["Google Chrome".to_string(), "chrome".to_string(), "谷歌浏览器".to_string()],
+        aliases: vec![
+            "Google Chrome".to_string(),
+            "chrome".to_string(),
+            "谷歌浏览器".to_string(),
+        ],
         description: "Google Chrome浏览器 — 支持打开URL、搜索、标签页管理等操作".to_string(),
         shortcuts,
         operations,
-        ui_hints: vec![
-            UiHint { element: "地址栏".to_string(), description: "浏览器顶部的URL输入框".to_string(), typical_position: Some("窗口顶部".into()), look_for: Some("URL文字或搜索提示".into()) },
-        ],
+        ui_hints: vec![UiHint {
+            element: "地址栏".to_string(),
+            description: "浏览器顶部的URL输入框".to_string(),
+            typical_position: Some("窗口顶部".into()),
+            look_for: Some("URL文字或搜索提示".into()),
+        }],
         error_states: vec![],
         source_path: None,
     }
@@ -620,7 +1038,11 @@ fn create_vscode_skill() -> AutomationSkill {
     AutomationSkill {
         name: "vscode".to_string(),
         app_name: "VSCode".to_string(),
-        aliases: vec!["Visual Studio Code".to_string(), "vscode".to_string(), "Code".to_string()],
+        aliases: vec![
+            "Visual Studio Code".to_string(),
+            "vscode".to_string(),
+            "Code".to_string(),
+        ],
         description: "Visual Studio Code编辑器 — 支持打开文件、搜索、运行命令等操作".to_string(),
         shortcuts,
         operations: HashMap::new(),
@@ -677,14 +1099,38 @@ fn create_notepad_skill() -> AutomationSkill {
     shortcuts.insert("查找".to_string(), "Ctrl+F".to_string());
 
     let mut operations = HashMap::new();
-    operations.insert("write_text".to_string(), SkillOperation {
-        description: "在记事本中输入文字".to_string(),
-        steps: vec![
-            OperationStep { action: "确认记事本已打开".to_string(), target: None, shortcut: None, input_placeholder: None, wait_after_ms: 1000, note: None },
-            OperationStep { action: "点击编辑区域".to_string(), target: Some("文本编辑区".into()), shortcut: None, input_placeholder: None, wait_after_ms: 300, note: None },
-            OperationStep { action: "输入文字内容".to_string(), target: None, shortcut: None, input_placeholder: Some("text".into()), wait_after_ms: 300, note: None },
-        ],
-    });
+    operations.insert(
+        "write_text".to_string(),
+        SkillOperation {
+            description: "在记事本中输入文字".to_string(),
+            steps: vec![
+                OperationStep {
+                    action: "确认记事本已打开".to_string(),
+                    target: None,
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 1000,
+                    note: None,
+                },
+                OperationStep {
+                    action: "点击编辑区域".to_string(),
+                    target: Some("文本编辑区".into()),
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 300,
+                    note: None,
+                },
+                OperationStep {
+                    action: "输入文字内容".to_string(),
+                    target: None,
+                    shortcut: None,
+                    input_placeholder: Some("text".into()),
+                    wait_after_ms: 300,
+                    note: None,
+                },
+            ],
+        },
+    );
 
     AutomationSkill {
         name: "notepad".to_string(),
@@ -710,8 +1156,13 @@ fn create_explorer_skill() -> AutomationSkill {
     AutomationSkill {
         name: "explorer".to_string(),
         app_name: "文件资源管理器".to_string(),
-        aliases: vec!["Explorer".to_string(), "explorer".to_string(), "文件管理器".to_string()],
-        description: "Windows文件资源管理器 — 支持导航目录、创建文件夹、复制粘贴文件等操作".to_string(),
+        aliases: vec![
+            "Explorer".to_string(),
+            "explorer".to_string(),
+            "文件管理器".to_string(),
+        ],
+        description: "Windows文件资源管理器 — 支持导航目录、创建文件夹、复制粘贴文件等操作"
+            .to_string(),
         shortcuts,
         operations: HashMap::new(),
         ui_hints: vec![],

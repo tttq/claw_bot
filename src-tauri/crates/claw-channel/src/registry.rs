@@ -1,11 +1,11 @@
 // Claw Desktop - 渠道注册表 - 管理所有渠道适配器
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use crate::config::{ChannelAccountConfig, ChannelConfigManager};
 use crate::error::{ChannelError, ChannelResult};
 use crate::traits::{ChannelPlugin, OutboundSender};
 use crate::types::*;
-use crate::config::{ChannelConfigManager, ChannelAccountConfig};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 pub struct ChannelRegistry {
     plugins: RwLock<HashMap<String, Arc<dyn ChannelPlugin>>>,
@@ -51,10 +51,7 @@ impl ChannelRegistry {
     // 获取已注册的渠道列表
     pub async fn list_registered_channels(&self) -> Vec<ChannelMeta> {
         let plugins = self.plugins.read().await;
-        plugins
-            .values()
-            .map(|p| p.meta().clone())
-            .collect()
+        plugins.values().map(|p| p.meta().clone()).collect()
     }
 
     // 初始化所有账户（从数据库加载配置）
@@ -103,9 +100,9 @@ impl ChannelRegistry {
         let channel_id = account.channel_id.to_string();
         let plugins = self.plugins.read().await;
 
-        let plugin = plugins.get(&channel_id).ok_or_else(|| {
-            ChannelError::PluginNotFound(channel_id.clone())
-        })?;
+        let plugin = plugins
+            .get(&channel_id)
+            .ok_or_else(|| ChannelError::PluginNotFound(channel_id.clone()))?;
 
         plugin.initialize(account).await?;
 
@@ -151,9 +148,9 @@ impl ChannelRegistry {
         let channel_id = account.channel_id.to_string();
         let plugins = self.plugins.read().await;
 
-        let plugin = plugins.get(&channel_id).ok_or_else(|| {
-            ChannelError::PluginNotFound(channel_id.clone())
-        })?;
+        let plugin = plugins
+            .get(&channel_id)
+            .ok_or_else(|| ChannelError::PluginNotFound(channel_id.clone()))?;
 
         plugin.start(account_id).await?;
 
@@ -202,9 +199,9 @@ impl ChannelRegistry {
         let channel_id = msg.channel_id.to_string();
         let senders = self.senders.read().await;
 
-        let sender = senders.get(&channel_id).ok_or_else(|| {
-            ChannelError::PluginNotFound(channel_id.clone())
-        })?;
+        let sender = senders
+            .get(&channel_id)
+            .ok_or_else(|| ChannelError::PluginNotFound(channel_id.clone()))?;
 
         match &msg.content {
             MessageContent::Text { .. } => sender.send_text(msg).await,
@@ -224,9 +221,9 @@ impl ChannelRegistry {
         let channel_id = msg.channel_id.to_string();
         let senders = self.senders.read().await;
 
-        let sender = senders.get(&channel_id).ok_or_else(|| {
-            ChannelError::PluginNotFound(channel_id.clone())
-        })?;
+        let sender = senders
+            .get(&channel_id)
+            .ok_or_else(|| ChannelError::PluginNotFound(channel_id.clone()))?;
 
         sender.stream_text(msg, on_token).await
     }
@@ -261,11 +258,7 @@ impl ChannelRegistry {
 
         let (connected, last_activity, error) = if let Some(plugin) = plugins.get(&channel_id) {
             match plugin.status(account_id).await {
-                Ok(status) => (
-                    status.connected,
-                    status.last_activity_at,
-                    status.last_error,
-                ),
+                Ok(status) => (status.connected, status.last_activity_at, status.last_error),
                 Err(e) => (false, None, Some(e.to_string())),
             }
         } else {
@@ -298,9 +291,9 @@ impl ChannelRegistry {
         let channel_id = account.channel_id.to_string();
         let plugins = self.plugins.read().await;
 
-        let plugin = plugins.get(&channel_id).ok_or_else(|| {
-            ChannelError::PluginNotFound(channel_id.clone())
-        })?;
+        let plugin = plugins
+            .get(&channel_id)
+            .ok_or_else(|| ChannelError::PluginNotFound(channel_id.clone()))?;
 
         plugin.initialize(&account).await?;
         plugin.start(account_id).await?;

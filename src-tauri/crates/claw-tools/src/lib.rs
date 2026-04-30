@@ -32,21 +32,21 @@
 //   └─────────────────────────────────────────────┘
 
 // ==================== Core 基础设施 ====================
-pub mod registry;
-pub mod skills;
-pub mod skill_loader;
-pub mod bundled_skills;
 pub mod agent_manager;
 pub mod agent_session;
 pub mod browser_manager;
+pub mod bundled_skills;
 pub mod chrome_cdp;
-pub mod tool_registry;
 pub mod extension_manager;
-pub mod session_priority_queue;
-pub mod tool_executor;
-pub mod tool_dispatcher;
 pub mod global_registry;
 pub mod mcp_client;
+pub mod registry;
+pub mod session_priority_queue;
+pub mod skill_loader;
+pub mod skills;
+pub mod tool_dispatcher;
+pub mod tool_executor;
+pub mod tool_registry;
 
 // ==================== Plugins 工具实现 ====================
 pub mod plugins;
@@ -57,10 +57,10 @@ pub use registry::*;
 pub use tool_registry::*;
 
 // Backward compatibility: re-export all plugin functions
-pub use plugins::shell::*;
-pub use plugins::file::*;
-pub use plugins::search::*;
-pub use plugins::git::*;
-pub use plugins::web::*;
 pub use plugins::agent::*;
+pub use plugins::file::*;
+pub use plugins::git::*;
 pub use plugins::misc::*;
+pub use plugins::search::*;
+pub use plugins::shell::*;
+pub use plugins::web::*;

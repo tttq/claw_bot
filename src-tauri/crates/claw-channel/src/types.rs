@@ -96,7 +96,7 @@ pub struct ConfigFieldMeta {
     pub label: String,
     pub field_type: ConfigFieldType,
     pub required: bool,
-    pub sensitive: bool,       // 是否是敏感信息（如 Token）
+    pub sensitive: bool, // 是否是敏感信息（如 Token）
     pub placeholder: Option<String>,
     pub help_text: Option<String>,
     pub default_value: Option<serde_json::Value>,
@@ -175,7 +175,9 @@ impl ParseMode {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MessageContent {
-    Text { text: String },
+    Text {
+        text: String,
+    },
     Media {
         url: String,
         mime_type: String,
@@ -375,7 +377,7 @@ pub struct StreamingConfig {
     pub enabled: bool,
     pub mode: StreamingMode,
     pub chunk_size: Option<usize>,
-    pub edit_delay_ms: Option<u64>,  // 编辑消息延迟（用于模拟流式）
+    pub edit_delay_ms: Option<u64>, // 编辑消息延迟（用于模拟流式）
 }
 
 impl Default for StreamingConfig {

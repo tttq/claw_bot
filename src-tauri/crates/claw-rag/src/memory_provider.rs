@@ -91,18 +91,44 @@ pub struct LayerAwareRetrieveRequest {
 #[async_trait]
 pub trait MemoryProvider: Send + Sync {
     async fn store(&self, metadata: &MemoryMetadata, text: &str) -> Result<String, String>;
-    async fn retrieve(&self, agent_id: &str, query: &str, conversation_id: Option<&str>, limit: usize) -> Result<Vec<MemoryUnit>, String>;
+    async fn retrieve(
+        &self,
+        agent_id: &str,
+        query: &str,
+        conversation_id: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<MemoryUnit>, String>;
     async fn delete(&self, memory_id: &str) -> Result<(), String>;
     async fn update(&self, memory_id: &str, text: &str) -> Result<(), String>;
-    async fn build_context(&self, agent_id: &str, conversation_id: &str, query: &str) -> Result<String, String>;
-    async fn store_interaction(&self, agent_id: &str, conversation_id: Option<&str>, user_msg: &str, assistant_msg: &str) -> Result<(), String>;
+    async fn build_context(
+        &self,
+        agent_id: &str,
+        conversation_id: &str,
+        query: &str,
+    ) -> Result<String, String>;
+    async fn store_interaction(
+        &self,
+        agent_id: &str,
+        conversation_id: Option<&str>,
+        user_msg: &str,
+        assistant_msg: &str,
+    ) -> Result<(), String>;
 
     fn name(&self) -> &str;
     fn capabilities(&self) -> ProviderCapabilities;
 
-    async fn retrieve_by_layers(&self, request: &LayerAwareRetrieveRequest) -> Result<Vec<MemoryUnit>, String> {
+    async fn retrieve_by_layers(
+        &self,
+        request: &LayerAwareRetrieveRequest,
+    ) -> Result<Vec<MemoryUnit>, String> {
         let _ = request;
-        self.retrieve(&request.query, &request.agent_id, request.conversation_id.as_deref(), request.limit).await
+        self.retrieve(
+            &request.query,
+            &request.agent_id,
+            request.conversation_id.as_deref(),
+            request.limit,
+        )
+        .await
     }
 
     async fn consolidate(&self, agent_id: &str) -> Result<ConsolidationStats, String> {
@@ -145,23 +171,49 @@ impl MemoryManager {
         Self { provider }
     }
 
-    pub async fn build_memory_context(&self, agent_id: &str, conversation_id: &str, query: &str) -> Result<String, String> {
-        self.provider.build_context(agent_id, conversation_id, query).await
+    pub async fn build_memory_context(
+        &self,
+        agent_id: &str,
+        conversation_id: &str,
+        query: &str,
+    ) -> Result<String, String> {
+        self.provider
+            .build_context(agent_id, conversation_id, query)
+            .await
     }
 
-    pub async fn store_interaction(&self, agent_id: &str, conversation_id: Option<&str>, user_msg: &str, assistant_msg: &str) -> Result<(), String> {
-        self.provider.store_interaction(agent_id, conversation_id, user_msg, assistant_msg).await
+    pub async fn store_interaction(
+        &self,
+        agent_id: &str,
+        conversation_id: Option<&str>,
+        user_msg: &str,
+        assistant_msg: &str,
+    ) -> Result<(), String> {
+        self.provider
+            .store_interaction(agent_id, conversation_id, user_msg, assistant_msg)
+            .await
     }
 
     pub async fn store(&self, metadata: &MemoryMetadata, text: &str) -> Result<String, String> {
         self.provider.store(metadata, text).await
     }
 
-    pub async fn retrieve(&self, agent_id: &str, query: &str, conversation_id: Option<&str>, limit: usize) -> Result<Vec<MemoryUnit>, String> {
-        self.provider.retrieve(agent_id, query, conversation_id, limit).await
+    pub async fn retrieve(
+        &self,
+        agent_id: &str,
+        query: &str,
+        conversation_id: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<MemoryUnit>, String> {
+        self.provider
+            .retrieve(agent_id, query, conversation_id, limit)
+            .await
     }
 
-    pub async fn retrieve_by_layers(&self, request: &LayerAwareRetrieveRequest) -> Result<Vec<MemoryUnit>, String> {
+    pub async fn retrieve_by_layers(
+        &self,
+        request: &LayerAwareRetrieveRequest,
+    ) -> Result<Vec<MemoryUnit>, String> {
         self.provider.retrieve_by_layers(request).await
     }
 

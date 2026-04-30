@@ -1,9 +1,9 @@
 // Claw Desktop - 认证路由 - 处理认证握手和公钥获取的WS请求
 use axum::{
+    Json, Router,
     extract::Extension,
     http::StatusCode,
     routing::{get, post},
-    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -42,7 +42,10 @@ pub async fn get_public_key(
 ) -> (StatusCode, Json<ApiResponse<String>>) {
     match crate::ws::auth::get_public_key_pem() {
         Ok(key) => (StatusCode::OK, Json(ApiResponse::ok(key))),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(ApiResponse::err(&e.to_string()))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::err(&e.to_string())),
+        ),
     }
 }
 
@@ -52,8 +55,14 @@ pub async fn handshake(
     Json(body): Json<HandshakeRequest>,
 ) -> (StatusCode, Json<ApiResponse<HandshakeResponse>>) {
     match crate::ws::auth::handshake(&body.encrypted_session_key) {
-        Ok((token, expires_at)) => (StatusCode::OK, Json(ApiResponse::ok(HandshakeResponse { token, expires_at }))),
-        Err(e) => (StatusCode::UNAUTHORIZED, Json(ApiResponse::err(&e.to_string()))),
+        Ok((token, expires_at)) => (
+            StatusCode::OK,
+            Json(ApiResponse::ok(HandshakeResponse { token, expires_at })),
+        ),
+        Err(e) => (
+            StatusCode::UNAUTHORIZED,
+            Json(ApiResponse::err(&e.to_string())),
+        ),
     }
 }
 
@@ -63,12 +72,18 @@ pub async fn validate_token(
     Json(body): Json<ValidateRequest>,
 ) -> (StatusCode, Json<ApiResponse<serde_json::Value>>) {
     match crate::ws::auth::validate_token(&body.token) {
-        Ok(claims) => (StatusCode::OK, Json(ApiResponse::ok(serde_json::json!({
-            "valid": true,
-            "client_id": claims.client_id,
-            "expires_at": claims.exp
-        })))),
-        Err(e) => (StatusCode::UNAUTHORIZED, Json(ApiResponse::err(&e.to_string()))),
+        Ok(claims) => (
+            StatusCode::OK,
+            Json(ApiResponse::ok(serde_json::json!({
+                "valid": true,
+                "client_id": claims.client_id,
+                "expires_at": claims.exp
+            }))),
+        ),
+        Err(e) => (
+            StatusCode::UNAUTHORIZED,
+            Json(ApiResponse::err(&e.to_string())),
+        ),
     }
 }
 

@@ -8,8 +8,8 @@ pub async fn bootstrap() -> Result<Arc<crate::ChannelRegistry>, String> {
         return Ok(registry.clone());
     }
 
+    use crate::plugins::{DiscordPlugin, TelegramPlugin, WeixinPlugin};
     use claw_db::db::get_db;
-    use crate::plugins::{TelegramPlugin, DiscordPlugin, WeixinPlugin};
 
     let db_conn = get_db().await;
     let registry = crate::ChannelRegistry::with_db((*db_conn).clone());
@@ -21,7 +21,8 @@ pub async fn bootstrap() -> Result<Arc<crate::ChannelRegistry>, String> {
     log::info!("[ChannelBootstrap] Initialized with Telegram, Discord & WeChat plugins");
 
     let arc_registry = Arc::new(registry);
-    REGISTRY.set(arc_registry.clone())
+    REGISTRY
+        .set(arc_registry.clone())
         .map_err(|_| "ChannelRegistry already initialized".to_string())?;
     Ok(arc_registry)
 }

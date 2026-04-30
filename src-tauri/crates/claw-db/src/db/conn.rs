@@ -4,7 +4,7 @@
 // 自动初始化：首次调用 get_db() 时自动完成所有数据库初始化
 // 向量扩展：集成 sqlite-vec 用于高效向量相似度搜索
 
-use sea_orm::{Database, DatabaseConnection, DbErr, ConnectionTrait, Statement};
+use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbErr, Statement};
 use tokio::sync::OnceCell;
 
 static DB_CONN: OnceCell<DatabaseConnection> = OnceCell::const_new();
@@ -18,9 +18,15 @@ pub async fn init_main_db(db_path: &str) -> Result<DatabaseConnection, DbErr> {
     let url = format!("sqlite://{}?mode=rwc", db_path);
     log::info!("[DB] 初始化主数据库: {}", db_path);
     let conn = Database::connect(&url).await?;
-    conn.execute_unprepared("PRAGMA journal_mode=WAL;").await.ok();
-    conn.execute_unprepared("PRAGMA busy_timeout=5000;").await.ok();
-    conn.execute_unprepared("PRAGMA synchronous=NORMAL;").await.ok();
+    conn.execute_unprepared("PRAGMA journal_mode=WAL;")
+        .await
+        .ok();
+    conn.execute_unprepared("PRAGMA busy_timeout=5000;")
+        .await
+        .ok();
+    conn.execute_unprepared("PRAGMA synchronous=NORMAL;")
+        .await
+        .ok();
 
     if let Err(e) = crate::vector_store::init_vector_extension(&conn).await {
         log::warn!("[DB] 向量扩展初始化失败: {}", e);
@@ -37,11 +43,19 @@ pub async fn init_agent_db(db_path: &str) -> Result<DatabaseConnection, DbErr> {
     let url = format!("sqlite://{}?mode=rwc", db_path);
     log::info!("[AgentDB] 初始化 Agent 隔离数据库: {}", db_path);
     let conn = Database::connect(&url).await?;
-    conn.execute_unprepared("PRAGMA journal_mode=WAL;").await.ok();
-    conn.execute_unprepared("PRAGMA busy_timeout=5000;").await.ok();
-    conn.execute_unprepared("PRAGMA synchronous=NORMAL;").await.ok();
+    conn.execute_unprepared("PRAGMA journal_mode=WAL;")
+        .await
+        .ok();
+    conn.execute_unprepared("PRAGMA busy_timeout=5000;")
+        .await
+        .ok();
+    conn.execute_unprepared("PRAGMA synchronous=NORMAL;")
+        .await
+        .ok();
     log::info!("[AgentDB] Agent 数据库连接成功 (WAL mode)");
-    AGENT_DB_CONN.set(conn.clone()).expect("AGENT_DB_CONN already set");
+    AGENT_DB_CONN
+        .set(conn.clone())
+        .expect("AGENT_DB_CONN already set");
     Ok(conn)
 }
 
@@ -49,10 +63,15 @@ pub async fn init_agent_db(db_path: &str) -> Result<DatabaseConnection, DbErr> {
 /// 如果初始化失败会 panic 并记录详细错误信息
 pub async fn get_db() -> &'static DatabaseConnection {
     match ensure_db_initialized().await {
-        Ok(()) => DB_CONN.get().expect("DB_CONN should be set after initialization"),
+        Ok(()) => DB_CONN
+            .get()
+            .expect("DB_CONN should be set after initialization"),
         Err(e) => {
             log::error!("[DB] Auto-initialization failed: {}", e);
-            panic!("Database auto-initialization failed: {}. Ensure claw_config::path_resolver::init() is called in main.rs setup.", e)
+            panic!(
+                "Database auto-initialization failed: {}. Ensure claw_config::path_resolver::init() is called in main.rs setup.",
+                e
+            )
         }
     }
 }
@@ -61,10 +80,15 @@ pub async fn get_db() -> &'static DatabaseConnection {
 /// 如果初始化失败会 panic 并记录详细错误信息
 pub async fn get_agent_db() -> &'static DatabaseConnection {
     match ensure_db_initialized().await {
-        Ok(()) => AGENT_DB_CONN.get().expect("AGENT_DB_CONN should be set after initialization"),
+        Ok(()) => AGENT_DB_CONN
+            .get()
+            .expect("AGENT_DB_CONN should be set after initialization"),
         Err(e) => {
             log::error!("[DB] Agent DB auto-initialization failed: {}", e);
-            panic!("Agent database auto-initialization failed: {}. Ensure claw_config::path_resolver::init() is called in main.rs setup.", e)
+            panic!(
+                "Agent database auto-initialization failed: {}. Ensure claw_config::path_resolver::init() is called in main.rs setup.",
+                e
+            )
         }
     }
 }
@@ -220,7 +244,10 @@ pub async fn init_core_tables(conn: &DatabaseConnection) -> Result<(), DbErr> {
     ];
 
     for stmt in &create_sql {
-        if let Err(e) = conn.execute(Statement::from_string(backend, stmt.to_string())).await {
+        if let Err(e) = conn
+            .execute(Statement::from_string(backend, stmt.to_string()))
+            .await
+        {
             log::warn!("[DB] Core table create warning: {}", e);
         }
     }
@@ -264,13 +291,19 @@ pub async fn init_core_tables(conn: &DatabaseConnection) -> Result<(), DbErr> {
     ];
 
     for stmt in &alter_sql {
-        if let Err(_) = conn.execute(Statement::from_string(backend, stmt.to_string())).await {
+        if let Err(_) = conn
+            .execute(Statement::from_string(backend, stmt.to_string()))
+            .await
+        {
             // ALTER TABLE ADD COLUMN fails if column already exists - this is expected
         }
     }
 
     let fts_sql = "CREATE VIRTUAL TABLE IF NOT EXISTS memory_units_fts USING fts5(text, content='memory_units', content_rowid='id')";
-    if let Err(e) = conn.execute(Statement::from_string(backend, fts_sql.to_string())).await {
+    if let Err(e) = conn
+        .execute(Statement::from_string(backend, fts_sql.to_string()))
+        .await
+    {
         log::warn!("[DB] FTS5 virtual table warning: {}", e);
     }
 
@@ -297,7 +330,10 @@ pub async fn init_core_tables(conn: &DatabaseConnection) -> Result<(), DbErr> {
     ];
 
     for stmt in &index_sql {
-        if let Err(e) = conn.execute(Statement::from_string(backend, stmt.to_string())).await {
+        if let Err(e) = conn
+            .execute(Statement::from_string(backend, stmt.to_string()))
+            .await
+        {
             log::warn!("[DB] Index create warning: {}", e);
         }
     }
@@ -379,7 +415,10 @@ pub async fn init_agent_tables(conn: &DatabaseConnection) -> Result<(), DbErr> {
     ];
 
     for stmt in &create_sql {
-        if let Err(e) = conn.execute(Statement::from_string(backend, stmt.to_string())).await {
+        if let Err(e) = conn
+            .execute(Statement::from_string(backend, stmt.to_string()))
+            .await
+        {
             log::warn!("[AgentDB] Table create warning: {}", e);
         }
     }
@@ -407,7 +446,10 @@ pub async fn init_agent_tables(conn: &DatabaseConnection) -> Result<(), DbErr> {
     ];
 
     for stmt in &alter_sql {
-        if let Err(_) = conn.execute(Statement::from_string(backend, stmt.to_string())).await {
+        if let Err(_) = conn
+            .execute(Statement::from_string(backend, stmt.to_string()))
+            .await
+        {
             // Column already exists - expected
         }
     }
@@ -420,7 +462,10 @@ pub async fn init_agent_tables(conn: &DatabaseConnection) -> Result<(), DbErr> {
     ];
 
     for stmt in &index_sql {
-        if let Err(e) = conn.execute(Statement::from_string(backend, stmt.to_string())).await {
+        if let Err(e) = conn
+            .execute(Statement::from_string(backend, stmt.to_string()))
+            .await
+        {
             log::warn!("[AgentDB] Index create warning: {}", e);
         }
     }
@@ -432,61 +477,71 @@ pub async fn init_agent_tables(conn: &DatabaseConnection) -> Result<(), DbErr> {
 
 /// 内部数据库初始化函数（仅调用一次，依赖 config 模块已初始化）
 async fn ensure_db_initialized() -> Result<(), String> {
-    DB_INITIALIZED.get_or_init(|| async {
-        use claw_config::path_resolver;
-        use crate::db::channel_migration;
+    DB_INITIALIZED
+        .get_or_init(|| async {
+            use crate::db::channel_migration;
+            use claw_config::path_resolver;
 
-        let db_path = path_resolver::db_path();
-        if let Some(parent) = db_path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create DB dir: {}", e))?;
-        }
+            let db_path = path_resolver::db_path();
+            if let Some(parent) = db_path.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| format!("Failed to create DB dir: {}", e))?;
+            }
 
-        let db_path_str = db_path.to_str().ok_or("db path is not valid UTF-8")?;
-        init_main_db(db_path_str)
-            .await
-            .map_err(|e| format!("MainDB init failed: {}", e))?;
-        log::info!("[DB] Main database initialized at {}", db_path.display());
+            let db_path_str = db_path.to_str().ok_or("db path is not valid UTF-8")?;
+            init_main_db(db_path_str)
+                .await
+                .map_err(|e| format!("MainDB init failed: {}", e))?;
+            log::info!("[DB] Main database initialized at {}", db_path.display());
 
-        let agent_db_path = path_resolver::agent_db_path();
-        let agent_db_path_str = agent_db_path.to_str().ok_or("agent db path is not valid UTF-8")?;
-        init_agent_db(agent_db_path_str)
-            .await
-            .map_err(|e| format!("AgentDB init failed: {}", e))?;
-        log::info!("[DB] Agent database initialized at {}", agent_db_path.display());
+            let agent_db_path = path_resolver::agent_db_path();
+            let agent_db_path_str = agent_db_path
+                .to_str()
+                .ok_or("agent db path is not valid UTF-8")?;
+            init_agent_db(agent_db_path_str)
+                .await
+                .map_err(|e| format!("AgentDB init failed: {}", e))?;
+            log::info!(
+                "[DB] Agent database initialized at {}",
+                agent_db_path.display()
+            );
 
-        let db_ref = DB_CONN.get().ok_or("DB_CONN not set after init_main_db")?;
-        if let Err(e) = init_core_tables(db_ref).await {
-            log::warn!("[DB] Core table init warning: {}", e);
-        }
+            let db_ref = DB_CONN.get().ok_or("DB_CONN not set after init_main_db")?;
+            if let Err(e) = init_core_tables(db_ref).await {
+                log::warn!("[DB] Core table init warning: {}", e);
+            }
 
-        let agent_db_ref = AGENT_DB_CONN.get().ok_or("AGENT_DB_CONN not set after init_agent_db")?;
-        if let Err(e) = init_agent_tables(agent_db_ref).await {
-            log::warn!("[DB] Agent table init warning: {}", e);
-        }
+            let agent_db_ref = AGENT_DB_CONN
+                .get()
+                .ok_or("AGENT_DB_CONN not set after init_agent_db")?;
+            if let Err(e) = init_agent_tables(agent_db_ref).await {
+                log::warn!("[DB] Agent table init warning: {}", e);
+            }
 
-        if let Err(e) = channel_migration::init_channel_tables(db_ref).await {
-            log::warn!("[DB] Channel table migration warning: {}", e);
-        }
-        if let Err(e) = channel_migration::init_extended_tables(db_ref).await {
-            log::warn!("[DB] Extended table migration warning: {}", e);
-        }
+            if let Err(e) = channel_migration::init_channel_tables(db_ref).await {
+                log::warn!("[DB] Channel table migration warning: {}", e);
+            }
+            if let Err(e) = channel_migration::init_extended_tables(db_ref).await {
+                log::warn!("[DB] Extended table migration warning: {}", e);
+            }
 
-        log::info!("[DB] All databases initialized successfully");
+            log::info!("[DB] All databases initialized successfully");
 
-        if let Ok(mut config) = claw_config::config::get_config().await.map(|c| c.clone()) {
-            if !config.database.initialized {
-                config.database.initialized = true;
-                if let Err(e) = config.save(claw_config::path_resolver::get_app_root()) {
-                    log::warn!("[DB] Failed to mark database as initialized: {}", e);
-                } else {
-                    log::info!("[DB] Database marked as initialized in config");
+            if let Ok(mut config) = claw_config::config::get_config().await.map(|c| c.clone()) {
+                if !config.database.initialized {
+                    config.database.initialized = true;
+                    if let Err(e) = config.save(claw_config::path_resolver::get_app_root()) {
+                        log::warn!("[DB] Failed to mark database as initialized: {}", e);
+                    } else {
+                        log::info!("[DB] Database marked as initialized in config");
+                    }
                 }
             }
-        }
 
-        Ok(())
-    }).await.clone()
+            Ok(())
+        })
+        .await
+        .clone()
 }
 
 /// 检查数据库是否已初始化

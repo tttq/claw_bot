@@ -1,8 +1,8 @@
 // Claw Desktop - WS响应 - 统一响应构建工具
 use axum::{
+    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde::{Deserialize, Serialize};
 
@@ -10,11 +10,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiResponse<T: Serialize> {
-    pub success: bool,                       // 是否成功
+    pub success: bool, // 是否成功
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<T>,                     // 响应数据
+    pub data: Option<T>, // 响应数据
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,               // 错误信息
+    pub error: Option<String>, // 错误信息
 }
 
 impl<T: Serialize> ApiResponse<T> {

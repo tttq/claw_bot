@@ -1,10 +1,13 @@
 // Claw Desktop - 渠道配置 - 渠道账号配置管理
-use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, QueryOrder, Set, ModelTrait, QueryFilter, ColumnTrait};
-use serde::{Deserialize, Serialize};
 use crate::error::{ChannelError, ChannelResult};
 use crate::types::*;
-use claw_db::db::entities::channel_accounts;
 use chrono;
+use claw_db::db::entities::channel_accounts;
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter,
+    QueryOrder, Set,
+};
+use serde::{Deserialize, Serialize};
 
 // ====== 渠道账户配置（运行时使用）======
 
@@ -163,7 +166,10 @@ impl ChannelConfigManager {
     }
 
     // 按渠道类型获取账户
-    pub async fn list_accounts_by_channel(&self, channel_id: &ChannelId) -> ChannelResult<Vec<ChannelAccountConfig>> {
+    pub async fn list_accounts_by_channel(
+        &self,
+        channel_id: &ChannelId,
+    ) -> ChannelResult<Vec<ChannelAccountConfig>> {
         let accounts = channel_accounts::Entity::find()
             .filter(channel_accounts::Column::ChannelType.eq(channel_id.to_string()))
             .order_by_asc(channel_accounts::Column::Name)
@@ -295,15 +301,20 @@ impl ChannelConfigManager {
         })
     }
 
-    fn serialize_auth_fields(&self, fields: &std::collections::HashMap<String, String>) -> ChannelResult<serde_json::Value> {
+    fn serialize_auth_fields(
+        &self,
+        fields: &std::collections::HashMap<String, String>,
+    ) -> ChannelResult<serde_json::Value> {
         let encrypted = self.encrypt_sensitive_fields(fields)?;
         let json = serde_json::to_value(&encrypted)?;
         Ok(json)
     }
 
-    fn deserialize_auth_fields(&self, value: &serde_json::Value) -> ChannelResult<std::collections::HashMap<String, String>> {
-        let map: std::collections::HashMap<String, String> =
-            serde_json::from_value(value.clone())?;
+    fn deserialize_auth_fields(
+        &self,
+        value: &serde_json::Value,
+    ) -> ChannelResult<std::collections::HashMap<String, String>> {
+        let map: std::collections::HashMap<String, String> = serde_json::from_value(value.clone())?;
         let decrypted = self.decrypt_sensitive_fields(&map)?;
         Ok(decrypted)
     }
@@ -329,8 +340,9 @@ impl ChannelConfigManager {
             .join("channel_encryption.key");
 
         if key_path.exists() {
-            let data = std::fs::read(&key_path)
-                .map_err(|e| ChannelError::Internal(format!("Failed to read encryption key: {}", e)))?;
+            let data = std::fs::read(&key_path).map_err(|e| {
+                ChannelError::Internal(format!("Failed to read encryption key: {}", e))
+            })?;
             if data.len() >= 32 {
                 let mut key = [0u8; 32];
                 key.copy_from_slice(&data[..32]);
@@ -339,36 +351,49 @@ impl ChannelConfigManager {
         }
 
         let mut key = [0u8; 32];
-        getrandom::getrandom(&mut key)
-            .map_err(|e| ChannelError::Internal(format!("Failed to generate encryption key: {}", e)))?;
+        getrandom::getrandom(&mut key).map_err(|e| {
+            ChannelError::Internal(format!("Failed to generate encryption key: {}", e))
+        })?;
 
         if let Some(parent) = key_path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        std::fs::write(&key_path, &key)
-            .map_err(|e| ChannelError::Internal(format!("Failed to write encryption key: {}", e)))?;
+        std::fs::write(&key_path, &key).map_err(|e| {
+            ChannelError::Internal(format!("Failed to write encryption key: {}", e))
+        })?;
 
-        log::info!("[ChannelConfig] Generated new channel encryption key at {:?}", key_path);
+        log::info!(
+            "[ChannelConfig] Generated new channel encryption key at {:?}",
+            key_path
+        );
         Ok(key)
     }
 
-    fn encrypt_sensitive_fields(&self, fields: &std::collections::HashMap<String, String>) -> ChannelResult<std::collections::HashMap<String, String>> {
+    fn encrypt_sensitive_fields(
+        &self,
+        fields: &std::collections::HashMap<String, String>,
+    ) -> ChannelResult<std::collections::HashMap<String, String>> {
         use crate::encryption::{EncryptionService, SENSITIVE_KEYS};
-        
+
         let master_key = self.get_or_create_encryption_key()?;
-        
+
         let service = EncryptionService::new(&master_key);
-        service.encrypt_config_fields(fields, &SENSITIVE_KEYS)
+        service
+            .encrypt_config_fields(fields, &SENSITIVE_KEYS)
             .map_err(|e| ChannelError::Internal(format!("Failed to encrypt auth fields: {}", e)))
     }
 
-    fn decrypt_sensitive_fields(&self, fields: &std::collections::HashMap<String, String>) -> ChannelResult<std::collections::HashMap<String, String>> {
+    fn decrypt_sensitive_fields(
+        &self,
+        fields: &std::collections::HashMap<String, String>,
+    ) -> ChannelResult<std::collections::HashMap<String, String>> {
         use crate::encryption::{EncryptionService, SENSITIVE_KEYS};
-        
+
         let master_key = self.get_or_create_encryption_key()?;
-        
+
         let service = EncryptionService::new(&master_key);
-        service.decrypt_config_fields(fields, &SENSITIVE_KEYS)
+        service
+            .decrypt_config_fields(fields, &SENSITIVE_KEYS)
             .map_err(|e| ChannelError::Internal(format!("Failed to decrypt auth fields: {}", e)))
     }
 }

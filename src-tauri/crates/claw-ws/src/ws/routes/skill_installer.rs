@@ -1,6 +1,6 @@
 // Claw Desktop - 技能安装器 - 从市场安装技能的逻辑
-use thiserror::Error;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 /// 技能安装错误类型
@@ -15,9 +15,7 @@ pub enum SkillInstallError {
     DownloadFailed(String),
 
     #[error("HTTP请求失败: 状态码 {status}")]
-    HttpError {
-        status: reqwest::StatusCode,
-    },
+    HttpError { status: reqwest::StatusCode },
 
     #[error("ZIP文件无效: {0}")]
     InvalidZip(String),
@@ -45,12 +43,8 @@ impl From<std::io::Error> for SkillInstallError {
 }
 
 /// 准备技能安装目录 — 创建目标目录结构
-pub fn prepare_skill_directory(
-    agent_id: &str,
-    slug: &str,
-) -> Result<PathBuf, SkillInstallError> {
-    let data_dir = dirs::data_dir()
-        .ok_or(SkillInstallError::DataDirectoryNotFound)?;
+pub fn prepare_skill_directory(agent_id: &str, slug: &str) -> Result<PathBuf, SkillInstallError> {
+    let data_dir = dirs::data_dir().ok_or(SkillInstallError::DataDirectoryNotFound)?;
 
     let skills_dir = data_dir
         .join("qclaw-desktop")
@@ -69,9 +63,7 @@ pub fn prepare_skill_directory(
 }
 
 /// 下载技能包 — 从URL下载ZIP文件
-pub async fn download_skill_package(
-    download_url: &str,
-) -> Result<bytes::Bytes, SkillInstallError> {
+pub async fn download_skill_package(download_url: &str) -> Result<bytes::Bytes, SkillInstallError> {
     let response = reqwest::get(download_url).await?;
 
     if !response.status().is_success() {
@@ -84,10 +76,7 @@ pub async fn download_skill_package(
 }
 
 /// 解压技能包 — 解压ZIP到目标目录
-pub fn extract_skill_package(
-    zip_bytes: &[u8],
-    skill_dir: &Path,
-) -> Result<(), SkillInstallError> {
+pub fn extract_skill_package(zip_bytes: &[u8], skill_dir: &Path) -> Result<(), SkillInstallError> {
     std::fs::create_dir_all(skill_dir)?;
 
     let reader = std::io::Cursor::new(zip_bytes);
@@ -116,17 +105,11 @@ pub fn extract_skill_package(
 }
 
 /// 更新技能配置 — 注册新安装的技能
-pub async fn update_skill_config(
-    agent_id: &str,
-    slug: &str,
-) -> Result<(), SkillInstallError> {
+pub async fn update_skill_config(agent_id: &str, slug: &str) -> Result<(), SkillInstallError> {
     let mut enabled_skills: Vec<String> = Vec::new();
 
     if let Ok(Some(val)) =
-        claw_tools::agent_session::AgentSessionManager::get_config(
-            agent_id, "skills_enabled",
-        )
-        .await
+        claw_tools::agent_session::AgentSessionManager::get_config(agent_id, "skills_enabled").await
     {
         if let Ok(arr) = serde_json::from_str::<Vec<String>>(&val) {
             enabled_skills = arr;

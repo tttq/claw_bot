@@ -2,10 +2,10 @@
 // 对标 def_claw utils/plugins/pluginLoader.ts 的简化版
 // 支持从 extensions/ 目录发现、加载、管理扩展
 
-use std::fs;
-use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 /// 扩展清单 — 描述扩展的元数据信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,32 +48,42 @@ pub struct LoadedExtension {
 /// 从目录加载扩展清单 — 读取manifest.json并解析
 fn load_manifest(dir: &Path) -> Option<ExtensionManifest> {
     let manifest_path = dir.join("manifest.json");
-    if !manifest_path.exists() { return None; }
-    
+    if !manifest_path.exists() {
+        return None;
+    }
+
     let content = fs::read_to_string(&manifest_path).ok()?;
     let manifest: ExtensionManifest = serde_json::from_str(&content).ok()?;
-    
+
     Some(manifest)
 }
 
 /// 加载单个扩展 — 解析清单并注册扩展提供的工具到工具注册表
 pub async fn load_extension(dir: &Path) -> Option<LoadedExtension> {
-    if !dir.is_dir() { return None; }
-    
+    if !dir.is_dir() {
+        return None;
+    }
+
     let manifest = load_manifest(dir)?;
     let name = manifest.name.clone();
-    
-    log::info!("[ExtensionManager] 发现扩展: {} v{} ({})", 
-        name, manifest.version.as_deref().unwrap_or("?"), dir.display());
-    
+
+    log::info!(
+        "[ExtensionManager] 发现扩展: {} v{} ({})",
+        name,
+        manifest.version.as_deref().unwrap_or("?"),
+        dir.display()
+    );
+
     if let Some(ref tools) = manifest.tools {
-        use crate::tool_registry::{register_tool, ToolSource};
+        use crate::tool_registry::{ToolSource, register_tool};
         use claw_types::common::ToolDefinition;
         for tool_def in tools {
             let def = ToolDefinition {
                 name: tool_def.name.clone(),
                 description: tool_def.description.clone(),
-                input_schema: tool_def.input_schema.clone()
+                input_schema: tool_def
+                    .input_schema
+                    .clone()
                     .unwrap_or_else(|| json!({"type":"object","properties":{}})),
                 category: None,
                 tags: Vec::new(),
@@ -81,7 +91,7 @@ pub async fn load_extension(dir: &Path) -> Option<LoadedExtension> {
             register_tool(def, ToolSource::Extension, tool_def.handler.clone()).await;
         }
     }
-    
+
     Some(LoadedExtension {
         path: dir.to_string_lossy().to_string(),
         enabled: manifest.enabled.unwrap_or(true),
@@ -93,12 +103,17 @@ pub async fn load_extension(dir: &Path) -> Option<LoadedExtension> {
 /// 扫描扩展目录 — 遍历目录下所有子目录并加载扩展
 pub async fn scan_extensions_dir(dir: &Path) -> Vec<LoadedExtension> {
     let mut extensions = Vec::new();
-    
-    if !dir.exists() || !dir.is_dir() { return extensions; }
-    
+
+    if !dir.exists() || !dir.is_dir() {
+        return extensions;
+    }
+
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
-            let ft = match entry.file_type() { Ok(ft) => ft, Err(_) => continue };
+            let ft = match entry.file_type() {
+                Ok(ft) => ft,
+                Err(_) => continue,
+            };
             if ft.is_dir() || ft.is_symlink() {
                 if let Some(ext) = load_extension(&entry.path()).await {
                     extensions.push(ext);
@@ -106,14 +121,16 @@ pub async fn scan_extensions_dir(dir: &Path) -> Vec<LoadedExtension> {
             }
         }
     }
-    
+
     extensions
 }
 
 /// 获取默认扩展目录路径 — 优先使用应用数据目录，回退到用户主目录
 pub fn default_extensions_dir() -> Option<PathBuf> {
     let app_ext = claw_config::path_resolver::extensions_dir();
-    if app_ext.exists() || cfg!(debug_assertions) { return Some(app_ext); }
+    if app_ext.exists() || cfg!(debug_assertions) {
+        return Some(app_ext);
+    }
     dirs::home_dir().map(|h| h.join(".claw-desktop").join("extensions"))
 }
 
@@ -130,7 +147,7 @@ pub async fn discover_and_load_extensions() -> Vec<LoadedExtension> {
 #[tauri::command]
 pub async fn cmd_scan_extensions() -> Result<serde_json::Value, String> {
     let extensions = discover_and_load_extensions().await;
-    
+
     Ok(json!({
         "total": extensions.len(),
         "extensions": extensions.iter().map(|e| json!({
@@ -148,7 +165,10 @@ pub async fn cmd_scan_extensions() -> Result<serde_json::Value, String> {
 
 /// Tauri命令：安装扩展 — 从URL创建扩展目录和占位清单
 #[tauri::command]
-pub fn cmd_install_extension(url: String, name: Option<String>) -> Result<serde_json::Value, String> {
+pub fn cmd_install_extension(
+    url: String,
+    name: Option<String>,
+) -> Result<serde_json::Value, String> {
     let ext_name = name.unwrap_or_else(|| url.split('/').last().unwrap_or("unknown").to_string());
     let ext_dir = default_extensions_dir()
         .ok_or("Cannot determine user directory".to_string())?
@@ -167,7 +187,8 @@ pub fn cmd_install_extension(url: String, name: Option<String>) -> Result<serde_
         "enabled": true
     });
 
-    let manifest_str = serde_json::to_string_pretty(&manifest).map_err(|e| format!("Serialization failed: {}", e))?;
+    let manifest_str = serde_json::to_string_pretty(&manifest)
+        .map_err(|e| format!("Serialization failed: {}", e))?;
     fs::write(ext_dir.join("manifest.json"), manifest_str)
         .map_err(|e| format!("Failed to write manifest: {}", e))?;
 

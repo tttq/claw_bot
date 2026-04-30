@@ -11,8 +11,8 @@ static APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
 /// 运行模式枚举 - 区分开发模式和生产模式
 #[derive(Debug, Clone)]
 pub enum RunMode {
-    Dev,         // 开发模式（使用.temp_build目录）
-    Production,  // 生产模式（使用exe所在目录或app_data_dir）
+    Dev,        // 开发模式（使用.temp_build目录）
+    Production, // 生产模式（使用exe所在目录或app_data_dir）
 }
 
 /// 初始化路径解析器（Tauri集成模式）
@@ -25,14 +25,20 @@ pub fn init(app: &tauri::App) -> Result<PathBuf, String> {
     let root = resolve_app_root(app.handle())?;
     let _ = APP_ROOT.set(root.clone());
     std::fs::create_dir_all(&root).map_err(|e| format!("Failed to create app root dir: {}", e))?;
-    log::info!("[PathResolver] Initialized | mode={:?} | root={}", get_run_mode(), root.display());
+    log::info!(
+        "[PathResolver] Initialized | mode={:?} | root={}",
+        get_run_mode(),
+        root.display()
+    );
     Ok(root)
 }
 
 /// 获取全局AppHandle引用
 #[cfg(feature = "tauri-integration")]
 pub fn app_handle() -> &'static tauri::AppHandle {
-    APP_HANDLE.get().expect("PathResolver not initialized. Call init() first.")
+    APP_HANDLE
+        .get()
+        .expect("PathResolver not initialized. Call init() first.")
 }
 
 /// 检查路径解析器是否已初始化
@@ -46,7 +52,10 @@ pub fn init(_app_root: &Path) -> Result<PathBuf, String> {
     let root = _app_root.to_path_buf();
     let _ = APP_ROOT.set(root.clone());
     std::fs::create_dir_all(&root).map_err(|e| format!("Failed to create app root dir: {}", e))?;
-    log::info!("[PathResolver] Initialized (non-tauri) | root={}", root.display());
+    log::info!(
+        "[PathResolver] Initialized (non-tauri) | root={}",
+        root.display()
+    );
     Ok(root)
 }
 
@@ -65,18 +74,27 @@ fn resolve_app_root(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
             } else {
                 return Err("Cannot determine source directory for dev mode".to_string());
             };
-            log::info!("[PathResolver] Dev mode, using .temp_build root: {}", dev_root.display());
+            log::info!(
+                "[PathResolver] Dev mode, using .temp_build root: {}",
+                dev_root.display()
+            );
             Ok(dev_root)
         }
         RunMode::Production => {
             if let Ok(exe) = std::env::current_exe() {
                 if let Some(parent) = exe.parent() {
-                    log::info!("[PathResolver] Production mode, using exe dir: {}", parent.display());
+                    log::info!(
+                        "[PathResolver] Production mode, using exe dir: {}",
+                        parent.display()
+                    );
                     return Ok(parent.to_path_buf());
                 }
             }
             if let Ok(app_data_dir) = app_handle.path().app_data_dir() {
-                log::info!("[PathResolver] Production mode fallback, using app_data_dir: {}", app_data_dir.display());
+                log::info!(
+                    "[PathResolver] Production mode fallback, using app_data_dir: {}",
+                    app_data_dir.display()
+                );
                 return Ok(app_data_dir);
             }
             Err("Cannot determine installation directory for production mode".to_string())
@@ -101,7 +119,11 @@ fn find_src_tauri_dir() -> Option<PathBuf> {
     }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
-            if exe_dir.file_name().map(|n| n == "src-tauri").unwrap_or(false) {
+            if exe_dir
+                .file_name()
+                .map(|n| n == "src-tauri")
+                .unwrap_or(false)
+            {
                 return Some(exe_dir.to_path_buf());
             }
             if exe_dir.join("src-tauri").is_dir() {
@@ -147,7 +169,9 @@ pub fn get_run_mode() -> RunMode {
 
 /// 获取应用根目录路径
 pub fn get_app_root() -> &'static PathBuf {
-    APP_ROOT.get().expect("PathResolver not initialized. Call init() first.")
+    APP_ROOT
+        .get()
+        .expect("PathResolver not initialized. Call init() first.")
 }
 
 /// 获取数据库目录路径
@@ -275,13 +299,17 @@ fn ensure_default_config(config_path: &Path) -> Result<bool, String> {
     }
 
     if let Some(parent) = config_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create config dir: {}", e))?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create config dir: {}", e))?;
     }
 
     std::fs::write(config_path, DEFAULT_CONFIG_TOML)
         .map_err(|e| format!("Failed to write default config: {}", e))?;
 
-    log::info!("[PathResolver] Created default config.toml @ {}", config_path.display());
+    log::info!(
+        "[PathResolver] Created default config.toml @ {}",
+        config_path.display()
+    );
     Ok(true)
 }
 
@@ -306,14 +334,16 @@ pub fn ensure_dirs() -> Result<(), String> {
     ];
 
     for dir in &dirs {
-        std::fs::create_dir_all(dir).map_err(|e| format!("Failed to create dir {}: {}", dir.display(), e))?;
+        std::fs::create_dir_all(dir)
+            .map_err(|e| format!("Failed to create dir {}: {}", dir.display(), e))?;
     }
 
     let cfg_path = config_path();
     let config_created = ensure_default_config(&cfg_path)?;
 
     let skills_target = skills_dir();
-    let has_any_skill = skills_target.read_dir()
+    let has_any_skill = skills_target
+        .read_dir()
         .ok()
         .and_then(|mut entries| entries.next().map(|_| true))
         .unwrap_or(false);
@@ -336,7 +366,9 @@ pub fn ensure_dirs() -> Result<(), String> {
 
     log::info!(
         "[PathResolver] All directories ensured | root={} | config_created={} | skills_exported={}",
-        root.display(), config_created, exported_skills
+        root.display(),
+        config_created,
+        exported_skills
     );
     Ok(())
 }

@@ -1,12 +1,12 @@
 // Claw Desktop - 桌面自动化引擎
 // 提供屏幕捕获、鼠标键盘输入、Mano-P推理、CUA Agent、应用启动等桌面自动化能力
+pub mod agent;
 pub mod capture;
 pub mod error;
 pub mod input;
 pub mod manop;
-pub mod types;
 pub mod platform;
-pub mod agent;
+pub mod types;
 
 pub mod commands;
 
@@ -73,11 +73,24 @@ impl AutomaticallyEngine {
     fn try_direct_app_launch(instruction: &str) -> Option<AppInfo> {
         let lower = instruction.to_lowercase();
         let open_patterns = [
-            "打开", "打开应用", "启动", "启动应用", "运行",
-            "launch", "open", "start", "run",
-            "帮我打开", "帮我启动", "请打开",
-            "help me open", "please open", "帮我点击打开",
-            "click to open", "click open", "点击打开",
+            "打开",
+            "打开应用",
+            "启动",
+            "启动应用",
+            "运行",
+            "launch",
+            "open",
+            "start",
+            "run",
+            "帮我打开",
+            "帮我启动",
+            "请打开",
+            "help me open",
+            "please open",
+            "帮我点击打开",
+            "click to open",
+            "click open",
+            "点击打开",
         ];
 
         let mut query = String::new();
@@ -97,7 +110,9 @@ impl AutomaticallyEngine {
         if matched {
             let rest = instruction[last_pattern_end..].trim();
             let search_region = &instruction[..last_pattern_end];
-            let split_pos = search_region.rfind(|c: char| !c.is_ascii_alphabetic() && c != ' ').unwrap_or(0);
+            let split_pos = search_region
+                .rfind(|c: char| !c.is_ascii_alphabetic() && c != ' ')
+                .unwrap_or(0);
             let before = instruction[split_pos..last_pattern_end].trim();
 
             if !rest.is_empty() && (rest.len() < before.len() || before.is_empty()) {
@@ -108,14 +123,39 @@ impl AutomaticallyEngine {
                 query = rest.to_string();
             }
 
-            query = query.trim_matches(|c: char| c == ',' || c == '，' || c == '.' || c == '。').to_string();
+            query = query
+                .trim_matches(|c: char| c == ',' || c == '，' || c == '.' || c == '。')
+                .to_string();
         }
 
         if !matched {
-            let app_keywords = ["qclaw", "微信", "wechat", "chrome", "notepad", "explorer", "vscode",
-                "word", "excel", "powerpoint", "outlook", "firefox", "edge",
-                "slack", "discord", "telegram", "spotify", "vlc", "steam",
-                "qq", "tim", "飞书", "feishu", "钉钉", "dingtalk"];
+            let app_keywords = [
+                "qclaw",
+                "微信",
+                "wechat",
+                "chrome",
+                "notepad",
+                "explorer",
+                "vscode",
+                "word",
+                "excel",
+                "powerpoint",
+                "outlook",
+                "firefox",
+                "edge",
+                "slack",
+                "discord",
+                "telegram",
+                "spotify",
+                "vlc",
+                "steam",
+                "qq",
+                "tim",
+                "飞书",
+                "feishu",
+                "钉钉",
+                "dingtalk",
+            ];
             for kw in &app_keywords {
                 if lower.contains(kw) {
                     query = instruction.trim().to_string();
@@ -129,17 +169,32 @@ impl AutomaticallyEngine {
             return None;
         }
 
-        log::info!("[AutomaticallyEngine:try_direct_app_launch] instruction='{}' → extracted='{}'", instruction, query);
+        log::info!(
+            "[AutomaticallyEngine:try_direct_app_launch] instruction='{}' → extracted='{}'",
+            instruction,
+            query
+        );
 
         let best_match = platform::app_index::find_best_match(&query);
         if let Some(app) = best_match {
-            log::info!("[AutomaticallyEngine:try_direct_app_launch] ✅ Found '{}' (source: {}, path: {})", app.name, app.app_source, app.executable_path);
+            log::info!(
+                "[AutomaticallyEngine:try_direct_app_launch] ✅ Found '{}' (source: {}, path: {})",
+                app.name,
+                app.app_source,
+                app.executable_path
+            );
             if let Err(e) = platform::app_launcher::launch_application(&app.name) {
-                log::warn!("[AutomaticallyEngine:try_direct_app_launch] ❌ Launch by name failed: {}, trying launch_command", e);
+                log::warn!(
+                    "[AutomaticallyEngine:try_direct_app_launch] ❌ Launch by name failed: {}, trying launch_command",
+                    e
+                );
                 if let Some(ref cmd) = app.launch_command {
                     if !cmd.is_empty() {
                         if let Err(e2) = platform::app_launcher::launch_application(cmd) {
-                            log::warn!("[AutomaticallyEngine:try_direct_app_launch] ❌ Launch by command also failed: {}", e2);
+                            log::warn!(
+                                "[AutomaticallyEngine:try_direct_app_launch] ❌ Launch by command also failed: {}",
+                                e2
+                            );
                             return None;
                         }
                     } else {
@@ -154,8 +209,14 @@ impl AutomaticallyEngine {
 
         let search_results = platform::app_index::search(&query);
         if let Some(app) = search_results.first() {
-            log::info!("[AutomaticallyEngine:try_direct_app_launch] ✅ Fuzzy match found '{}' (source: {}, score: relevant)", app.name, app.app_source);
-            let launch_target = if !app.executable_path.is_empty() && std::path::Path::new(&app.executable_path).exists() {
+            log::info!(
+                "[AutomaticallyEngine:try_direct_app_launch] ✅ Fuzzy match found '{}' (source: {}, score: relevant)",
+                app.name,
+                app.app_source
+            );
+            let launch_target = if !app.executable_path.is_empty()
+                && std::path::Path::new(&app.executable_path).exists()
+            {
                 &app.executable_path
             } else if let Some(ref cmd) = app.launch_command {
                 cmd
@@ -163,16 +224,25 @@ impl AutomaticallyEngine {
                 &app.name
             };
             if let Err(e) = platform::app_launcher::launch_application(launch_target) {
-                log::warn!("[AutomaticallyEngine:try_direct_app_launch] ❌ Fuzzy match launch failed: {}", e);
+                log::warn!(
+                    "[AutomaticallyEngine:try_direct_app_launch] ❌ Fuzzy match launch failed: {}",
+                    e
+                );
                 return None;
             }
             return Some(app.clone());
         }
 
-        log::info!("[AutomaticallyEngine:try_direct_app_launch] No match for '{}', trying launch_application directly", query);
+        log::info!(
+            "[AutomaticallyEngine:try_direct_app_launch] No match for '{}', trying launch_application directly",
+            query
+        );
         match platform::app_launcher::launch_application(&query) {
             Ok(()) => {
-                log::info!("[AutomaticallyEngine:try_direct_app_launch] ✅ Direct launch succeeded for '{}'", query);
+                log::info!(
+                    "[AutomaticallyEngine:try_direct_app_launch] ✅ Direct launch succeeded for '{}'",
+                    query
+                );
                 Some(AppInfo {
                     name: query.clone(),
                     executable_path: String::new(),
@@ -185,7 +255,10 @@ impl AutomaticallyEngine {
                 })
             }
             Err(e) => {
-                log::warn!("[AutomaticallyEngine:try_direct_app_launch] ❌ Direct launch also failed: {}", e);
+                log::warn!(
+                    "[AutomaticallyEngine:try_direct_app_launch] ❌ Direct launch also failed: {}",
+                    e
+                );
                 None
             }
         }
@@ -200,16 +273,63 @@ impl AutomaticallyEngine {
     fn is_simple_launch(instruction: &str) -> bool {
         let lower = instruction.to_lowercase();
         let simple_patterns = [
-            "打开", "启动", "运行", "launch", "open", "start", "run",
-            "帮我打开", "帮我启动", "请打开", "help me open", "please open",
+            "打开",
+            "启动",
+            "运行",
+            "launch",
+            "open",
+            "start",
+            "run",
+            "帮我打开",
+            "帮我启动",
+            "请打开",
+            "help me open",
+            "please open",
         ];
         let complex_keywords = [
-            "发消息", "发送", "输入", "点击", "搜索", "查找", "登录", "扫码",
-            "填写", "选择", "切换", "复制", "粘贴", "拖动", "截图", "截图识别",
-            "send", "type", "click", "search", "find", "login", "fill",
-            "select", "switch", "copy", "paste", "drag", "scroll",
-            "给", "跟", "和", "聊天", "对话", "消息", "文件", "打开后",
-            "然后", "接着", "再", "之后", "并且", "同时",
+            "发消息",
+            "发送",
+            "输入",
+            "点击",
+            "搜索",
+            "查找",
+            "登录",
+            "扫码",
+            "填写",
+            "选择",
+            "切换",
+            "复制",
+            "粘贴",
+            "拖动",
+            "截图",
+            "截图识别",
+            "send",
+            "type",
+            "click",
+            "search",
+            "find",
+            "login",
+            "fill",
+            "select",
+            "switch",
+            "copy",
+            "paste",
+            "drag",
+            "scroll",
+            "给",
+            "跟",
+            "和",
+            "聊天",
+            "对话",
+            "消息",
+            "文件",
+            "打开后",
+            "然后",
+            "接着",
+            "再",
+            "之后",
+            "并且",
+            "同时",
         ];
 
         let is_launch = simple_patterns.iter().any(|p| lower.contains(p));
@@ -219,19 +339,38 @@ impl AutomaticallyEngine {
     }
 
     /// 执行自动化指令 — 复杂交互走CUA，简单启动走直接启动，Mano-P作为备选
-    pub async fn execute_instruction(&self, instruction: &str) -> Result<manop::ManoPExecutionResult> {
-        log::info!("[AutomaticallyEngine:execute_instruction] instruction={}", instruction);
+    pub async fn execute_instruction(
+        &self,
+        instruction: &str,
+    ) -> Result<manop::ManoPExecutionResult> {
+        log::info!(
+            "[AutomaticallyEngine:execute_instruction] instruction={}",
+            instruction
+        );
 
-        if !Self::is_simple_launch(instruction) && self.config.cua_enabled && self.config.llm_api_key.is_some() {
-            log::info!("[AutomaticallyEngine:execute_instruction] Complex task detected, using CUA Agent mode");
+        if !Self::is_simple_launch(instruction)
+            && self.config.cua_enabled
+            && self.config.llm_api_key.is_some()
+        {
+            log::info!(
+                "[AutomaticallyEngine:execute_instruction] Complex task detected, using CUA Agent mode"
+            );
             return self.execute_cua(instruction).await;
         }
 
         if let Some(app) = Self::try_direct_app_launch(instruction) {
-            log::info!("[AutomaticallyEngine:execute_instruction] Direct app launch matched: {}", app.name);
+            log::info!(
+                "[AutomaticallyEngine:execute_instruction] Direct app launch matched: {}",
+                app.name
+            );
 
-            if !Self::is_simple_launch(instruction) && self.config.cua_enabled && self.config.llm_api_key.is_none() {
-                log::warn!("[AutomaticallyEngine:execute_instruction] Complex task but no LLM API key for CUA, task may be incomplete");
+            if !Self::is_simple_launch(instruction)
+                && self.config.cua_enabled
+                && self.config.llm_api_key.is_none()
+            {
+                log::warn!(
+                    "[AutomaticallyEngine:execute_instruction] Complex task but no LLM API key for CUA, task may be incomplete"
+                );
             }
 
             return Ok(manop::ManoPExecutionResult {
@@ -246,7 +385,9 @@ impl AutomaticallyEngine {
         }
 
         if self.config.cua_enabled && self.config.llm_api_key.is_some() {
-            log::info!("[AutomaticallyEngine:execute_instruction] No direct launch match, using CUA Agent mode");
+            log::info!(
+                "[AutomaticallyEngine:execute_instruction] No direct launch match, using CUA Agent mode"
+            );
             return self.execute_cua(instruction).await;
         }
 
@@ -260,18 +401,29 @@ impl AutomaticallyEngine {
             Ok(_) => {
                 let cloud_url = self.config.manop_cloud_api_url.clone();
                 let cloud_key = self.config.manop_cloud_api_key.clone();
-                if let Err(e) = manop::initialize_mano_p_with_config(&cloud_url, cloud_key.as_deref()).await {
-                    log::warn!("[AutomaticallyEngine:execute_instruction] Cloud config apply failed: {}", e);
+                if let Err(e) =
+                    manop::initialize_mano_p_with_config(&cloud_url, cloud_key.as_deref()).await
+                {
+                    log::warn!(
+                        "[AutomaticallyEngine:execute_instruction] Cloud config apply failed: {}",
+                        e
+                    );
                 }
             }
             Err(e) => {
-                log::warn!("[AutomaticallyEngine:execute_instruction] Mano-P init failed ({}), trying CUA fallback", e);
+                log::warn!(
+                    "[AutomaticallyEngine:execute_instruction] Mano-P init failed ({}), trying CUA fallback",
+                    e
+                );
                 if self.config.llm_api_key.is_some() {
-                    log::info!("[AutomaticallyEngine:execute_instruction] Falling back to CUA Agent");
+                    log::info!(
+                        "[AutomaticallyEngine:execute_instruction] Falling back to CUA Agent"
+                    );
                     return self.execute_cua(instruction).await;
                 }
                 return Err(AutomaticallyError::ManoP(format!(
-                    "Mano-P initialization failed and no LLM API key configured for CUA fallback: {}", e
+                    "Mano-P initialization failed and no LLM API key configured for CUA fallback: {}",
+                    e
                 )));
             }
         }
@@ -313,7 +465,8 @@ impl AutomaticallyEngine {
 
     /// 执行CUA Agent — 通过截图+LLM循环执行桌面自动化，自动匹配应用技能
     async fn execute_cua(&self, instruction: &str) -> Result<manop::ManoPExecutionResult> {
-        let cua_agent = agent::cua_agent::CuaAgent::new_with_skill(self.config.clone(), instruction);
+        let cua_agent =
+            agent::cua_agent::CuaAgent::new_with_skill(self.config.clone(), instruction);
         let result = cua_agent.execute(instruction).await?;
 
         Ok(manop::ManoPExecutionResult {
@@ -328,8 +481,12 @@ impl AutomaticallyEngine {
     }
 
     /// 执行CUA指令 — 返回原始CUA执行结果，自动匹配应用技能
-    pub async fn execute_cua_instruction(&self, instruction: &str) -> Result<agent::cua_agent::CuaExecutionResult> {
-        let cua_agent = agent::cua_agent::CuaAgent::new_with_skill(self.config.clone(), instruction);
+    pub async fn execute_cua_instruction(
+        &self,
+        instruction: &str,
+    ) -> Result<agent::cua_agent::CuaExecutionResult> {
+        let cua_agent =
+            agent::cua_agent::CuaAgent::new_with_skill(self.config.clone(), instruction);
         cua_agent.execute(instruction).await
     }
 

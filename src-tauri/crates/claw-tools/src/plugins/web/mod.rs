@@ -14,7 +14,10 @@
 
 /// 网页抓取工具 — HTTP GET获取内容，自动检测类型并剥离HTML标签
 #[tauri::command]
-pub async fn tool_web_fetch(url: String, max_length: Option<u64>) -> Result<serde_json::Value, String> {
+pub async fn tool_web_fetch(
+    url: String,
+    max_length: Option<u64>,
+) -> Result<serde_json::Value, String> {
     let start = std::time::Instant::now();
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -24,10 +27,16 @@ pub async fn tool_web_fetch(url: String, max_length: Option<u64>) -> Result<serd
         .map_err(|e| e.to_string())?;
 
     if !url.starts_with("http://") && !url.starts_with("https://") {
-        return Ok(serde_json::json!({"tool":"WebFetch","success":false,"output":format!("无效的 URL: {} (必须以 http:// 或 https:// 开头)",url),"duration_ms":start.elapsed().as_millis() as u64}));
+        return Ok(
+            serde_json::json!({"tool":"WebFetch","success":false,"output":format!("无效的 URL: {} (必须以 http:// 或 https:// 开头)",url),"duration_ms":start.elapsed().as_millis() as u64}),
+        );
     }
 
-    let response = client.get(&url).send().await.map_err(|e| format!("请求失败: {}", e))?;
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("请求失败: {}", e))?;
     let status = response.status();
     if !status.is_success() {
         return Ok(serde_json::json!({
@@ -37,29 +46,50 @@ pub async fn tool_web_fetch(url: String, max_length: Option<u64>) -> Result<serd
         }));
     }
 
-    let content_type: String = response.headers()
-        .get("content-type").and_then(|v| v.to_str().ok())
+    let content_type: String = response
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
         .unwrap_or("application/octet-stream")
         .to_string();
-    let bytes = response.bytes().await.map_err(|e| format!("读取响应体失败: {}", e))?;
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| format!("读取响应体失败: {}", e))?;
     let raw = String::from_utf8_lossy(&bytes);
     let max_len = max_length.unwrap_or(50000) as usize;
 
     let text = if content_type.contains("html") || content_type.contains("xml") {
-        strip_html_tags(&raw).split_whitespace().collect::<Vec<_>>().join(" ")
-    } else if content_type.contains("json") || content_type.contains("javascript") || content_type.contains("text") {
+        strip_html_tags(&raw)
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+    } else if content_type.contains("json")
+        || content_type.contains("javascript")
+        || content_type.contains("text")
+    {
         raw.trim().to_string()
     } else {
-        format!("[二进制数据: {} 字节, Content-Type: {}]", bytes.len(), content_type)
+        format!(
+            "[二进制数据: {} 字节, Content-Type: {}]",
+            bytes.len(),
+            content_type
+        )
     };
 
     let truncated = if text.len() > max_len {
-        format!("...(截断 {} 字节)\n{}", text.len(), &text[text.len()-max_len..])
-    } else { text };
+        format!(
+            "...(截断 {} 字节)\n{}",
+            text.len(),
+            &text[text.len() - max_len..]
+        )
+    } else {
+        text
+    };
 
     Ok(serde_json::json!({
         "tool": "WebFetch", "success": true,
-        "output": format!("URL: {}\nStatus: HTTP {}\nContent-Type: {}\nSize: {}\nDuration: {}ms\n\n{}", 
+        "output": format!("URL: {}\nStatus: HTTP {}\nContent-Type: {}\nSize: {}\nDuration: {}ms\n\n{}",
             url, status, content_type, bytes.len(), start.elapsed().as_millis() as u64, truncated),
         "status_code": status.as_u16(),
         "content_type": content_type,
@@ -79,15 +109,24 @@ pub async fn tool_web_search(
 ) -> Result<serde_json::Value, String> {
     let start = std::time::Instant::now();
     let count = num_results.unwrap_or(5).min(10) as usize;
-    let engine_id = engine.clone().unwrap_or_else(|| "duckduckgo".to_string()).to_lowercase();
+    let engine_id = engine
+        .clone()
+        .unwrap_or_else(|| "duckduckgo".to_string())
+        .to_lowercase();
 
     let allowed_list: Vec<String> = match &allowed_domains {
-        Some(serde_json::Value::Array(arr)) => arr.iter().filter_map(|v| v.as_str().map(|s| s.to_lowercase())).collect(),
+        Some(serde_json::Value::Array(arr)) => arr
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_lowercase()))
+            .collect(),
         Some(serde_json::Value::String(s)) => vec![s.to_lowercase()],
         _ => vec![],
     };
     let blocked_list: Vec<String> = match &blocked_domains {
-        Some(serde_json::Value::Array(arr)) => arr.iter().filter_map(|v| v.as_str().map(|s| s.to_lowercase())).collect(),
+        Some(serde_json::Value::Array(arr)) => arr
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_lowercase()))
+            .collect(),
         Some(serde_json::Value::String(s)) => vec![s.to_lowercase()],
         _ => vec![],
     };
@@ -100,7 +139,7 @@ pub async fn tool_web_search(
 
     let mut all_results: Vec<SearchResult> = Vec::new();
     let mut seen_urls = std::collections::HashSet::new();
-    
+
     for eng in &engines_to_use {
         let results = match *eng {
             "duckduckgo" | "ddg" => search_duckduckgo(&query, count * 2).await,
@@ -111,10 +150,25 @@ pub async fn tool_web_search(
 
         for r in results {
             let domain = extract_domain(&r.url);
-            if seen_urls.contains(&r.url) { continue; }
-            if !allowed_list.is_empty() && !allowed_list.iter().any(|d| domain.ends_with(d) || d == &domain) { continue; }
-            if !blocked_list.is_empty() && (blocked_list.iter().any(|d| domain.ends_with(d) || d == &domain) || is_blocked_url(&r.url, &blocked_list)) { continue; }
-            
+            if seen_urls.contains(&r.url) {
+                continue;
+            }
+            if !allowed_list.is_empty()
+                && !allowed_list
+                    .iter()
+                    .any(|d| domain.ends_with(d) || d == &domain)
+            {
+                continue;
+            }
+            if !blocked_list.is_empty()
+                && (blocked_list
+                    .iter()
+                    .any(|d| domain.ends_with(d) || d == &domain)
+                    || is_blocked_url(&r.url, &blocked_list))
+            {
+                continue;
+            }
+
             seen_urls.insert(r.url.clone());
             all_results.push(r);
         }
@@ -138,17 +192,22 @@ pub async fn tool_web_search(
             )
         }))
     } else {
-        let structured_results: Vec<serde_json::Value> = all_results.iter().map(|r| {
-            serde_json::json!({ "title": r.title, "url": r.url, "snippet": r.snippet })
-        }).collect();
-        
-        let output_lines: Vec<String> = all_results.iter().enumerate().flat_map(|(i, r)| {
-            vec![
-                format!("[{}] {}", i+1, r.title),
-                format!("    URL: {}", r.url),
-                format!("    {}", r.snippet),
-            ]
-        }).collect();
+        let structured_results: Vec<serde_json::Value> = all_results
+            .iter()
+            .map(|r| serde_json::json!({ "title": r.title, "url": r.url, "snippet": r.snippet }))
+            .collect();
+
+        let output_lines: Vec<String> = all_results
+            .iter()
+            .enumerate()
+            .flat_map(|(i, r)| {
+                vec![
+                    format!("[{}] {}", i + 1, r.title),
+                    format!("    URL: {}", r.url),
+                    format!("    {}", r.snippet),
+                ]
+            })
+            .collect();
 
         Ok(serde_json::json!({
             "tool": "WebSearch", "success": true, "query": query,
@@ -173,10 +232,15 @@ struct SearchResult {
 
 /// 从URL中提取域名
 fn extract_domain(url: &str) -> String {
-    url.replace("https://", "").replace("http://", "")
-     .split('/').next().unwrap_or("")
-     .split(':').next().unwrap_or("")
-     .to_lowercase()
+    url.replace("https://", "")
+        .replace("http://", "")
+        .split('/')
+        .next()
+        .unwrap_or("")
+        .split(':')
+        .next()
+        .unwrap_or("")
+        .to_lowercase()
 }
 
 /// 检查URL是否被黑名单阻止
@@ -187,16 +251,25 @@ fn is_blocked_url(url: &str, blocked: &[String]) -> bool {
 
 /// DuckDuckGo搜索引擎 — 抓取HTML页面并解析搜索结果
 async fn search_duckduckgo(query: &str, count: usize) -> Vec<SearchResult> {
-    let search_url = format!("https://html.duckduckgo.com/html/?q={}", urlencoding::encode(query));
+    let search_url = format!(
+        "https://html.duckduckgo.com/html/?q={}",
+        urlencoding::encode(query)
+    );
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .build();
 
     let Ok(client) = client else { return vec![] };
-    let Ok(response) = client.get(&search_url).send().await else { return vec![] };
-    if !response.status().is_success() { return vec![]; }
-    let Ok(html) = response.text().await else { return vec![] };
+    let Ok(response) = client.get(&search_url).send().await else {
+        return vec![];
+    };
+    if !response.status().is_success() {
+        return vec![];
+    }
+    let Ok(html) = response.text().await else {
+        return vec![];
+    };
 
     let re = regex::Regex::new(r#"class="result__a"[^>]*href="(.*?)"[^>]*>(.*?)</a>.*?class="result__snippet"[^>]*>(.*?)(?:</div>|</td>)"#)
         .unwrap_or_else(|_| regex::Regex::new(r#"<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="(.*?)"[^>]*>(.*?)</a>"#).expect("Failed to create fallback DDG regex"));
@@ -208,7 +281,11 @@ async fn search_duckduckgo(query: &str, count: usize) -> Vec<SearchResult> {
         let url = clean_ddg_url(raw_url);
         let snippet = html_decode(cap.get(3).map(|m| m.as_str()).unwrap_or(""));
         if !title.is_empty() && results.len() < count {
-            results.push(SearchResult { title, url, snippet });
+            results.push(SearchResult {
+                title,
+                url,
+                snippet,
+            });
         }
     }
     results
@@ -216,16 +293,26 @@ async fn search_duckduckgo(query: &str, count: usize) -> Vec<SearchResult> {
 
 /// Bing搜索引擎 — 抓取HTML页面并解析搜索结果
 async fn search_bing(query: &str, count: usize) -> Vec<SearchResult> {
-    let search_url = format!("https://www.bing.com/search?q={}&count={}", urlencoding::encode(query), count);
+    let search_url = format!(
+        "https://www.bing.com/search?q={}&count={}",
+        urlencoding::encode(query),
+        count
+    );
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .build();
 
     let Ok(client) = client else { return vec![] };
-    let Ok(response) = client.get(&search_url).send().await else { return vec![] };
-    if !response.status().is_success() { return vec![]; }
-    let Ok(html) = response.text().await else { return vec![] };
+    let Ok(response) = client.get(&search_url).send().await else {
+        return vec![];
+    };
+    if !response.status().is_success() {
+        return vec![];
+    }
+    let Ok(html) = response.text().await else {
+        return vec![];
+    };
 
     let re = regex::Regex::new(r#"<li class="b_algo"[^>]*>.*?<h2><a[^>]*href="(.*?)"[^>]*>(.*?)</a></h2>.*?<p[^>]*>(.*?)</p>"#)
         .unwrap_or_else(|_| regex::Regex::new(r#"<h2><a[^>]*href="(.*?)"[^>]*>(.*?)</a></h2>"#).expect("Failed to create fallback Bing regex"));
@@ -236,7 +323,11 @@ async fn search_bing(query: &str, count: usize) -> Vec<SearchResult> {
         let title = strip_html_tags(cap.get(2).map(|m| m.as_str()).unwrap_or(""));
         let snippet = strip_html_tags(cap.get(3).map(|m| m.as_str()).unwrap_or(""));
         if !title.is_empty() && results.len() < count {
-            results.push(SearchResult { title, url, snippet });
+            results.push(SearchResult {
+                title,
+                url,
+                snippet,
+            });
         }
     }
     results
@@ -244,16 +335,26 @@ async fn search_bing(query: &str, count: usize) -> Vec<SearchResult> {
 
 /// Google搜索引擎 — 抓取HTML页面并解析搜索结果
 async fn search_google(query: &str, count: usize) -> Vec<SearchResult> {
-    let search_url = format!("https://www.google.com/search?q={}&num={}", urlencoding::encode(query), count);
+    let search_url = format!(
+        "https://www.google.com/search?q={}&num={}",
+        urlencoding::encode(query),
+        count
+    );
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .build();
 
     let Ok(client) = client else { return vec![] };
-    let Ok(response) = client.get(&search_url).send().await else { return vec![] };
-    if !response.status().is_success() { return vec![]; }
-    let Ok(html) = response.text().await else { return vec![] };
+    let Ok(response) = client.get(&search_url).send().await else {
+        return vec![];
+    };
+    if !response.status().is_success() {
+        return vec![];
+    }
+    let Ok(html) = response.text().await else {
+        return vec![];
+    };
 
     let re = regex::Regex::new(r#"<div[^>]*class="[^"]*g[^"]*"[^>]*>.*?<a href="/url\?q=(.*?)"[^>]*>.*?<h3[^>]*>(.*?)</h3>.*?(?:<span[^>]*class="[^"]*"[^>]*>(.*?)</span>)?"#)
         .unwrap_or_else(|_| regex::Regex::new(r#"<a href="/url\?q=(.*?)"[^>]*data-ved[^>]*>.*?<h3[^>]*>(.*?)</h3>"#).expect("Failed to create fallback Google regex"));
@@ -262,9 +363,16 @@ async fn search_google(query: &str, count: usize) -> Vec<SearchResult> {
     for cap in re.captures_iter(&html) {
         let url = cap.get(1).map(|m| m.as_str()).unwrap_or("").to_string();
         let title = strip_html_tags(cap.get(2).map(|m| m.as_str()).unwrap_or(""));
-        let snippet = cap.get(3).map(|m| strip_html_tags(m.as_str())).unwrap_or_default();
+        let snippet = cap
+            .get(3)
+            .map(|m| strip_html_tags(m.as_str()))
+            .unwrap_or_default();
         if !title.is_empty() && url.starts_with("http") && results.len() < count {
-            results.push(SearchResult { title, url, snippet });
+            results.push(SearchResult {
+                title,
+                url,
+                snippet,
+            });
         }
     }
     results
@@ -272,17 +380,30 @@ async fn search_google(query: &str, count: usize) -> Vec<SearchResult> {
 
 /// 清理DuckDuckGo URL — 补全协议前缀
 fn clean_ddg_url(raw: &str) -> String {
-    if raw.starts_with("//") { format!("https:{}", raw) }
-    else if raw.starts_with("/") { format!("https://duckduckgo.com{}", raw) }
-    else { raw.to_string() }
+    if raw.starts_with("//") {
+        format!("https:{}", raw)
+    } else if raw.starts_with("/") {
+        format!("https://duckduckgo.com{}", raw)
+    } else {
+        raw.to_string()
+    }
 }
 
 /// HTML实体解码 — 替换常见HTML转义字符
 fn html_decode(s: &str) -> String {
-    s.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
-     .replace("&#39;", "'").replace("&nbsp;", " ").replace("&#x27;", "'")
-     .replace("&mdash;", "-").replace("&ndash;", "-").replace("&hellip;", "...")
-     .split_whitespace().collect::<Vec<_>>().join(" ")
+    s.replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&nbsp;", " ")
+        .replace("&#x27;", "'")
+        .replace("&mdash;", "-")
+        .replace("&ndash;", "-")
+        .replace("&hellip;", "...")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// 剥离HTML标签 — 保留纯文本内容

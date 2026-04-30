@@ -1,18 +1,21 @@
 // Claw Desktop - 工具适配器 - 将工具调用适配为WS事件
-use claw_tools::plugins::agent as agent_tools;
 use claw_tools::agent_session;
 use claw_tools::extension_manager;
+use claw_tools::plugins::agent as agent_tools;
 use claw_tools::plugins::file as file_tools;
 use claw_tools::plugins::git as git_tools;
 use claw_tools::plugins::misc as misc_tools;
 use claw_tools::plugins::search as search_tools;
 use claw_tools::plugins::shell as shell_tools;
+use claw_tools::plugins::web as web_tools;
 use claw_tools::skill_loader;
 use claw_tools::tool_registry;
-use claw_tools::plugins::web as web_tools;
 
 fn extract_string(params: &serde_json::Value, key: &str) -> Option<String> {
-    params.get(key).and_then(|v| v.as_str()).map(|s| s.to_string())
+    params
+        .get(key)
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
 }
 
 fn extract_agent_id(params: &serde_json::Value) -> Result<String, String> {
@@ -52,7 +55,8 @@ pub async fn tool_bash_cancel_ws(_params: &serde_json::Value) -> Result<serde_js
 pub async fn tool_glob_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
     let pattern = extract_string(params, "pattern").ok_or("Missing pattern")?;
     let path = extract_string(params, "path");
-    let exclude_patterns: Option<Vec<String>> = params.get("exclude_patterns")
+    let exclude_patterns: Option<Vec<String>> = params
+        .get("exclude_patterns")
         .and_then(|v| serde_json::from_value(v.clone()).ok());
     search_tools::tool_glob(pattern, path, exclude_patterns)
 }
@@ -151,7 +155,8 @@ pub async fn tool_skill_ws(params: &serde_json::Value) -> Result<serde_json::Val
 
 pub async fn tool_brief_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
     let message = extract_string(params, "message").ok_or("Missing message")?;
-    let attachments: Option<Vec<String>> = params.get("attachments")
+    let attachments: Option<Vec<String>> = params
+        .get("attachments")
         .and_then(|v| serde_json::from_value(v.clone()).ok());
     agent_tools::tool_brief(message, attachments)
 }
@@ -163,14 +168,18 @@ pub async fn tool_config_ws(params: &serde_json::Value) -> Result<serde_json::Va
     agent_tools::tool_config(action, key, value)
 }
 
-pub async fn tool_notebook_edit_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn tool_notebook_edit_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let file_path = extract_string(params, "file_path").ok_or("Missing file_path")?;
     let cell_index = extract_u64(params, "cell_index").ok_or("Missing cell_index")? as u64;
     let source = extract_value(params, "source");
     agent_tools::tool_notebook_edit(file_path, cell_index, source)
 }
 
-pub async fn tool_schedule_cron_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn tool_schedule_cron_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let name = extract_string(params, "name").ok_or("Missing name")?;
     let schedule = extract_string(params, "schedule").ok_or("Missing schedule")?;
     let task = extract_string(params, "task").ok_or("Missing task")?;
@@ -182,7 +191,9 @@ pub async fn tool_schedule_list_ws() -> Result<serde_json::Value, String> {
     agent_tools::tool_schedule_list()
 }
 
-pub async fn tool_ask_user_question_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn tool_ask_user_question_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let questions = extract_value(params, "questions").ok_or("Missing questions")?;
     agent_tools::tool_ask_user_question(questions)
 }
@@ -203,7 +214,9 @@ pub async fn get_env_session_info_ws() -> Result<serde_json::Value, String> {
     misc_tools::get_env_session_info()
 }
 
-pub async fn get_code_changes_summary_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn get_code_changes_summary_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let working_dir = extract_string(params, "working_dir");
     let staged_only = extract_bool(params, "staged_only");
     misc_tools::get_code_changes_summary(working_dir, staged_only)
@@ -213,7 +226,8 @@ pub async fn run_code_review_ws(params: &serde_json::Value) -> Result<serde_json
     let config_value = params.get("config").ok_or("Missing config parameter")?;
     let config: claw_config::config::AppConfig = serde_json::from_value(config_value.clone())
         .map_err(|e| format!("Invalid config: {}", e))?;
-    let changes_summary = extract_value(params, "changes_summary").ok_or("Missing changes_summary")?;
+    let changes_summary =
+        extract_value(params, "changes_summary").ok_or("Missing changes_summary")?;
     misc_tools::run_code_review(config, changes_summary).await
 }
 
@@ -237,7 +251,9 @@ pub async fn git_diff_ws(params: &serde_json::Value) -> Result<serde_json::Value
 
 pub async fn git_commit_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
     let message = extract_string(params, "message").ok_or("Missing message")?;
-    let files: Option<Vec<String>> = params.get("files").and_then(|v| serde_json::from_value(v.clone()).ok());
+    let files: Option<Vec<String>> = params
+        .get("files")
+        .and_then(|v| serde_json::from_value(v.clone()).ok());
     let working_dir = extract_string(params, "working_dir");
     git_tools::git_commit(message, files, working_dir)
 }
@@ -254,39 +270,55 @@ pub async fn git_branch_list_ws(params: &serde_json::Value) -> Result<serde_json
 }
 
 pub async fn git_create_branch_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
-    let branch_name = extract_string(params, "branch_name").or(extract_string(params, "name")).ok_or("Missing branch_name")?;
+    let branch_name = extract_string(params, "branch_name")
+        .or(extract_string(params, "name"))
+        .ok_or("Missing branch_name")?;
     let checkout = extract_bool(params, "checkout");
     let working_dir = extract_string(params, "working_dir");
     git_tools::git_create_branch(branch_name, checkout, working_dir)
 }
 
-pub async fn git_checkout_branch_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
-    let branch_name = extract_string(params, "branch_name").or(extract_string(params, "name")).ok_or("Missing branch_name")?;
+pub async fn git_checkout_branch_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let branch_name = extract_string(params, "branch_name")
+        .or(extract_string(params, "name"))
+        .ok_or("Missing branch_name")?;
     let working_dir = extract_string(params, "working_dir");
     git_tools::git_checkout_branch(branch_name, working_dir)
 }
 
 pub async fn git_add_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
-    let files: Vec<String> = params.get("files").and_then(|v| serde_json::from_value(v.clone()).ok()).unwrap_or_default();
+    let files: Vec<String> = params
+        .get("files")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
     let working_dir = extract_string(params, "working_dir");
     git_tools::git_add(files, working_dir)
 }
 
 pub async fn git_reset_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
-    let files: Vec<String> = params.get("files").and_then(|v| serde_json::from_value(v.clone()).ok()).unwrap_or_default();
+    let files: Vec<String> = params
+        .get("files")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
     let working_dir = extract_string(params, "working_dir");
     git_tools::git_reset(files, working_dir)
 }
 
 // ==================== Extension Commands ====================
 
-pub async fn cmd_install_extension_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn cmd_install_extension_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let url = extract_string(params, "url").ok_or("Missing url")?;
     let name = extract_string(params, "name");
     extension_manager::cmd_install_extension(url, name)
 }
 
-pub async fn cmd_uninstall_extension_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn cmd_uninstall_extension_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let name = extract_string(params, "name").ok_or("Missing name")?;
     extension_manager::cmd_uninstall_extension(name)
 }
@@ -329,12 +361,16 @@ pub async fn cmd_register_tool_ws(params: &serde_json::Value) -> Result<serde_js
     tool_registry::cmd_register_tool(name, description, input_schema, handler).await
 }
 
-pub async fn cmd_unregister_tool_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn cmd_unregister_tool_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let name = extract_string(params, "name").ok_or("Missing name")?;
     tool_registry::cmd_unregister_tool(name).await
 }
 
-pub async fn cmd_load_skills_from_dir_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn cmd_load_skills_from_dir_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let dir = extract_string(params, "dir").ok_or("Missing dir")?;
     let source = extract_string(params, "source");
     skill_loader::cmd_load_skills_from_dir(dir, source).await
@@ -367,8 +403,18 @@ pub async fn iso_agent_create_ws(params: &serde_json::Value) -> Result<serde_jso
     let purpose = extract_string(params, "purpose");
     let scope = extract_string(params, "scope");
     let category = extract_string(params, "category");
-    let model_override = extract_string(params, "modelOverride").or(extract_string(params, "model_override"));
-    let agent = agent_session::iso_agent_create(name, description, system_prompt, purpose, scope, category, model_override).await?;
+    let model_override =
+        extract_string(params, "modelOverride").or(extract_string(params, "model_override"));
+    let agent = agent_session::iso_agent_create(
+        name,
+        description,
+        system_prompt,
+        purpose,
+        scope,
+        category,
+        model_override,
+    )
+    .await?;
     Ok(serde_json::json!(agent))
 }
 
@@ -380,7 +426,9 @@ pub async fn iso_agent_get_ws(params: &serde_json::Value) -> Result<serde_json::
 
 pub async fn iso_agent_rename_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
     let id = extract_agent_id(params)?;
-    let new_name = extract_string(params, "newName").or(extract_string(params, "new_name")).ok_or("Missing newName")?;
+    let new_name = extract_string(params, "newName")
+        .or(extract_string(params, "new_name"))
+        .ok_or("Missing newName")?;
     let agent = agent_session::iso_agent_rename(id, new_name).await?;
     Ok(serde_json::json!(agent))
 }
@@ -406,41 +454,66 @@ pub async fn iso_get_config_ws(params: &serde_json::Value) -> Result<serde_json:
     Ok(serde_json::json!({ "value": value }))
 }
 
-pub async fn iso_init_agent_db_ws(_params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn iso_init_agent_db_ws(
+    _params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({ "success": true, "note": "DB init handled at startup" }))
 }
 
-pub async fn iso_set_tools_config_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn iso_set_tools_config_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let agent_id = extract_agent_id(params)?;
     let config = extract_value(params, "config").ok_or("Missing config")?;
     agent_session::iso_set_tools_config(agent_id, config).await?;
     Ok(serde_json::json!({ "success": true }))
 }
 
-pub async fn iso_set_skills_enabled_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn iso_set_skills_enabled_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let agent_id = extract_agent_id(params)?;
-    let enabled: Vec<String> = params.get("enabled")
+    let enabled: Vec<String> = params
+        .get("enabled")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .ok_or("Missing enabled")?;
     agent_session::iso_set_skills_enabled(agent_id, enabled).await?;
     Ok(serde_json::json!({ "success": true }))
 }
 
-pub async fn iso_agent_update_config_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn iso_agent_update_config_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let agent_id = extract_agent_id(params)?;
-    let system_prompt = extract_string(params, "systemPrompt").or(extract_string(params, "system_prompt"));
+    let system_prompt =
+        extract_string(params, "systemPrompt").or(extract_string(params, "system_prompt"));
     let purpose = extract_string(params, "purpose");
     let scope = extract_string(params, "scope");
-    let model_override = extract_string(params, "modelOverride").or(extract_string(params, "model_override"));
-    let max_turns = extract_u64(params, "maxTurns").or_else(|| extract_u64(params, "max_turns")).map(|v| v as u32);
+    let model_override =
+        extract_string(params, "modelOverride").or(extract_string(params, "model_override"));
+    let max_turns = extract_u64(params, "maxTurns")
+        .or_else(|| extract_u64(params, "max_turns"))
+        .map(|v| v as u32);
     let temperature = params.get("temperature").and_then(|v| v.as_f64());
-    agent_session::iso_agent_update_config(agent_id, system_prompt, purpose, scope, model_override, max_turns, temperature).await?;
+    agent_session::iso_agent_update_config(
+        agent_id,
+        system_prompt,
+        purpose,
+        scope,
+        model_override,
+        max_turns,
+        temperature,
+    )
+    .await?;
     Ok(serde_json::json!({ "success": true }))
 }
 
-pub async fn iso_create_session_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn iso_create_session_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let agent_id = extract_agent_id(params)?;
-    let conversation_id = extract_string(params, "conversationId").or(extract_string(params, "conversation_id"));
+    let conversation_id =
+        extract_string(params, "conversationId").or(extract_string(params, "conversation_id"));
     let session = agent_session::iso_create_session(agent_id, conversation_id).await?;
     Ok(serde_json::json!(session))
 }
@@ -451,36 +524,50 @@ pub async fn iso_list_sessions_ws(params: &serde_json::Value) -> Result<serde_js
     Ok(serde_json::json!({ "count": sessions.len(), "sessions": sessions }))
 }
 
-pub async fn iso_index_workspace_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn iso_index_workspace_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let agent_id = extract_agent_id(params)?;
     let relative_path = extract_string(params, "relativePath")
         .or(extract_string(params, "relative_path"))
         .or(extract_string(params, "path"))
         .ok_or("Missing relativePath/path")?;
-    let full_path = extract_string(params, "fullPath").or(extract_string(params, "full_path")).unwrap_or_default();
-    let file_size = params.get("fileSize").or(params.get("file_size"))
+    let full_path = extract_string(params, "fullPath")
+        .or(extract_string(params, "full_path"))
+        .unwrap_or_default();
+    let file_size = params
+        .get("fileSize")
+        .or(params.get("file_size"))
         .and_then(|v| v.as_i64())
         .unwrap_or(0);
-    let content_type = extract_string(params, "contentType").or(extract_string(params, "content_type"));
-    agent_session::iso_index_workspace(agent_id, relative_path, full_path, file_size, content_type).await?;
+    let content_type =
+        extract_string(params, "contentType").or(extract_string(params, "content_type"));
+    agent_session::iso_index_workspace(agent_id, relative_path, full_path, file_size, content_type)
+        .await?;
     Ok(serde_json::json!({ "success": true }))
 }
 
-pub async fn iso_list_workspace_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn iso_list_workspace_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let agent_id = extract_agent_id(params)?;
     let entries = agent_session::iso_list_workspace(agent_id).await?;
     Ok(serde_json::json!({ "count": entries.len(), "entries": entries }))
 }
 
 pub async fn iso_cleanup_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
-    let days_threshold = params.get("daysThreshold").or(params.get("days_threshold"))
+    let days_threshold = params
+        .get("daysThreshold")
+        .or(params.get("days_threshold"))
         .and_then(|v| v.as_i64())
         .unwrap_or(30);
     let count = agent_session::iso_cleanup(days_threshold).await?;
     Ok(serde_json::json!({ "cleaned": count }))
 }
 
-pub async fn iso_generate_prompt_ws(params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn iso_generate_prompt_ws(
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let name = extract_string(params, "displayName")
         .or(extract_string(params, "name"))
         .unwrap_or_default();
@@ -489,7 +576,9 @@ pub async fn iso_generate_prompt_ws(params: &serde_json::Value) -> Result<serde_
     let scope = extract_string(params, "scope").unwrap_or_default();
     let description = extract_string(params, "description").unwrap_or_default();
 
-    let config_value = params.get("config").ok_or("Missing config parameter — global model must be configured")?;
+    let config_value = params
+        .get("config")
+        .ok_or("Missing config parameter — global model must be configured")?;
     let config: claw_config::config::AppConfig = serde_json::from_value(config_value.clone())
         .map_err(|e| format!("Invalid config: {}", e))?;
 
@@ -524,9 +613,21 @@ Requirements:
         name = name,
         category = category,
         category_desc = category_desc,
-        purpose_section = if purpose.is_empty() { String::new() } else { format!("- **Purpose**: {}\n", purpose) },
-        scope_section = if scope.is_empty() { String::new() } else { format!("- **Scope**: {}\n", scope) },
-        description_section = if description.is_empty() { String::new() } else { format!("- **Description**: {}\n", description) },
+        purpose_section = if purpose.is_empty() {
+            String::new()
+        } else {
+            format!("- **Purpose**: {}\n", purpose)
+        },
+        scope_section = if scope.is_empty() {
+            String::new()
+        } else {
+            format!("- **Scope**: {}\n", scope)
+        },
+        description_section = if description.is_empty() {
+            String::new()
+        } else {
+            format!("- **Description**: {}\n", description)
+        },
     );
 
     let messages = vec![
@@ -554,7 +655,8 @@ Requirements:
             "messages": messages,
         });
 
-        let response = client.post(&url)
+        let response = client
+            .post(&url)
             .header("Authorization", format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
             .json(&body)
@@ -565,10 +667,17 @@ Requirements:
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
-            return Err(format!("API error ({}): {}", status, claw_types::truncate_str_safe(&text, 200)));
+            return Err(format!(
+                "API error ({}): {}",
+                status,
+                claw_types::truncate_str_safe(&text, 200)
+            ));
         }
 
-        let json: serde_json::Value = response.json().await.map_err(|e| format!("Failed to parse response: {}", e))?;
+        let json: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse response: {}", e))?;
         json.get("choices")
             .and_then(|c| c.get(0))
             .and_then(|c| c.get("message"))
@@ -588,7 +697,8 @@ Requirements:
             "messages": messages.iter().filter(|m| m["role"] != "system").cloned().collect::<Vec<_>>(),
         });
 
-        let response = client.post(&url)
+        let response = client
+            .post(&url)
             .header("x-api-key", &api_key)
             .header("anthropic-version", "2023-06-01")
             .header("Content-Type", "application/json")
@@ -600,10 +710,17 @@ Requirements:
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
-            return Err(format!("API error ({}): {}", status, claw_types::truncate_str_safe(&text, 200)));
+            return Err(format!(
+                "API error ({}): {}",
+                status,
+                claw_types::truncate_str_safe(&text, 200)
+            ));
         }
 
-        let json: serde_json::Value = response.json().await.map_err(|e| format!("Failed to parse response: {}", e))?;
+        let json: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse response: {}", e))?;
         json.get("content")
             .and_then(|c| c.get(0))
             .and_then(|c| c.get("text"))
@@ -623,25 +740,29 @@ Requirements:
 // ==================== Missing Memory V2 Adapters ====================
 
 pub async fn memory_v2_list_entities_ws(agent_id: &str) -> Result<serde_json::Value, String> {
-    let results = claw_rag::rag::hybrid_retrieve("", agent_id, None, 100).await
+    let results = claw_rag::rag::hybrid_retrieve("", agent_id, None, 100)
+        .await
         .map_err(|e| e.to_string())?;
     Ok(serde_json::json!({ "count": results.len(), "entities": results }))
 }
 
 pub async fn memory_v2_stats_ws(agent_id: &str) -> Result<serde_json::Value, String> {
-    let results = claw_rag::rag::hybrid_retrieve("", agent_id, None, 1).await
+    let results = claw_rag::rag::hybrid_retrieve("", agent_id, None, 1)
+        .await
         .map_err(|e| e.to_string())?;
     Ok(serde_json::json!({ "agent_id": agent_id, "total_memories": results.len() }))
 }
 
 pub async fn memory_v2_delete_ws(unit_id: &str) -> Result<serde_json::Value, String> {
-    claw_rag::rag::delete_conversation_memories(unit_id).await
+    claw_rag::rag::delete_conversation_memories(unit_id)
+        .await
         .map_err(|e| e.to_string())?;
     Ok(serde_json::json!({ "success": true, "deleted": unit_id }))
 }
 
 pub async fn memory_v2_export_ws(agent_id: &str) -> Result<serde_json::Value, String> {
-    let results = claw_rag::rag::hybrid_retrieve("", agent_id, None, 10000).await
+    let results = claw_rag::rag::hybrid_retrieve("", agent_id, None, 10000)
+        .await
         .map_err(|e| e.to_string())?;
     Ok(serde_json::json!({ "agent_id": agent_id, "count": results.len(), "memories": results }))
 }

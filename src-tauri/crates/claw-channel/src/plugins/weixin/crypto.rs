@@ -1,6 +1,6 @@
 // Claw Desktop - 微信加密 - 消息加解密
 use aes::Aes128;
-use aes::cipher::{BlockEncrypt, BlockDecrypt, KeyInit, generic_array::GenericArray};
+use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit, generic_array::GenericArray};
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 
 pub fn aes128_ecb_encrypt(key: &[u8], plaintext: &[u8]) -> Vec<u8> {
@@ -34,23 +34,38 @@ pub fn pkcs7_pad(data: &[u8], block_size: usize) -> Vec<u8> {
 }
 
 pub fn pkcs7_unpad(data: &[u8]) -> Vec<u8> {
-    if data.is_empty() { return data.to_vec(); }
+    if data.is_empty() {
+        return data.to_vec();
+    }
     let padding_len = match data.last() {
         Some(&len) => len as usize,
         None => return data.to_vec(),
     };
-    if padding_len == 0 || padding_len > data.len() || padding_len > 16 { return data.to_vec(); }
-    if data.iter().rev().take(padding_len).any(|&b| b as usize != padding_len) { return data.to_vec(); }
+    if padding_len == 0 || padding_len > data.len() || padding_len > 16 {
+        return data.to_vec();
+    }
+    if data
+        .iter()
+        .rev()
+        .take(padding_len)
+        .any(|&b| b as usize != padding_len)
+    {
+        return data.to_vec();
+    }
     data[..data.len() - padding_len].to_vec()
 }
 
 pub fn parse_aes_key(raw: &str) -> Option<Vec<u8>> {
     if let Ok(bytes) = BASE64.decode(raw) {
-        if bytes.len() == 16 { return Some(bytes); }
+        if bytes.len() == 16 {
+            return Some(bytes);
+        }
         if let Ok(hex_str) = String::from_utf8(bytes) {
             if hex_str.len() == 32 {
                 if let Ok(key_bytes) = hex::decode(&hex_str) {
-                    if key_bytes.len() == 16 { return Some(key_bytes); }
+                    if key_bytes.len() == 16 {
+                        return Some(key_bytes);
+                    }
                 }
             }
         }
@@ -72,5 +87,7 @@ pub fn generate_random_key() -> Vec<u8> {
 pub fn generate_random_filekey() -> String {
     use rand::Rng;
     let mut rng = rand::thread_rng();
-    (0..32).map(|_| format!("{:02x}", rng.r#gen::<u8>())).collect()
+    (0..32)
+        .map(|_| format!("{:02x}", rng.r#gen::<u8>()))
+        .collect()
 }

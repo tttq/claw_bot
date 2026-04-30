@@ -2,8 +2,8 @@
 // 统一管理 sqlite-vec 加速路径和 BLOB 降级路径
 // 运行时自动检测可用性，透明切换
 
-use sea_orm::{DatabaseConnection, ConnectionTrait, Statement, FromQueryResult};
 use once_cell::sync::OnceCell;
+use sea_orm::{ConnectionTrait, DatabaseConnection, FromQueryResult, Statement};
 
 /// sqlite-vec扩展是否可用的全局标志
 static VEC0_AVAILABLE: OnceCell<bool> = OnceCell::new();
@@ -27,31 +27,39 @@ pub struct VectorSearchResult {
 
 /// 初始化向量扩展（在数据库连接建立后调用）
 pub async fn init_vector_extension(conn: &DatabaseConnection) -> Result<bool, String> {
-    match conn.execute_unprepared("SELECT load_extension('sqlite_vec');").await {
+    match conn
+        .execute_unprepared("SELECT load_extension('sqlite_vec');")
+        .await
+    {
         Ok(_) => {
             log::info!("[VectorStore] sqlite-vec 扩展加载成功");
-            
+
             // 创建 vec0 虚拟表
-            conn.execute_unprepared(
-                &format!(
-                    "CREATE VIRTUAL TABLE IF NOT EXISTS memory_vectors USING vec0(
+            conn.execute_unprepared(&format!(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS memory_vectors USING vec0(
                         embedding float[{}],
                         memory_unit_id TEXT,
                         agent_id TEXT
                     );",
-                    claw_types::common::EMBEDDING_DIM
-                )
-            ).await.map_err(|e| format!("Failed to create vec0 virtual table: {}", e))?;
-            
+                claw_types::common::EMBEDDING_DIM
+            ))
+            .await
+            .map_err(|e| format!("Failed to create vec0 virtual table: {}", e))?;
+
             conn.execute_unprepared(
-                "CREATE INDEX IF NOT EXISTS idx_mv_agent ON memory_vectors(agent_id);"
-            ).await.ok();
-            
+                "CREATE INDEX IF NOT EXISTS idx_mv_agent ON memory_vectors(agent_id);",
+            )
+            .await
+            .ok();
+
             mark_vec0_available(true);
             Ok(true)
         }
         Err(e) => {
-            log::warn!("[VectorStore] sqlite-vec 不可用，使用 BLOB + 余弦相似度降级方案: {}", e);
+            log::warn!(
+                "[VectorStore] sqlite-vec 不可用，使用 BLOB + 余弦相似度降级方案: {}",
+                e
+            );
             mark_vec0_available(false);
             Ok(false)
         }
@@ -105,17 +113,24 @@ pub async fn vector_search(
             limit
         );
 
-        let rows = conn.query_all(Statement::from_sql_and_values(
-            conn.get_database_backend(),
-            &sql,
-            [query_bytes.into(), agent_id.into(), threshold.into()],
-        )).await.map_err(|e| e.to_string())?;
+        let rows = conn
+            .query_all(Statement::from_sql_and_values(
+                conn.get_database_backend(),
+                &sql,
+                [query_bytes.into(), agent_id.into(), threshold.into()],
+            ))
+            .await
+            .map_err(|e| e.to_string())?;
 
-        let results = rows.iter()
+        let results = rows
+            .iter()
             .filter_map(|row| {
                 let id = row.try_get::<String>("", "memory_unit_id").ok()?;
                 let sim = row.try_get::<f64>("", "similarity").ok()?;
-                Some(VectorSearchResult { memory_unit_id: id, similarity: sim })
+                Some(VectorSearchResult {
+                    memory_unit_id: id,
+                    similarity: sim,
+                })
             })
             .collect();
 
@@ -129,7 +144,7 @@ pub async fn vector_search(
         )).await.map_err(|e| e.to_string())?;
 
         let mut results: Vec<VectorSearchResult> = Vec::new();
-        
+
         for row in rows {
             if let (Ok(id), Ok(blob)) = (
                 row.try_get::<String>("", "id"),
@@ -138,12 +153,19 @@ pub async fn vector_search(
                 let stored = bytes_to_vector(&blob);
                 let sim = cosine_similarity(&stored, query_embedding);
                 if sim >= threshold {
-                    results.push(VectorSearchResult { memory_unit_id: id, similarity: sim });
+                    results.push(VectorSearchResult {
+                        memory_unit_id: id,
+                        similarity: sim,
+                    });
                 }
             }
         }
 
-        results.sort_by(|a, b| b.similarity.partial_cmp(&a.similarity).unwrap_or(std::cmp::Ordering::Equal));
+        results.sort_by(|a, b| {
+            b.similarity
+                .partial_cmp(&a.similarity)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         results.truncate(limit);
         Ok(results)
     }
@@ -156,7 +178,9 @@ pub async fn delete_vector(conn: &DatabaseConnection, memory_unit_id: &str) -> R
             conn.get_database_backend(),
             "DELETE FROM memory_vectors WHERE memory_unit_id = ?1",
             [memory_unit_id.into()],
-        )).await.map_err(|e| e.to_string())?;
+        ))
+        .await
+        .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -166,24 +190,37 @@ pub async fn delete_vector(conn: &DatabaseConnection, memory_unit_id: &str) -> R
 /// 将f32向量转换为字节数组（小端序）
 pub fn vector_to_bytes(vec: &[f32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(vec.len() * 4);
-    for &f in vec { bytes.extend_from_slice(&f.to_le_bytes()); }
+    for &f in vec {
+        bytes.extend_from_slice(&f.to_le_bytes());
+    }
     bytes
 }
 
 /// 将字节数组转换回f32向量（小端序）
 pub fn bytes_to_vector(bytes: &[u8]) -> Vec<f32> {
-    bytes.chunks_exact(4).filter_map(|c| c.try_into().ok().map(f32::from_le_bytes)).collect()
+    bytes
+        .chunks_exact(4)
+        .filter_map(|c| c.try_into().ok().map(f32::from_le_bytes))
+        .collect()
 }
 
 /// 计算两个向量的余弦相似度
 pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f64 {
-    if a.len() != b.len() || a.is_empty() { return 0.0; }
-    
-    let dot_product: f64 = a.iter().zip(b.iter()).map(|(x, y)| (*x as f64) * (*y as f64)).sum();
+    if a.len() != b.len() || a.is_empty() {
+        return 0.0;
+    }
+
+    let dot_product: f64 = a
+        .iter()
+        .zip(b.iter())
+        .map(|(x, y)| (*x as f64) * (*y as f64))
+        .sum();
     let norm_a: f64 = a.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
     let norm_b: f64 = b.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
-    
-    if norm_a == 0.0 || norm_b == 0.0 { return 0.0; }
-    
+
+    if norm_a == 0.0 || norm_b == 0.0 {
+        return 0.0;
+    }
+
     dot_product / (norm_a * norm_b)
 }

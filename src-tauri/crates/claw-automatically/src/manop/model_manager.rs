@@ -231,7 +231,9 @@ impl ManoPModelManager {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(600))
             .build()
-            .map_err(|e| AutomaticallyError::ManoP(format!("HTTP client creation failed: {}", e)))?;
+            .map_err(|e| {
+                AutomaticallyError::ManoP(format!("HTTP client creation failed: {}", e))
+            })?;
 
         let device_id = get_device_id();
         let platform = std::env::consts::OS.to_string();
@@ -253,7 +255,10 @@ impl ManoPModelManager {
             .send()
             .await
             .map_err(|e| {
-                log::error!("[ManoPModelManager:cloud_inference] Session creation failed: {}", e);
+                log::error!(
+                    "[ManoPModelManager:cloud_inference] Session creation failed: {}",
+                    e
+                );
                 AutomaticallyError::ManoP(format!("Mano cloud session creation failed: {}", e))
             })?;
 
@@ -264,7 +269,7 @@ impl ManoPModelManager {
 
         if session_status.as_u16() == 409 {
             return Err(AutomaticallyError::ManoP(
-                "Another task is already running on this device. Stop it first.".to_string()
+                "Another task is already running on this device. Stop it first.".to_string(),
             ));
         }
 
@@ -280,16 +285,22 @@ impl ManoPModelManager {
             AutomaticallyError::ManoP(format!("Failed to parse session response: {}", e))
         })?;
 
-        let session_id = session_data.get("session_id")
+        let session_id = session_data
+            .get("session_id")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
 
         if session_id.is_empty() {
-            return Err(AutomaticallyError::ManoP("No session_id returned from Mano cloud".to_string()));
+            return Err(AutomaticallyError::ManoP(
+                "No session_id returned from Mano cloud".to_string(),
+            ));
         }
 
-        log::info!("[ManoPModelManager:cloud_inference] Session created: {}", session_id);
+        log::info!(
+            "[ManoPModelManager:cloud_inference] Session created: {}",
+            session_id
+        );
 
         let tool_results = vec![serde_json::json!({
             "type": "screenshot",
@@ -302,7 +313,10 @@ impl ManoPModelManager {
         });
 
         let step_resp = client
-            .post(format!("{}/v1/sessions/{}/step", self.cloud_api_url, session_id))
+            .post(format!(
+                "{}/v1/sessions/{}/step",
+                self.cloud_api_url, session_id
+            ))
             .header("User-Agent", &user_agent)
             .json(&step_body)
             .timeout(std::time::Duration::from_secs(600))
@@ -327,7 +341,11 @@ impl ManoPModelManager {
         }
 
         let step_data: ManoStepResponse = serde_json::from_str(&step_text).map_err(|e| {
-            log::warn!("[ManoPModelManager:cloud_inference] Failed to parse step response: {} | body: {}", e, &step_text[..step_text.len().min(500)]);
+            log::warn!(
+                "[ManoPModelManager:cloud_inference] Failed to parse step response: {} | body: {}",
+                e,
+                &step_text[..step_text.len().min(500)]
+            );
             AutomaticallyError::ManoP(format!("Failed to parse step response: {}", e))
         })?;
 
@@ -335,8 +353,16 @@ impl ManoPModelManager {
         let action_desc = step_data.action_desc.as_deref().unwrap_or("");
         let reasoning = step_data.reasoning.as_deref().unwrap_or("");
 
-        let first_action = step_data.actions.first().cloned().unwrap_or(serde_json::json!({}));
-        let action_type = first_action.get("type").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+        let first_action = step_data
+            .actions
+            .first()
+            .cloned()
+            .unwrap_or(serde_json::json!({}));
+        let action_type = first_action
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
 
         let is_done = status == "DONE" || status == "FAIL" || status == "STOP";
 
@@ -346,7 +372,10 @@ impl ManoPModelManager {
 
         log::info!(
             "[ManoPModelManager:cloud_inference] Step result: status={} action_type={} action_desc='{}' reasoning='{}'",
-            status, action_type, action_desc, reasoning
+            status,
+            action_type,
+            action_desc,
+            reasoning
         );
 
         Ok(ManoCloudResponse {
@@ -356,20 +385,35 @@ impl ManoPModelManager {
             parameters: first_action,
             confidence: if status == "DONE" { 1.0 } else { 0.8 },
             model_used: "mano-cloud".to_string(),
-            error: if status == "FAIL" { Some("Server marked task as failed".to_string()) } else { None },
+            error: if status == "FAIL" {
+                Some("Server marked task as failed".to_string())
+            } else {
+                None
+            },
         })
     }
 
     /// 关闭云端会话 — 通知服务端释放会话资源
-    async fn close_session(&self, client: &reqwest::Client, session_id: &str, user_agent: &str) -> Result<()> {
+    async fn close_session(
+        &self,
+        client: &reqwest::Client,
+        session_id: &str,
+        user_agent: &str,
+    ) -> Result<()> {
         let _ = client
-            .post(format!("{}/v1/sessions/{}/close", self.cloud_api_url, session_id))
+            .post(format!(
+                "{}/v1/sessions/{}/close",
+                self.cloud_api_url, session_id
+            ))
             .header("User-Agent", user_agent)
             .json(&serde_json::json!({"skip_eval": false}))
             .timeout(std::time::Duration::from_secs(120))
             .send()
             .await;
-        log::info!("[ManoPModelManager:close_session] Session {} closed", session_id);
+        log::info!(
+            "[ManoPModelManager:close_session] Session {} closed",
+            session_id
+        );
         Ok(())
     }
 
@@ -402,7 +446,10 @@ impl ManoPModelManager {
             }
         }
 
-        log::info!("[ManoPModelManager] Model {} is complete", version.display_name());
+        log::info!(
+            "[ManoPModelManager] Model {} is complete",
+            version.display_name()
+        );
         true
     }
 
@@ -578,7 +625,8 @@ impl ManoPModelManager {
                 reason: if is_apple_silicon {
                     "Apple Silicon Mac detected. Mano-P local model may be supported when weights are released.".to_string()
                 } else {
-                    "Intel Mac detected. Mano-P local model requires Apple M4 chip with 32GB+ RAM.".to_string()
+                    "Intel Mac detected. Mano-P local model requires Apple M4 chip with 32GB+ RAM."
+                        .to_string()
                 },
                 recommended_mode: if is_apple_silicon { "local" } else { "cloud" }.to_string(),
             }

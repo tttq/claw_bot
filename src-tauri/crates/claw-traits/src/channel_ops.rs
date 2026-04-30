@@ -32,9 +32,9 @@ pub trait ChannelOperations: Send + Sync {
 /// 消息发送结果
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SendResult {
-    pub success: bool,                   // 是否发送成功
-    pub message_id: Option<String>,      // 消息ID
-    pub error: Option<String>,           // 错误信息
+    pub success: bool,              // 是否发送成功
+    pub message_id: Option<String>, // 消息ID
+    pub error: Option<String>,      // 错误信息
 }
 
 // ===== 全局注入点 =====

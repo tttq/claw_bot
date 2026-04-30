@@ -5,13 +5,13 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use teloxide::prelude::*;
-use teloxide::types::{ParseMode as TgParseMode, ChatId, MessageId};
+use teloxide::types::{ChatId, MessageId, ParseMode as TgParseMode};
 
+use crate::config::ChannelAccountConfig;
 use crate::error::{ChannelError, ChannelResult};
+use crate::streaming::StreamingController;
 use crate::traits::{ChannelPlugin, OutboundSender};
 use crate::types::*;
-use crate::config::ChannelAccountConfig;
-use crate::streaming::StreamingController;
 
 pub struct TelegramPlugin {
     clients: Arc<RwLock<HashMap<String, Arc<TelegramClient>>>>,
@@ -186,11 +186,7 @@ pub struct TelegramClient {
 }
 
 impl TelegramClient {
-    pub fn new(
-        account_id: String,
-        bot_token: String,
-        streaming_config: StreamingConfig,
-    ) -> Self {
+    pub fn new(account_id: String, bot_token: String, streaming_config: StreamingConfig) -> Self {
         Self {
             account_id,
             bot_token,
@@ -208,7 +204,8 @@ impl TelegramClient {
 
         match bot.get_me().send().await {
             Ok(me) => {
-                let username = me.username
+                let username = me
+                    .username
                     .as_ref()
                     .map(|s| s.as_str())
                     .unwrap_or_default()
@@ -220,33 +217,41 @@ impl TelegramClient {
                 );
                 Ok(())
             }
-            Err(e) => Err(ChannelError::Auth(format!("Token validation failed: {}", e))),
+            Err(e) => Err(ChannelError::Auth(format!(
+                "Token validation failed: {}",
+                e
+            ))),
         }
     }
 
     pub async fn start_polling(&self) -> ChannelResult<()> {
-        self.is_running.store(true, std::sync::atomic::Ordering::SeqCst);
-        log::info!("[Telegram] Starting polling for account: {}", self.account_id);
+        self.is_running
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        log::info!(
+            "[Telegram] Starting polling for account: {}",
+            self.account_id
+        );
 
         let bot = Bot::new(self.bot_token.clone());
-        
+
         let account_id = self.account_id.clone();
-        
+
         let is_running = self.is_running.clone();
-        
+
         tokio::spawn(async move {
             log::info!("[Telegram:{}] Polling loop started", account_id);
-            
+
             let mut offset: i32 = 0;
             let mut err_count: u32 = 0;
-            
+
             loop {
                 if !is_running.load(std::sync::atomic::Ordering::SeqCst) {
                     log::info!("[Telegram:{}] Polling stopped by request", account_id);
                     break;
                 }
-                
-                match bot.get_updates()
+
+                match bot
+                    .get_updates()
                     .offset(offset)
                     .limit(100)
                     .timeout(30)
@@ -256,12 +261,19 @@ impl TelegramClient {
                         err_count = 0;
                         for update in updates {
                             offset = update.id + 1;
-                            
+
                             if let teloxide::types::UpdateKind::Message(msg) = update.kind {
-                                let text_preview = msg.text().map(|t| {
-                                    let preview: String = t.chars().take(50).collect();
-                                    if t.chars().count() > 50 { format!("{}...", preview) } else { preview }
-                                }).unwrap_or_default();
+                                let text_preview = msg
+                                    .text()
+                                    .map(|t| {
+                                        let preview: String = t.chars().take(50).collect();
+                                        if t.chars().count() > 50 {
+                                            format!("{}...", preview)
+                                        } else {
+                                            preview
+                                        }
+                                    })
+                                    .unwrap_or_default();
                                 log::info!(
                                     "[Telegram:{}] Received from {} (chat:{}): {:?}...",
                                     account_id,
@@ -278,22 +290,37 @@ impl TelegramClient {
                             log::error!("[Telegram:{}] Too many errors, stopping poll", account_id);
                             break;
                         }
-                        log::warn!("[Telegram:{}] Polling error #{}: {} (retry...)", account_id, err_count, e);
-                        tokio::time::sleep(tokio::time::Duration::from_secs((5 * err_count.min(5)) as u64)).await;
+                        log::warn!(
+                            "[Telegram:{}] Polling error #{}: {} (retry...)",
+                            account_id,
+                            err_count,
+                            e
+                        );
+                        tokio::time::sleep(tokio::time::Duration::from_secs(
+                            (5 * err_count.min(5)) as u64,
+                        ))
+                        .await;
                     }
                 }
             }
-            
+
             log::info!("[Telegram:{}] Polling stopped", account_id);
         });
 
-        log::info!("[Telegram] ✅ Polling started for account: {}", self.account_id);
+        log::info!(
+            "[Telegram] ✅ Polling started for account: {}",
+            self.account_id
+        );
         Ok(())
     }
 
     pub async fn stop(&self) -> ChannelResult<()> {
-        self.is_running.store(false, std::sync::atomic::Ordering::SeqCst);
-        log::info!("[Telegram] Stopped polling for account: {}", self.account_id);
+        self.is_running
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        log::info!(
+            "[Telegram] Stopped polling for account: {}",
+            self.account_id
+        );
         Ok(())
     }
 
@@ -316,7 +343,11 @@ impl TelegramClient {
 
         let text = match &msg.content {
             MessageContent::Text { text } => text.clone(),
-            _ => return Err(ChannelError::Unsupported("Expected text content".to_string())),
+            _ => {
+                return Err(ChannelError::Unsupported(
+                    "Expected text content".to_string(),
+                ));
+            }
         };
 
         if text.len() > 4096 {
@@ -324,9 +355,10 @@ impl TelegramClient {
         }
 
         let bot = Bot::new(&self.bot_token);
-        let chat_id = ChatId(msg.target_id.parse::<i64>().map_err(|_| {
-            ChannelError::Internal(format!("Invalid chat ID: {}", msg.target_id))
-        })?);
+        let chat_id =
+            ChatId(msg.target_id.parse::<i64>().map_err(|_| {
+                ChannelError::Internal(format!("Invalid chat ID: {}", msg.target_id))
+            })?);
 
         let tg_parse_mode = convert_parse_mode(msg.options.parse_mode.clone());
 
@@ -370,44 +402,47 @@ impl TelegramClient {
         }
 
         let (url_str, mime_type, caption) = match &msg.content {
-            MessageContent::Media { url, mime_type, caption } => {
-                (url.clone(), mime_type.clone(), caption.clone())
+            MessageContent::Media {
+                url,
+                mime_type,
+                caption,
+            } => (url.clone(), mime_type.clone(), caption.clone()),
+            _ => {
+                return Err(ChannelError::Unsupported(
+                    "Expected media content".to_string(),
+                ));
             }
-            _ => return Err(ChannelError::Unsupported("Expected media content".to_string())),
         };
 
         let bot = Bot::new(&self.bot_token);
-        let chat_id = ChatId(msg.target_id.parse::<i64>().map_err(|_| {
-            ChannelError::Internal(format!("Invalid chat ID: {}", msg.target_id))
-        })?);
+        let chat_id =
+            ChatId(msg.target_id.parse::<i64>().map_err(|_| {
+                ChannelError::Internal(format!("Invalid chat ID: {}", msg.target_id))
+            })?);
 
-        let parsed_url = url::Url::parse(&url_str).map_err(|e| {
-            ChannelError::Internal(format!("Invalid media URL: {}", e))
-        })?;
+        let parsed_url = url::Url::parse(&url_str)
+            .map_err(|e| ChannelError::Internal(format!("Invalid media URL: {}", e)))?;
         let input = teloxide::types::InputFile::url(parsed_url);
 
         let result: Result<String, teloxide::RequestError> = match mime_type.as_str() {
-            m if m.starts_with("image/") => {
-                bot.send_photo(chat_id, input)
-                    .caption(caption.unwrap_or_default())
-                    .send()
-                    .await
-                    .map(|m| format!("tg_photo_{}", m.id))
-            }
-            m if m.starts_with("video/") => {
-                bot.send_video(chat_id, input)
-                    .caption(caption.unwrap_or_default())
-                    .send()
-                    .await
-                    .map(|m| format!("tg_video_{}", m.id))
-            }
-            _ => {
-                bot.send_document(chat_id, input)
-                    .caption(caption.unwrap_or_default())
-                    .send()
-                    .await
-                    .map(|m| format!("tg_doc_{}", m.id))
-            }
+            m if m.starts_with("image/") => bot
+                .send_photo(chat_id, input)
+                .caption(caption.unwrap_or_default())
+                .send()
+                .await
+                .map(|m| format!("tg_photo_{}", m.id)),
+            m if m.starts_with("video/") => bot
+                .send_video(chat_id, input)
+                .caption(caption.unwrap_or_default())
+                .send()
+                .await
+                .map(|m| format!("tg_video_{}", m.id)),
+            _ => bot
+                .send_document(chat_id, input)
+                .caption(caption.unwrap_or_default())
+                .send()
+                .await
+                .map(|m| format!("tg_doc_{}", m.id)),
         };
 
         match result {
@@ -438,7 +473,11 @@ impl TelegramClient {
 
         let text = match &msg.content {
             MessageContent::Text { text } => text.clone(),
-            _ => return Err(ChannelError::Unsupported("Expected text content".to_string())),
+            _ => {
+                return Err(ChannelError::Unsupported(
+                    "Expected text content".to_string(),
+                ));
+            }
         };
 
         let on_token = Arc::from(on_token);

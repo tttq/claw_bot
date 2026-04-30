@@ -2,9 +2,9 @@
 // 将 Mano-P 模型输出的动作转换为实际的输入操作
 
 use super::{ManoPAction, ScrollDirection, WindowActionType};
-use crate::error::{AutomaticallyError, Result};
-use crate::input::{mouse, keyboard};
 use crate::capture::screen;
+use crate::error::{AutomaticallyError, Result};
+use crate::input::{keyboard, mouse};
 use chrono::Utc;
 use std::collections::HashMap;
 
@@ -89,7 +89,10 @@ impl ActionExecutor {
     ) -> Result<ActionExecutionContext> {
         let mut context = ActionExecutionContext::new();
 
-        log::info!("[ActionExecutor] Starting execution of {} actions", actions.len());
+        log::info!(
+            "[ActionExecutor] Starting execution of {} actions",
+            actions.len()
+        );
 
         for action in actions {
             match self.execute_single(&action).await {
@@ -115,36 +118,43 @@ impl ActionExecutor {
         log::debug!("[ActionExecutor] Executing action: {:?}", action);
 
         match action {
-            ManoPAction::Click { element_id: _, point } => {
-                self.execute_click(point.x as f64, point.y as f64).await
+            ManoPAction::Click {
+                element_id: _,
+                point,
+            } => self.execute_click(point.x as f64, point.y as f64).await,
+            ManoPAction::DoubleClick {
+                element_id: _,
+                point,
+            } => {
+                self.execute_double_click(point.x as f64, point.y as f64)
+                    .await
             }
-            ManoPAction::DoubleClick { element_id: _, point } => {
-                self.execute_double_click(point.x as f64, point.y as f64).await
+            ManoPAction::RightClick {
+                element_id: _,
+                point,
+            } => {
+                self.execute_right_click(point.x as f64, point.y as f64)
+                    .await
             }
-            ManoPAction::RightClick { element_id: _, point } => {
-                self.execute_right_click(point.x as f64, point.y as f64).await
-            }
-            ManoPAction::TypeText { element_id: _, text } => {
-                self.execute_type_text(text).await
-            }
-            ManoPAction::Scroll { element_id: _, direction, amount } => {
-                self.execute_scroll(direction, *amount).await
-            }
+            ManoPAction::TypeText {
+                element_id: _,
+                text,
+            } => self.execute_type_text(text).await,
+            ManoPAction::Scroll {
+                element_id: _,
+                direction,
+                amount,
+            } => self.execute_scroll(direction, *amount).await,
             ManoPAction::Drag { from, to } => {
-                self.execute_drag(from.x as f64, from.y as f64, to.x as f64, to.y as f64).await
+                self.execute_drag(from.x as f64, from.y as f64, to.x as f64, to.y as f64)
+                    .await
             }
-            ManoPAction::Wait { duration_ms } => {
-                self.execute_wait(*duration_ms).await
-            }
-            ManoPAction::ScreenshotVerify { expected_elements: _ } => {
-                self.execute_screenshot_verify().await
-            }
-            ManoPAction::Hotkey { keys } => {
-                self.execute_hotkey(keys).await
-            }
-            ManoPAction::WindowAction { action } => {
-                self.execute_window_action(action).await
-            }
+            ManoPAction::Wait { duration_ms } => self.execute_wait(*duration_ms).await,
+            ManoPAction::ScreenshotVerify {
+                expected_elements: _,
+            } => self.execute_screenshot_verify().await,
+            ManoPAction::Hotkey { keys } => self.execute_hotkey(keys).await,
+            ManoPAction::WindowAction { action } => self.execute_window_action(action).await,
         }
     }
 
@@ -193,7 +203,13 @@ impl ActionExecutor {
 
     /// 执行拖拽
     async fn execute_drag(&self, from_x: f64, from_y: f64, to_x: f64, to_y: f64) -> Result<()> {
-        log::info!("[ActionExecutor] Dragging from ({}, {}) to ({}, {})", from_x, from_y, to_x, to_y);
+        log::info!(
+            "[ActionExecutor] Dragging from ({}, {}) to ({}, {})",
+            from_x,
+            from_y,
+            to_x,
+            to_y
+        );
         mouse::drag(from_x, from_y, to_x, to_y).await
     }
 
@@ -216,7 +232,9 @@ impl ActionExecutor {
     async fn execute_hotkey(&self, keys: &[String]) -> Result<()> {
         log::info!("[ActionExecutor] Executing hotkey: {:?}", keys);
         if keys.is_empty() {
-            return Err(AutomaticallyError::Input("No keys specified for hotkey".to_string()));
+            return Err(AutomaticallyError::Input(
+                "No keys specified for hotkey".to_string(),
+            ));
         }
 
         // 按下所有修饰键
@@ -266,7 +284,10 @@ impl ActionExecutor {
                 log::warn!("[ActionExecutor] Window move not fully implemented");
                 Ok(())
             }
-            WindowActionType::Resize { width: _, height: _ } => {
+            WindowActionType::Resize {
+                width: _,
+                height: _,
+            } => {
                 // 窗口调整大小需要平台特定的实现
                 log::warn!("[ActionExecutor] Window resize not fully implemented");
                 Ok(())

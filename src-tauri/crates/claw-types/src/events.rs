@@ -61,10 +61,7 @@ pub enum AppEvent {
 
     // ===== 自动化事件 =====
     #[serde(rename = "automation.completed")]
-    AutomationCompleted {
-        instruction: String,
-        result: String,
-    },
+    AutomationCompleted { instruction: String, result: String },
 
     // ===== 自定义事件（供插件使用）=====
     #[serde(rename = "custom")]

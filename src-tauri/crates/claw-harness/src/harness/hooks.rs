@@ -1,9 +1,9 @@
-﻿// Claw Desktop - Hook系统 - 事件钩子的注册和触发
+// Claw Desktop - Hook系统 - 事件钩子的注册和触发
+use claw_db::db::get_db;
+use sea_orm::{ConnectionTrait, Statement};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::RwLock;
-use claw_db::db::get_db;
-use sea_orm::{ConnectionTrait, Statement};
 
 /// 钩子事件类型 — 定义所有可触发Hook的事件
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -88,17 +88,22 @@ pub struct HookRegistry {
 impl HookRegistry {
     /// 创建空的钩子注册表
     pub fn new() -> Self {
-        Self { hooks: RwLock::new(Vec::new()) }
+        Self {
+            hooks: RwLock::new(Vec::new()),
+        }
     }
 
     /// 从数据库加载所有活跃的Hook定义
     pub async fn load_from_db(&self) -> Result<(), String> {
         let db = get_db().await;
-        let rows = db.query_all(Statement::from_sql_and_values(
-            db.get_database_backend(),
-            "SELECT * FROM hooks WHERE is_active = 1 ORDER BY priority ASC",
-            [],
-        )).await.map_err(|e| e.to_string())?;
+        let rows = db
+            .query_all(Statement::from_sql_and_values(
+                db.get_database_backend(),
+                "SELECT * FROM hooks WHERE is_active = 1 ORDER BY priority ASC",
+                [],
+            ))
+            .await
+            .map_err(|e| e.to_string())?;
 
         let mut hooks = Vec::new();
         for row in rows {
@@ -109,8 +114,11 @@ impl HookRegistry {
                     name: row.try_get::<String>("", "name").unwrap_or_default(),
                     event,
                     pattern: row.try_get::<Option<String>>("", "pattern").ok().flatten(),
-                    handler_type: row.try_get::<String>("", "handler_type").unwrap_or_default(),
-                    handler_config: row.try_get::<String>("", "handler_config")
+                    handler_type: row
+                        .try_get::<String>("", "handler_type")
+                        .unwrap_or_default(),
+                    handler_config: row
+                        .try_get::<String>("", "handler_config")
                         .ok()
                         .and_then(|s| serde_json::from_str(&s).ok())
                         .unwrap_or(serde_json::Value::Object(Default::default())),
@@ -154,7 +162,9 @@ impl HookRegistry {
             db.get_database_backend(),
             "DELETE FROM hooks WHERE id = ?1",
             [id.into()],
-        )).await.map_err(|e| e.to_string())?;
+        ))
+        .await
+        .map_err(|e| e.to_string())?;
 
         let mut guard = self.hooks.write().await;
         guard.retain(|h| h.id != id);
@@ -169,10 +179,13 @@ impl HookRegistry {
         let hooks = self.hooks.read().await;
         for hook in hooks.iter().filter(|h| h.event == event && h.enabled) {
             if let Some(pattern) = &hook.pattern {
-                let matches = context.data.values().any(|v| {
-                    v.as_str().map(|s| s.contains(pattern)).unwrap_or(false)
-                });
-                if !matches { continue; }
+                let matches = context
+                    .data
+                    .values()
+                    .any(|v| v.as_str().map(|s| s.contains(pattern)).unwrap_or(false));
+                if !matches {
+                    continue;
+                }
             }
 
             match hook.handler_type.as_str() {
@@ -180,14 +193,20 @@ impl HookRegistry {
                     log::info!("[Hook:{}] Fired for {:?}", hook.name, event);
                 }
                 "filter" => {
-                    if let Some(filter_key) = hook.handler_config.get("key").and_then(|v| v.as_str()) {
+                    if let Some(filter_key) =
+                        hook.handler_config.get("key").and_then(|v| v.as_str())
+                    {
                         if context.data.contains_key(filter_key) {
                             return HookAction::Skip;
                         }
                     }
                 }
                 "modify" => {
-                    if let Some(mods) = hook.handler_config.get("modifications").and_then(|v| v.as_object()) {
+                    if let Some(mods) = hook
+                        .handler_config
+                        .get("modifications")
+                        .and_then(|v| v.as_object())
+                    {
                         for (k, v) in mods {
                             context.data.insert(k.clone(), v.clone());
                         }

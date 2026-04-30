@@ -5,29 +5,29 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct WsRequest {
-    pub id: String,                          // 请求唯一ID
+    pub id: String, // 请求唯一ID
     #[serde(rename = "type")]
-    pub msg_type: String,                    // 消息类型 (request/stream)
-    pub method: String,                      // 调用方法名
+    pub msg_type: String, // 消息类型 (request/stream)
+    pub method: String, // 调用方法名
     #[serde(default)]
-    pub params: serde_json::Value,           // 请求参数
+    pub params: serde_json::Value, // 请求参数
     #[serde(default)]
-    pub token: String,                       // 认证Token
+    pub token: String, // 认证Token
 }
 
 /// WebSocket响应消息结构
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct WsResponse {
-    pub id: String,                          // 对应请求的ID
+    pub id: String, // 对应请求的ID
     #[serde(rename = "type")]
-    pub msg_type: String,                    // 消息类型 (response)
-    pub method: String,                      // 调用方法名
-    pub success: bool,                       // 是否成功
+    pub msg_type: String, // 消息类型 (response)
+    pub method: String, // 调用方法名
+    pub success: bool, // 是否成功
     #[serde(default)]
-    pub data: serde_json::Value,             // 响应数据
+    pub data: serde_json::Value, // 响应数据
     #[serde(default)]
-    pub error: String,                       // 错误信息
+    pub error: String, // 错误信息
 }
 
 impl WsResponse {
@@ -60,13 +60,13 @@ impl WsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WsEvent {
-    pub id: String,                          // 事件ID
+    pub id: String, // 事件ID
     #[serde(rename = "type")]
-    pub msg_type: String,                    // 消息类型 (stream)
-    pub method: String,                      // 关联的方法名
-    pub event: String,                       // 事件名称
+    pub msg_type: String, // 消息类型 (stream)
+    pub method: String, // 关联的方法名
+    pub event: String, // 事件名称
     #[serde(default)]
-    pub data: serde_json::Value,             // 事件数据
+    pub data: serde_json::Value, // 事件数据
 }
 
 impl WsEvent {

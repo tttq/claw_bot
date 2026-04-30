@@ -1,11 +1,11 @@
 // Claw Desktop - CUA（Computer Use Agent）桌面自动化Agent
 // 实现观察-思考-行动循环：截图 → LLM推理决策 → 执行鼠标键盘操作，
 // 支持点击/双击/右键/输入/快捷键/滚动/拖拽/启动应用等桌面交互动作
-use crate::error::{AutomaticallyError, Result};
-use crate::capture::screen;
-use crate::input::{mouse, keyboard};
-use crate::platform::{window, app_launcher};
 use crate::AutomaticallyConfig;
+use crate::capture::screen;
+use crate::error::{AutomaticallyError, Result};
+use crate::input::{keyboard, mouse};
+use crate::platform::{app_launcher, window};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
@@ -68,7 +68,11 @@ impl CuaAgent {
     /// 创建CUA Agent实例 — 根据配置设置最大步骤数（上限50步），自动匹配技能
     pub fn new(config: AutomaticallyConfig) -> Self {
         let max_steps = config.max_action_steps.min(MAX_AGENT_STEPS).max(1);
-        Self { config, max_steps, skill: None }
+        Self {
+            config,
+            max_steps,
+            skill: None,
+        }
     }
 
     /// 创建带技能的CUA Agent实例 — 根据指令自动匹配应用技能
@@ -76,15 +80,26 @@ impl CuaAgent {
         let max_steps = config.max_action_steps.min(MAX_AGENT_STEPS).max(1);
         let skill = super::automation_skill::match_skill(instruction);
         if let Some(ref s) = skill {
-            log::info!("[CuaAgent] Matched automation skill: {} for instruction: {}", s.app_name, instruction);
+            log::info!(
+                "[CuaAgent] Matched automation skill: {} for instruction: {}",
+                s.app_name,
+                instruction
+            );
         }
-        Self { config, max_steps, skill }
+        Self {
+            config,
+            max_steps,
+            skill,
+        }
     }
 
     /// 执行CUA任务 — 循环执行"截图→思考→行动"直到任务完成或达到最大步骤
     pub async fn execute(&self, instruction: &str) -> Result<CuaExecutionResult> {
         let start = Instant::now();
-        log::info!("[CuaAgent:execute] Starting CUA loop | instruction={}", instruction);
+        log::info!(
+            "[CuaAgent:execute] Starting CUA loop | instruction={}",
+            instruction
+        );
 
         let mut steps = Vec::new();
         let mut history_summary = String::new();
@@ -98,7 +113,9 @@ impl CuaAgent {
 
             let screenshot_before = self.capture_screenshot_base64()?;
 
-            let think_result = self.think(instruction, &history_summary, &screenshot_before).await;
+            let think_result = self
+                .think(instruction, &history_summary, &screenshot_before)
+                .await;
 
             let cua_action = match think_result {
                 Ok(action) => {
@@ -107,7 +124,12 @@ impl CuaAgent {
                 }
                 Err(e) => {
                     consecutive_think_failures += 1;
-                    log::error!("[CuaAgent:execute] Think failed at step {} (consecutive: {}): {}", step + 1, consecutive_think_failures, e);
+                    log::error!(
+                        "[CuaAgent:execute] Think failed at step {} (consecutive: {}): {}",
+                        step + 1,
+                        consecutive_think_failures,
+                        e
+                    );
                     steps.push(CuaStepResult {
                         step: step + 1,
                         action: "think".to_string(),
@@ -118,7 +140,9 @@ impl CuaAgent {
                         error: Some(e.to_string()),
                     });
                     if consecutive_think_failures >= MAX_CONSECUTIVE_THINK_FAILURES {
-                        log::error!("[CuaAgent:execute] Too many consecutive think failures, aborting");
+                        log::error!(
+                            "[CuaAgent:execute] Too many consecutive think failures, aborting"
+                        );
                         break;
                     }
                     tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
@@ -130,7 +154,10 @@ impl CuaAgent {
             log::info!("[CuaAgent:execute] Action: {}", action_desc);
 
             if cua_action.action_type == "done" || cua_action.action_type == "complete" {
-                log::info!("[CuaAgent:execute] Task completed by agent at step {}", step + 1);
+                log::info!(
+                    "[CuaAgent:execute] Task completed by agent at step {}",
+                    step + 1
+                );
                 steps.push(CuaStepResult {
                     step: step + 1,
                     action: action_desc,
@@ -145,7 +172,10 @@ impl CuaAgent {
             }
 
             if cua_action.action_type == "fail" {
-                log::warn!("[CuaAgent:execute] Agent reported failure at step {}", step + 1);
+                log::warn!(
+                    "[CuaAgent:execute] Agent reported failure at step {}",
+                    step + 1
+                );
                 steps.push(CuaStepResult {
                     step: step + 1,
                     action: action_desc,
@@ -160,7 +190,10 @@ impl CuaAgent {
 
             let act_result = self.act(&cua_action).await;
 
-            tokio::time::sleep(tokio::time::Duration::from_millis(SCREENSHOT_AFTER_ACTION_DELAY_MS)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(
+                SCREENSHOT_AFTER_ACTION_DELAY_MS,
+            ))
+            .await;
 
             let screenshot_after = self.capture_screenshot_base64().ok();
             final_screenshot = screenshot_after.clone();
@@ -175,7 +208,12 @@ impl CuaAgent {
                 error: act_result.err().map(|e| e.to_string()),
             };
 
-            history_summary.push_str(&format!("Step {}: {} - {}\n", step + 1, action_desc, if step_result.success { "OK" } else { "FAILED" }));
+            history_summary.push_str(&format!(
+                "Step {}: {} - {}\n",
+                step + 1,
+                action_desc,
+                if step_result.success { "OK" } else { "FAILED" }
+            ));
 
             steps.push(step_result);
 
@@ -192,14 +230,24 @@ impl CuaAgent {
             total_steps,
             elapsed_ms,
             final_screenshot,
-            error: if task_completed { None } else { Some("Task not completed within max steps".to_string()) },
+            error: if task_completed {
+                None
+            } else {
+                Some("Task not completed within max steps".to_string())
+            },
         })
     }
 
     /// 思考阶段 — 将截图和指令发送给LLM，解析返回的动作决策
-    async fn think(&self, instruction: &str, history: &str, screenshot_base64: &str) -> Result<CuaAction> {
-        let caller = claw_traits::llm_caller::get_llm_caller()
-            .ok_or_else(|| AutomaticallyError::InferenceEngine("LlmCaller not registered".to_string()))?;
+    async fn think(
+        &self,
+        instruction: &str,
+        history: &str,
+        screenshot_base64: &str,
+    ) -> Result<CuaAction> {
+        let caller = claw_traits::llm_caller::get_llm_caller().ok_or_else(|| {
+            AutomaticallyError::InferenceEngine("LlmCaller not registered".to_string())
+        })?;
 
         let system_prompt = self.build_system_prompt();
         let user_message = self.build_user_message(instruction, history);
@@ -209,18 +257,21 @@ impl CuaAgent {
         let model = self.config.llm_model.clone();
         let is_openai = !base_url.contains("anthropic");
 
-        let response = caller.call_once_vision(
-            api_key,
-            &base_url,
-            &model,
-            &system_prompt,
-            &user_message,
-            screenshot_base64,
-            is_openai,
-        ).await.map_err(|e| {
-            log::error!("[CuaAgent:think] LLM vision call failed: {}", e);
-            AutomaticallyError::InferenceEngine(format!("LLM vision call failed: {}", e))
-        })?;
+        let response = caller
+            .call_once_vision(
+                api_key,
+                &base_url,
+                &model,
+                &system_prompt,
+                &user_message,
+                screenshot_base64,
+                is_openai,
+            )
+            .await
+            .map_err(|e| {
+                log::error!("[CuaAgent:think] LLM vision call failed: {}", e);
+                AutomaticallyError::InferenceEngine(format!("LLM vision call failed: {}", e))
+            })?;
 
         self.parse_action_response(&response)
     }
@@ -230,7 +281,7 @@ impl CuaAgent {
         let (screen_w, screen_h) = window::get_screen_size().unwrap_or((1920, 1080));
 
         let mut prompt = format!(
-r#"You are a Computer Use Agent (CUA) that controls the desktop to complete user tasks.
+            r#"You are a Computer Use Agent (CUA) that controls the desktop to complete user tasks.
 
 You receive a screenshot of the current desktop and must decide the NEXT SINGLE ACTION to take.
 
@@ -337,7 +388,10 @@ RULES:
         match serde_json::from_str::<CuaAction>(cleaned) {
             Ok(action) => Ok(action),
             Err(e) => {
-                log::warn!("[CuaAgent:parse_action_response] Direct parse failed: {}, trying to extract JSON from text", e);
+                log::warn!(
+                    "[CuaAgent:parse_action_response] Direct parse failed: {}, trying to extract JSON from text",
+                    e
+                );
 
                 if let Some(start) = cleaned.find('{') {
                     if let Some(end) = cleaned.rfind('}') {
@@ -345,13 +399,20 @@ RULES:
                         match serde_json::from_str::<CuaAction>(json_str) {
                             Ok(action) => return Ok(action),
                             Err(e2) => {
-                                log::error!("[CuaAgent:parse_action_response] Extracted JSON also failed: {} | text: {}", e2, json_str);
+                                log::error!(
+                                    "[CuaAgent:parse_action_response] Extracted JSON also failed: {} | text: {}",
+                                    e2,
+                                    json_str
+                                );
                             }
                         }
                     }
                 }
 
-                Err(AutomaticallyError::InferenceEngine(format!("Failed to parse action response: {} | raw: {}", e, cleaned)))
+                Err(AutomaticallyError::InferenceEngine(format!(
+                    "Failed to parse action response: {} | raw: {}",
+                    e, cleaned
+                )))
             }
         }
     }
@@ -360,26 +421,42 @@ RULES:
     async fn act(&self, action: &CuaAction) -> Result<()> {
         match action.action_type.as_str() {
             "click" => {
-                let x = action.x.ok_or_else(|| AutomaticallyError::Automation("click missing x".to_string()))?;
-                let y = action.y.ok_or_else(|| AutomaticallyError::Automation("click missing y".to_string()))?;
+                let x = action
+                    .x
+                    .ok_or_else(|| AutomaticallyError::Automation("click missing x".to_string()))?;
+                let y = action
+                    .y
+                    .ok_or_else(|| AutomaticallyError::Automation("click missing y".to_string()))?;
                 mouse::click(x, y).await
             }
             "double_click" => {
-                let x = action.x.ok_or_else(|| AutomaticallyError::Automation("double_click missing x".to_string()))?;
-                let y = action.y.ok_or_else(|| AutomaticallyError::Automation("double_click missing y".to_string()))?;
+                let x = action.x.ok_or_else(|| {
+                    AutomaticallyError::Automation("double_click missing x".to_string())
+                })?;
+                let y = action.y.ok_or_else(|| {
+                    AutomaticallyError::Automation("double_click missing y".to_string())
+                })?;
                 mouse::double_click(x, y).await
             }
             "right_click" => {
-                let x = action.x.ok_or_else(|| AutomaticallyError::Automation("right_click missing x".to_string()))?;
-                let y = action.y.ok_or_else(|| AutomaticallyError::Automation("right_click missing y".to_string()))?;
+                let x = action.x.ok_or_else(|| {
+                    AutomaticallyError::Automation("right_click missing x".to_string())
+                })?;
+                let y = action.y.ok_or_else(|| {
+                    AutomaticallyError::Automation("right_click missing y".to_string())
+                })?;
                 mouse::right_click(x, y).await
             }
             "type" => {
-                let text = action.text.as_deref().ok_or_else(|| AutomaticallyError::Automation("type missing text".to_string()))?;
+                let text = action.text.as_deref().ok_or_else(|| {
+                    AutomaticallyError::Automation("type missing text".to_string())
+                })?;
                 keyboard::type_text(text).await
             }
             "key_press" | "hotkey" => {
-                let keys = action.keys.as_ref().ok_or_else(|| AutomaticallyError::Automation("key_press missing keys".to_string()))?;
+                let keys = action.keys.as_ref().ok_or_else(|| {
+                    AutomaticallyError::Automation("key_press missing keys".to_string())
+                })?;
                 self.execute_hotkey(keys).await
             }
             "scroll" => {
@@ -394,14 +471,24 @@ RULES:
                 mouse::scroll_at(x, y, scroll_amount).await
             }
             "drag" => {
-                let from_x = action.from_x.ok_or_else(|| AutomaticallyError::Automation("drag missing from_x".to_string()))?;
-                let from_y = action.from_y.ok_or_else(|| AutomaticallyError::Automation("drag missing from_y".to_string()))?;
-                let to_x = action.to_x.ok_or_else(|| AutomaticallyError::Automation("drag missing to_x".to_string()))?;
-                let to_y = action.to_y.ok_or_else(|| AutomaticallyError::Automation("drag missing to_y".to_string()))?;
+                let from_x = action.from_x.ok_or_else(|| {
+                    AutomaticallyError::Automation("drag missing from_x".to_string())
+                })?;
+                let from_y = action.from_y.ok_or_else(|| {
+                    AutomaticallyError::Automation("drag missing from_y".to_string())
+                })?;
+                let to_x = action.to_x.ok_or_else(|| {
+                    AutomaticallyError::Automation("drag missing to_x".to_string())
+                })?;
+                let to_y = action.to_y.ok_or_else(|| {
+                    AutomaticallyError::Automation("drag missing to_y".to_string())
+                })?;
                 mouse::drag(from_x, from_y, to_x, to_y).await
             }
             "open_app" => {
-                let app_name = action.app_name.as_deref().ok_or_else(|| AutomaticallyError::Automation("open_app missing app_name".to_string()))?;
+                let app_name = action.app_name.as_deref().ok_or_else(|| {
+                    AutomaticallyError::Automation("open_app missing app_name".to_string())
+                })?;
                 app_launcher::launch_application(app_name)
             }
             "wait" => {
@@ -410,14 +497,19 @@ RULES:
                 Ok(())
             }
             "done" | "complete" | "fail" => Ok(()),
-            _ => Err(AutomaticallyError::Automation(format!("Unknown action type: {}", action.action_type))),
+            _ => Err(AutomaticallyError::Automation(format!(
+                "Unknown action type: {}",
+                action.action_type
+            ))),
         }
     }
 
     /// 执行快捷键组合 — 按下修饰键→按主键→释放修饰键
     async fn execute_hotkey(&self, keys: &[String]) -> Result<()> {
         if keys.is_empty() {
-            return Err(AutomaticallyError::Input("No keys specified for hotkey".to_string()));
+            return Err(AutomaticallyError::Input(
+                "No keys specified for hotkey".to_string(),
+            ));
         }
 
         for key in keys.iter().take(keys.len().saturating_sub(1)) {
@@ -438,13 +530,35 @@ RULES:
     /// 描述动作 — 生成人类可读的动作描述字符串
     fn describe_action(&self, action: &CuaAction) -> String {
         match action.action_type.as_str() {
-            "click" => format!("click({}, {})", action.x.unwrap_or(0.0), action.y.unwrap_or(0.0)),
-            "double_click" => format!("double_click({}, {})", action.x.unwrap_or(0.0), action.y.unwrap_or(0.0)),
-            "right_click" => format!("right_click({}, {})", action.x.unwrap_or(0.0), action.y.unwrap_or(0.0)),
+            "click" => format!(
+                "click({}, {})",
+                action.x.unwrap_or(0.0),
+                action.y.unwrap_or(0.0)
+            ),
+            "double_click" => format!(
+                "double_click({}, {})",
+                action.x.unwrap_or(0.0),
+                action.y.unwrap_or(0.0)
+            ),
+            "right_click" => format!(
+                "right_click({}, {})",
+                action.x.unwrap_or(0.0),
+                action.y.unwrap_or(0.0)
+            ),
             "type" => format!("type('{}')", action.text.as_deref().unwrap_or("")),
             "key_press" | "hotkey" => format!("hotkey({:?})", action.keys),
-            "scroll" => format!("scroll({}, {})", action.direction.as_deref().unwrap_or("down"), action.amount.unwrap_or(3)),
-            "drag" => format!("drag({},{} -> {},{})", action.from_x.unwrap_or(0.0), action.from_y.unwrap_or(0.0), action.to_x.unwrap_or(0.0), action.to_y.unwrap_or(0.0)),
+            "scroll" => format!(
+                "scroll({}, {})",
+                action.direction.as_deref().unwrap_or("down"),
+                action.amount.unwrap_or(3)
+            ),
+            "drag" => format!(
+                "drag({},{} -> {},{})",
+                action.from_x.unwrap_or(0.0),
+                action.from_y.unwrap_or(0.0),
+                action.to_x.unwrap_or(0.0),
+                action.to_y.unwrap_or(0.0)
+            ),
             "open_app" => format!("open_app('{}')", action.app_name.as_deref().unwrap_or("")),
             "wait" => format!("wait({}ms)", action.duration_ms.unwrap_or(1000)),
             "done" | "complete" => "TASK_COMPLETE".to_string(),

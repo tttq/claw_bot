@@ -1,9 +1,9 @@
 // Claw Desktop - Mano-P 配置模块
 // 模型配置、推理参数和自动化行为配置
 
+use crate::error::{AutomaticallyError, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use crate::error::{AutomaticallyError, Result};
 
 /// Mano-P 模型配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,9 +108,8 @@ impl ManoPConfig {
     /// 保存配置到文件
     pub fn save_to_file(&self, path: &PathBuf) -> Result<()> {
         let content = self.to_json()?;
-        std::fs::write(path, content).map_err(|e| {
-            AutomaticallyError::Config(format!("Failed to write config file: {}", e))
-        })
+        std::fs::write(path, content)
+            .map_err(|e| AutomaticallyError::Config(format!("Failed to write config file: {}", e)))
     }
 
     /// 获取模型完整路径

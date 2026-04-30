@@ -1,8 +1,11 @@
-﻿// Claw Desktop - WS服务器 - WebSocket连接管理和消息分发
+// Claw Desktop - WS服务器 - WebSocket连接管理和消息分发
 use crate::ws::protocol::WsEvent;
-use std::sync::{atomic::{AtomicUsize, Ordering}, OnceLock};
-use tokio::sync::broadcast;
+use std::sync::{
+    OnceLock,
+    atomic::{AtomicUsize, Ordering},
+};
 use std::time::Instant;
+use tokio::sync::broadcast;
 
 const STREAM_CHANNEL_CAPACITY: usize = 4096;
 
@@ -16,20 +19,31 @@ pub const MAX_CONNECTIONS: usize = 100;
 pub const MAX_MESSAGE_SIZE: usize = 10 * 1024 * 1024;
 
 /// 获取WebSocket服务器端口
-pub fn get_ws_port() -> Option<u16> { WS_PORT.get().copied() }
+pub fn get_ws_port() -> Option<u16> {
+    WS_PORT.get().copied()
+}
 /// 获取Tauri AppHandle
-pub fn get_app_handle() -> Option<tauri::AppHandle> { APP_HANDLE.get().cloned() }
+pub fn get_app_handle() -> Option<tauri::AppHandle> {
+    APP_HANDLE.get().cloned()
+}
 /// 设置Tauri AppHandle（启动时调用一次）
-pub fn set_app_handle(handle: tauri::AppHandle) { APP_HANDLE.get_or_init(|| handle); }
+pub fn set_app_handle(handle: tauri::AppHandle) {
+    APP_HANDLE.get_or_init(|| handle);
+}
 
 /// 获取当前活跃连接数
-pub fn get_active_connections() -> usize { ACTIVE_CONNECTIONS.load(Ordering::Relaxed) }
+pub fn get_active_connections() -> usize {
+    ACTIVE_CONNECTIONS.load(Ordering::Relaxed)
+}
 /// 获取历史总连接数
-pub fn get_total_connections() -> usize { TOTAL_CONNECTIONS.load(Ordering::Relaxed) }
+pub fn get_total_connections() -> usize {
+    TOTAL_CONNECTIONS.load(Ordering::Relaxed)
+}
 
 /// 获取服务器指标 — 活跃连接数、总连接数、运行时间等
 pub fn get_metrics() -> serde_json::Value {
-    let uptime_secs = SERVER_START_TIME.get()
+    let uptime_secs = SERVER_START_TIME
+        .get()
         .map(|t| t.elapsed().as_secs())
         .unwrap_or(0);
     serde_json::json!({
@@ -52,14 +66,22 @@ pub fn emit_event(event: &WsEvent) {
     if let Some(tx) = STREAM_TX.get() {
         let msg = serde_json::to_string(event).unwrap_or_default();
         if tx.send(msg).is_err() {
-            log::warn!("[EventBus] No active subscribers for event method={}", event.method);
+            log::warn!(
+                "[EventBus] No active subscribers for event method={}",
+                event.method
+            );
         }
     }
 }
 
 /// 发送流式消息事件 — 用于对话流式响应
 pub fn emit_stream(conv_id: &str, event_type: &str, data: serde_json::Value) {
-    emit_event(&WsEvent::new(conv_id, "send_message_streaming", event_type, data));
+    emit_event(&WsEvent::new(
+        conv_id,
+        "send_message_streaming",
+        event_type,
+        data,
+    ));
 }
 
 /// 发送子Agent事件 — 用于多Agent任务的事件通知
@@ -78,7 +100,8 @@ pub async fn start_ws_server() -> Result<u16, String> {
         .await
         .map_err(|e| format!("Failed to bind WebSocket server: {}", e))?;
 
-    let port = listener.local_addr()
+    let port = listener
+        .local_addr()
         .map_err(|e| format!("Failed to get local address: {}", e))?
         .port();
 
@@ -90,7 +113,11 @@ pub async fn start_ws_server() -> Result<u16, String> {
 
     let (shutdown_tx, _) = broadcast::channel::<()>(1);
 
-    log::info!("[WS] EventBus initialized with capacity={}, port={}", STREAM_CHANNEL_CAPACITY, port);
+    log::info!(
+        "[WS] EventBus initialized with capacity={}, port={}",
+        STREAM_CHANNEL_CAPACITY,
+        port
+    );
     log::info!("[WS] WebSocket server starting on ws://127.0.0.1:{}", port);
 
     tokio::spawn(async move {
@@ -102,11 +129,21 @@ pub async fn start_ws_server() -> Result<u16, String> {
 
                     if current >= MAX_CONNECTIONS {
                         ACTIVE_CONNECTIONS.fetch_sub(1, Ordering::Relaxed);
-                        log::warn!("[WS] Rejected {} - too many connections ({}/{})", addr, current + 1, MAX_CONNECTIONS);
+                        log::warn!(
+                            "[WS] Rejected {} - too many connections ({}/{})",
+                            addr,
+                            current + 1,
+                            MAX_CONNECTIONS
+                        );
                         return;
                     }
 
-                    log::debug!("[WS] New connection from {} (active: {}/{})", addr, current + 1, MAX_CONNECTIONS);
+                    log::debug!(
+                        "[WS] New connection from {} (active: {}/{})",
+                        addr,
+                        current + 1,
+                        MAX_CONNECTIONS
+                    );
                     let shutdown_rx = shutdown_tx.subscribe();
                     let stream_rx = get_stream_sender().subscribe();
                     tokio::spawn(handle_connection(stream, addr, shutdown_rx, stream_rx));
@@ -129,9 +166,18 @@ async fn handle_connection(
     use futures_util::{SinkExt, StreamExt};
     use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
 
-    let ws_stream = match tokio_tungstenite::accept_hdr_async(stream, |_req: &Request, resp| Ok::<_, tokio_tungstenite::tungstenite::handshake::server::ErrorResponse>(Response::from(resp))).await {
+    let ws_stream = match tokio_tungstenite::accept_hdr_async(stream, |_req: &Request, resp| {
+        Ok::<_, tokio_tungstenite::tungstenite::handshake::server::ErrorResponse>(Response::from(
+            resp,
+        ))
+    })
+    .await
+    {
         Ok(ws) => ws,
-        Err(e) => { log::error!("[WS] Handshake failed for {}: {}", addr, e); return; }
+        Err(e) => {
+            log::error!("[WS] Handshake failed for {}: {}", addr, e);
+            return;
+        }
     };
 
     log::info!("[WS] Connected: {}", addr);
@@ -162,10 +208,16 @@ async fn handle_connection(
         loop {
             match stream_rx.recv().await {
                 Ok(msg) => {
-                    if buffer_tx_for_recv.send(msg).await.is_err() { break; }
+                    if buffer_tx_for_recv.send(msg).await.is_err() {
+                        break;
+                    }
                 }
                 Err(broadcast::error::RecvError::Lagged(n)) => {
-                    log::warn!("[WS:{}] Broadcast lagged {} events, using local buffer to prevent data loss", addr, n);
+                    log::warn!(
+                        "[WS:{}] Broadcast lagged {} events, using local buffer to prevent data loss",
+                        addr,
+                        n
+                    );
                 }
                 Err(_) => break,
             }
@@ -180,13 +232,20 @@ async fn handle_connection(
             match msg_result {
                 Ok(tokio_tungstenite::tungstenite::Message::Text(text)) => {
                     if text.len() > MAX_MESSAGE_SIZE {
-                        log::warn!("[WS:{}] Message too large ({} bytes > {}), dropping", addr, text.len(), MAX_MESSAGE_SIZE);
+                        log::warn!(
+                            "[WS:{}] Message too large ({} bytes > {}), dropping",
+                            addr,
+                            text.len(),
+                            MAX_MESSAGE_SIZE
+                        );
                         continue;
                     }
 
                     if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
                         if v.get("type").and_then(|s| s.as_str()) == Some("ping") {
-                            let _ = tx.send(serde_json::json!({"type":"pong"}).to_string()).await;
+                            let _ = tx
+                                .send(serde_json::json!({"type":"pong"}).to_string())
+                                .await;
                             continue;
                         }
                     }
@@ -194,16 +253,26 @@ async fn handle_connection(
                         Ok(req) => {
                             log::debug!("[WS] {} method={}", addr, req.method);
                             let resp = router::dispatch(req).await;
-                            let _ = tx.send(serde_json::to_string(&resp).unwrap_or_default()).await;
+                            let _ = tx
+                                .send(serde_json::to_string(&resp).unwrap_or_default())
+                                .await;
                         }
                         Err(_) => {
                             let err = WsResponse::err("0", "unknown", "Invalid request");
-                            let _ = tx.send(serde_json::to_string(&err).unwrap_or_default()).await;
+                            let _ = tx
+                                .send(serde_json::to_string(&err).unwrap_or_default())
+                                .await;
                         }
                     }
                 }
-                Ok(tokio_tungstenite::tungstenite::Message::Close(_)) => { log::info!("[WS] Disconnected: {}", addr); break; }
-                Err(e) => { log::error!("[WS] Error from {}: {}", addr, e); break; }
+                Ok(tokio_tungstenite::tungstenite::Message::Close(_)) => {
+                    log::info!("[WS] Disconnected: {}", addr);
+                    break;
+                }
+                Err(e) => {
+                    log::error!("[WS] Error from {}: {}", addr, e);
+                    break;
+                }
                 _ => {}
             }
         }

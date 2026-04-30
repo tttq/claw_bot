@@ -62,7 +62,10 @@ impl AgentManager {
     fn ensure_dirs(&self) {
         if !self.agents_dir.exists() {
             fs::create_dir_all(&self.agents_dir).ok();
-            log::info!("[AgentManager] Created agents directory at {:?}", self.agents_dir);
+            log::info!(
+                "[AgentManager] Created agents directory at {:?}",
+                self.agents_dir
+            );
         }
     }
 
@@ -70,7 +73,9 @@ impl AgentManager {
     pub fn scan_and_load(&mut self) -> Result<Vec<AgentDefinition>, String> {
         self.loaded_agents.clear();
 
-        if !self.agents_dir.exists() { return Ok(Vec::new()); }
+        if !self.agents_dir.exists() {
+            return Ok(Vec::new());
+        }
 
         let mut found = Vec::new();
 
@@ -103,14 +108,25 @@ impl AgentManager {
             }
         }
 
-        log::info!("[AgentManager] Scanned and loaded {} agents from {:?}", found.len(), self.agents_dir);
+        log::info!(
+            "[AgentManager] Scanned and loaded {} agents from {:?}",
+            found.len(),
+            self.agents_dir
+        );
         Ok(found)
     }
 
     /// 从目录加载Agent定义 — 解析元数据文件并设置工作区路径
-    fn load_agent_from_dir(&self, dir: &Path, meta_path: &Path) -> Result<Option<AgentDefinition>, String> {
+    fn load_agent_from_dir(
+        &self,
+        dir: &Path,
+        meta_path: &Path,
+    ) -> Result<Option<AgentDefinition>, String> {
         let ext = meta_path.extension().and_then(|e| e.to_str()).unwrap_or("");
-        let dir_name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("unknown");
+        let dir_name = dir
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown");
         let workspace = dir.join("workspace");
 
         fs::create_dir_all(&workspace).ok();
@@ -122,13 +138,18 @@ impl AgentManager {
         };
 
         let metadata = fs::metadata(meta_path).ok();
-        let modified = metadata.and_then(|m| m.modified().ok())
+        let modified = metadata
+            .and_then(|m| m.modified().ok())
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
 
         let mut final_agent = agent;
-        final_agent.id = if final_agent.id.is_empty() { dir_name.to_string() } else { final_agent.id.clone() };
+        final_agent.id = if final_agent.id.is_empty() {
+            dir_name.to_string()
+        } else {
+            final_agent.id.clone()
+        };
         final_agent.workspace_path = workspace.to_string_lossy().to_string();
         final_agent.metadata_file = meta_path.to_string_lossy().to_string();
         final_agent.source = format!("dir://{}", dir.display());
@@ -141,7 +162,10 @@ impl AgentManager {
     /// 从单文件加载Agent定义 — 支持.md和.json格式
     fn load_single_file_agent(&self, path: &Path) -> Result<Option<AgentDefinition>, String> {
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-        let filename = path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown");
+        let filename = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown");
 
         let mut agent = match ext {
             "md" => self.parse_markdown_agent(path)?,
@@ -149,8 +173,12 @@ impl AgentManager {
             _ => return Ok(None),
         };
 
-        if agent.id.is_empty() { agent.id = filename.to_string(); }
-        if agent.name.is_empty() { agent.name = filename.to_string(); }
+        if agent.id.is_empty() {
+            agent.id = filename.to_string();
+        }
+        if agent.name.is_empty() {
+            agent.name = filename.to_string();
+        }
 
         let parent = path.parent().unwrap_or_else(|| Path::new("."));
         let ws = parent.join(filename).join("workspace");
@@ -185,10 +213,14 @@ impl AgentManager {
                 if line.starts_with("# ") && name == filename {
                     name = line[2..].trim().to_string();
                 } else if line.starts_with("> ") || line.starts_with("**Description:**") {
-                    let desc_part = if line.starts_with("> ") { &line[2..] } else {
+                    let desc_part = if line.starts_with("> ") {
+                        &line[2..]
+                    } else {
                         line.split(':').last().unwrap_or("").trim()
                     };
-                    if !description.is_empty() { description.push(' '); }
+                    if !description.is_empty() {
+                        description.push(' ');
+                    }
                     description.push_str(desc_part.trim());
                 } else if line.contains("Purpose:") || line.contains("purpose:") {
                     purpose = line.split(':').last().unwrap_or("").trim().to_string();
@@ -198,11 +230,19 @@ impl AgentManager {
                     model = Some(line.split(':').last().unwrap_or("").trim().to_string());
                 } else if line.contains("Tools:") || line.contains("tools:") {
                     let tools_str = line.split(':').last().unwrap_or("");
-                    tools = tools_str.split(',').map(|t| t.trim().trim_matches('"').trim_matches('\'').to_string())
-                        .filter(|t| !t.is_empty()).collect();
+                    tools = tools_str
+                        .split(',')
+                        .map(|t| t.trim().trim_matches('"').trim_matches('\'').to_string())
+                        .filter(|t| !t.is_empty())
+                        .collect();
                 } else if line.contains("MaxTurns:") || line.contains("max_turns:") {
-                    max_turns = line.split(':').last().unwrap_or("")
-                        .trim().parse::<u32>().ok();
+                    max_turns = line
+                        .split(':')
+                        .last()
+                        .unwrap_or("")
+                        .trim()
+                        .parse::<u32>()
+                        .ok();
                 } else if line == "---" {
                     in_body = true;
                     continue;
@@ -216,7 +256,11 @@ impl AgentManager {
             system_prompt = Some(body_lines.join("\n"));
         }
 
-        if description.is_empty() { description = claw_types::truncate_str_safe(&content, 300).replace('\n', " ").to_string(); }
+        if description.is_empty() {
+            description = claw_types::truncate_str_safe(&content, 300)
+                .replace('\n', " ")
+                .to_string();
+        }
 
         Ok(AgentDefinition {
             id: String::new(),
@@ -246,7 +290,10 @@ impl AgentManager {
             .map_err(|e| format!("Invalid JSON in {:?}: {}", path, e))?;
 
         if agent.system_prompt.is_empty() {
-            agent.system_prompt = format!("You are {}, an AI assistant. {}", agent.name, agent.description);
+            agent.system_prompt = format!(
+                "You are {}, an AI assistant. {}",
+                agent.name, agent.description
+            );
         }
 
         Ok(agent)
@@ -254,7 +301,9 @@ impl AgentManager {
 
     /// 创建新Agent — 生成ID、创建目录和agent.md文件
     pub fn create_agent(&mut self, agent: &AgentDefinition) -> Result<String, String> {
-        let safe_id = agent.id.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+        let safe_id = agent
+            .id
+            .replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
         let agent_dir = self.agents_dir.join(&safe_id);
 
         fs::create_dir_all(&agent_dir)
@@ -272,8 +321,16 @@ impl AgentManager {
              {}",
             agent.name,
             agent.description,
-            if agent.purpose.is_empty() { "TBD".into() } else { agent.purpose.clone() },
-            if agent.scope.is_empty() { "General".into() } else { agent.scope.clone() },
+            if agent.purpose.is_empty() {
+                "TBD".into()
+            } else {
+                agent.purpose.clone()
+            },
+            if agent.scope.is_empty() {
+                "General".into()
+            } else {
+                agent.scope.clone()
+            },
             agent.system_prompt
         );
 
@@ -287,9 +344,14 @@ impl AgentManager {
         final_agent.metadata_file = md_path.to_string_lossy().to_string();
         final_agent.source = format!("dir://{}", agent_dir.display());
 
-        self.loaded_agents.insert(safe_id.clone(), final_agent.clone());
+        self.loaded_agents
+            .insert(safe_id.clone(), final_agent.clone());
 
-        log::info!("[AgentManager] Created agent '{}' at {:?}", agent.name, agent_dir);
+        log::info!(
+            "[AgentManager] Created agent '{}' at {:?}",
+            agent.name,
+            agent_dir
+        );
         Ok(agent_dir.to_string_lossy().to_string())
     }
 
@@ -320,11 +382,15 @@ impl AgentManager {
 
     /// 列出Agent工作区文件
     pub fn list_workspace_files(&self, id: &str) -> Result<Vec<WorkspaceFileEntry>, String> {
-        let agent = self.loaded_agents.get(id)
+        let agent = self
+            .loaded_agents
+            .get(id)
             .ok_or(format!("Agent '{}' not found", id))?;
         let ws_path = Path::new(&agent.workspace_path);
 
-        if !ws_path.exists() { return Ok(Vec::new()); }
+        if !ws_path.exists() {
+            return Ok(Vec::new());
+        }
 
         let mut entries = Vec::new();
         self.scan_workspace_dir(ws_path, "", &mut entries)?;
@@ -332,12 +398,21 @@ impl AgentManager {
     }
 
     /// 递归扫描工作区目录 — 收集文件和子目录条目
-    fn scan_workspace_dir(&self, dir: &Path, prefix: &str, entries: &mut Vec<WorkspaceFileEntry>) -> Result<(), String> {
+    fn scan_workspace_dir(
+        &self,
+        dir: &Path,
+        prefix: &str,
+        entries: &mut Vec<WorkspaceFileEntry>,
+    ) -> Result<(), String> {
         for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
             let entry = entry.map_err(|e| e.to_string())?;
             let path = entry.path();
             let name = entry.file_name().to_string_lossy().to_string();
-            let rel_path = if prefix.is_empty() { name.clone() } else { format!("{}/{}", prefix, name) };
+            let rel_path = if prefix.is_empty() {
+                name.clone()
+            } else {
+                format!("{}/{}", prefix, name)
+            };
 
             if path.is_dir() {
                 entries.push(WorkspaceFileEntry {
@@ -356,7 +431,9 @@ impl AgentManager {
                     full_path: path.to_string_lossy().to_string(),
                     is_dir: false,
                     size: metadata.len(),
-                    modified: metadata.modified().ok()
+                    modified: metadata
+                        .modified()
+                        .ok()
                         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                         .map(|d| d.as_secs() as i64)
                         .unwrap_or(0),
@@ -367,8 +444,15 @@ impl AgentManager {
     }
 
     /// 写入Agent工作区文件
-    pub fn write_workspace_file(&self, id: &str, file_rel_path: &str, content: &str) -> Result<String, String> {
-        let agent = self.loaded_agents.get(id)
+    pub fn write_workspace_file(
+        &self,
+        id: &str,
+        file_rel_path: &str,
+        content: &str,
+    ) -> Result<String, String> {
+        let agent = self
+            .loaded_agents
+            .get(id)
             .ok_or(format!("Agent '{}' not found", id))?;
         let ws_path = Path::new(&agent.workspace_path);
 
@@ -378,13 +462,20 @@ impl AgentManager {
         }
 
         fs::write(&full_path, content).map_err(|e| e.to_string())?;
-        log::info!("[AgentManager] Agent {} wrote {} ({} bytes)", id, file_rel_path, content.len());
+        log::info!(
+            "[AgentManager] Agent {} wrote {} ({} bytes)",
+            id,
+            file_rel_path,
+            content.len()
+        );
         Ok(full_path.to_string_lossy().to_string())
     }
 
     /// 读取Agent工作区文件
     pub fn read_workspace_file(&self, id: &str, file_rel_path: &str) -> Result<String, String> {
-        let agent = self.loaded_agents.get(id)
+        let agent = self
+            .loaded_agents
+            .get(id)
             .ok_or(format!("Agent '{}' not found", id))?;
         let full_path = Path::new(&agent.workspace_path).join(file_rel_path.replace('\\', "/"));
         fs::read_to_string(&full_path).map_err(|e| e.to_string())
@@ -392,7 +483,9 @@ impl AgentManager {
 
     /// 删除Agent工作区文件或目录
     pub fn delete_workspace_file(&self, id: &str, file_rel_path: &str) -> Result<(), String> {
-        let agent = self.loaded_agents.get(id)
+        let agent = self
+            .loaded_agents
+            .get(id)
             .ok_or(format!("Agent '{}' not found", id))?;
         let full_path = Path::new(&agent.workspace_path).join(file_rel_path.replace('\\', "/"));
         if full_path.exists() {
@@ -413,14 +506,24 @@ impl AgentManager {
 
         Ok(AgentReloadResult {
             total: new_agents.len(),
-            added: after.iter().filter(|n| !before.contains(n)).cloned().collect(),
-            removed: before.iter().filter(|n| !after.contains(n)).cloned().collect(),
+            added: after
+                .iter()
+                .filter(|n| !before.contains(n))
+                .cloned()
+                .collect(),
+            removed: before
+                .iter()
+                .filter(|n| !after.contains(n))
+                .cloned()
+                .collect(),
             agents: new_agents,
         })
     }
 
     /// 获取agents目录路径
-    pub fn agents_dir_path(&self) -> String { self.agents_dir.to_string_lossy().to_string() }
+    pub fn agents_dir_path(&self) -> String {
+        self.agents_dir.to_string_lossy().to_string()
+    }
 }
 
 /// 工作区文件条目 — 表示Agent工作区中的一个文件或目录

@@ -11,10 +11,8 @@ pub use crate::error_classifier::LlmErrorType;
 
 /// 根据错误信息和HTTP状态码分类LLM错误类型
 pub fn classify_llm_error(error_str: &str, status_code: Option<u16>) -> LlmErrorType {
-    crate::error_classifier::ErrorClassification::classify(
-        status_code.unwrap_or(0),
-        error_str,
-    ).error_type
+    crate::error_classifier::ErrorClassification::classify(status_code.unwrap_or(0), error_str)
+        .error_type
 }
 
 /// 判断指定错误类型在当前重试次数下是否应该重试

@@ -1,7 +1,7 @@
-﻿// Claw Desktop - WS命令 - Tauri命令注册（获取WS URL等）
+// Claw Desktop - WS命令 - Tauri命令注册（获取WS URL等）
 
-use serde_json::json;
 use crate::ws::auth;
+use serde_json::json;
 
 /// 获取服务器RSA公钥 — 用于客户端加密会话密钥
 #[tauri::command]

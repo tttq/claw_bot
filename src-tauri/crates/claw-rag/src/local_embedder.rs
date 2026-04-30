@@ -57,8 +57,14 @@ impl LocalEmbedder {
             tokenizers::AddedToken::from("[MASK]", true),
         ]);
 
-        log::info!("[LocalEmbedder] Model loaded successfully (dim={})", EMBEDDING_DIM);
-        Ok(Self { session, tokenizer: t3.clone().into() })
+        log::info!(
+            "[LocalEmbedder] Model loaded successfully (dim={})",
+            EMBEDDING_DIM
+        );
+        Ok(Self {
+            session,
+            tokenizer: t3.clone().into(),
+        })
     }
 
     /// 嵌入单条文本 — 分词→ONNX推理→均值池化→L2归一化
@@ -67,32 +73,44 @@ impl LocalEmbedder {
             return Ok(vec![0.0f32; EMBEDDING_DIM]);
         }
 
-        let encoding = self.tokenizer
+        let encoding = self
+            .tokenizer
             .encode(text, true)
             .map_err(|e| format!("Tokenization failed: {}", e))?;
 
         let input_ids: Vec<i64> = encoding.get_ids().iter().map(|&id| id as i64).collect();
-        let attention_mask: Vec<i64> = encoding.get_attention_mask().iter().map(|&m| m as i64).collect();
+        let attention_mask: Vec<i64> = encoding
+            .get_attention_mask()
+            .iter()
+            .map(|&m| m as i64)
+            .collect();
         let token_type_ids: Vec<i64> = vec![0i64; input_ids.len()];
         let seq_len = input_ids.len();
 
-        let input_ids_tensor = ort::value::Tensor::from_array((vec![1i64, seq_len as i64], input_ids))
-            .map_err(|e| format!("Failed to create input_ids tensor: {}", e))?;
-        let attention_mask_tensor = ort::value::Tensor::from_array((vec![1i64, seq_len as i64], attention_mask))
-            .map_err(|e| format!("Failed to create attention_mask tensor: {}", e))?;
-        let token_type_ids_tensor = ort::value::Tensor::from_array((vec![1i64, seq_len as i64], token_type_ids))
-            .map_err(|e| format!("Failed to create token_type_ids tensor: {}", e))?;
+        let input_ids_tensor =
+            ort::value::Tensor::from_array((vec![1i64, seq_len as i64], input_ids))
+                .map_err(|e| format!("Failed to create input_ids tensor: {}", e))?;
+        let attention_mask_tensor =
+            ort::value::Tensor::from_array((vec![1i64, seq_len as i64], attention_mask))
+                .map_err(|e| format!("Failed to create attention_mask tensor: {}", e))?;
+        let token_type_ids_tensor =
+            ort::value::Tensor::from_array((vec![1i64, seq_len as i64], token_type_ids))
+                .map_err(|e| format!("Failed to create token_type_ids tensor: {}", e))?;
 
         let inputs: std::collections::HashMap<String, ort::value::Value> = [
             ("input_ids".to_string(), input_ids_tensor.into()),
             ("attention_mask".to_string(), attention_mask_tensor.into()),
             ("token_type_ids".to_string(), token_type_ids_tensor.into()),
-        ].into();
+        ]
+        .into();
 
-        let outputs = self.session.run(inputs)
+        let outputs = self
+            .session
+            .run(inputs)
             .map_err(|e| format!("Inference failed: {}", e))?;
 
-        let (shape, data_slice) = outputs[0].try_extract_tensor::<f32>()
+        let (shape, data_slice) = outputs[0]
+            .try_extract_tensor::<f32>()
             .map_err(|e| format!("Failed to extract output tensor: {}", e))?;
         let hidden_size = shape[2];
         let data = data_slice.to_vec();
@@ -106,8 +124,15 @@ impl LocalEmbedder {
             embedding[i] = sum / seq_len as f32;
         }
 
-        let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-6);
-        for v in embedding.iter_mut() { *v /= norm; }
+        let norm: f32 = embedding
+            .iter()
+            .map(|x| x * x)
+            .sum::<f32>()
+            .sqrt()
+            .max(1e-6);
+        for v in embedding.iter_mut() {
+            *v /= norm;
+        }
 
         Ok(embedding)
     }
@@ -122,7 +147,9 @@ impl LocalEmbedder {
 #[cfg(feature = "onnx-embedding")]
 pub fn init_embedder(model_dir: &Path) -> Result<(), String> {
     let embedder = LocalEmbedder::new(model_dir)?;
-    EMBEDDER.set(std::sync::Mutex::new(embedder)).map_err(|_| "Embedder already initialized".to_string())?;
+    EMBEDDER
+        .set(std::sync::Mutex::new(embedder))
+        .map_err(|_| "Embedder already initialized".to_string())?;
     Ok(())
 }
 
@@ -154,25 +181,33 @@ fn feature_hashing_fallback(text: &str) -> Vec<f32> {
     use std::collections::HashMap;
     const FALLBACK_DIM: usize = EMBEDDING_DIM;
     let mut vec = vec![0.0f32; FALLBACK_DIM];
-    if text.is_empty() { return vec; }
+    if text.is_empty() {
+        return vec;
+    }
 
     let mut word_counts: HashMap<u64, u32> = HashMap::new();
     let mut total_words: u32 = 0;
     for word in text.split(|c: char| !c.is_alphanumeric()) {
         let w = word.to_lowercase();
-        if w.len() < 2 { continue; }
+        if w.len() < 2 {
+            continue;
+        }
         let hash = simple_hash(&w);
         *word_counts.entry(hash).or_insert(0) += 1;
         total_words += 1;
     }
-    if total_words == 0 { return vec; }
+    if total_words == 0 {
+        return vec;
+    }
     for (&hash, &count) in &word_counts {
         let idx = (hash as usize) % FALLBACK_DIM;
         let tf = (count as f32) / (total_words as f32).sqrt();
         vec[idx] += tf;
     }
     let norm: f32 = vec.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-6);
-    for v in vec.iter_mut() { *v /= norm; }
+    for v in vec.iter_mut() {
+        *v /= norm;
+    }
     vec
 }
 

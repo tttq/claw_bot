@@ -1,8 +1,8 @@
 // Claw Desktop - Harness路由 - 处理错误学习/画像/可观测性的WS请求
 use axum::{
+    Json, Router,
     extract::Extension,
     routing::{get, post},
-    Json, Router,
 };
 use std::sync::Arc;
 
@@ -48,12 +48,19 @@ pub async fn harness_persona_update(
         None => return Json(ApiResponse::err("Missing value")),
     };
 
-    log::info!("[HarnessRoutes:persona_update] persona_id={} field={}", persona_id, field);
+    log::info!(
+        "[HarnessRoutes:persona_update] persona_id={} field={}",
+        persona_id,
+        field
+    );
 
     let mut mgr = state.persona_manager.lock().await;
     match mgr.update_persona_field(&persona_id, &field, &value) {
         Ok(_) => {
-            log::info!("[HarnessRoutes:persona_update] Success | persona_id={}", persona_id);
+            log::info!(
+                "[HarnessRoutes:persona_update] Success | persona_id={}",
+                persona_id
+            );
             Json(ApiResponse::ok(serde_json::json!({ "success": true })))
         }
         Err(e) => {
@@ -68,13 +75,24 @@ pub async fn harness_error_capture(
     Extension(state): Extension<Arc<AppState>>,
     Json(params): Json<serde_json::Value>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let agent_id = params.get("agent_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let agent_id = params
+        .get("agent_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let error_message = match params.get("error_message").and_then(|v| v.as_str()) {
         Some(msg) => msg.to_string(),
         None => return Json(ApiResponse::err("Missing error_message")),
     };
-    let context = params.get("context").and_then(|v| v.as_str()).map(String::from);
-    let category_str = params.get("category").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let context = params
+        .get("context")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let category_str = params
+        .get("category")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
     let category = match category_str.to_lowercase().as_str() {
         "api" => claw_harness::harness::types::ErrorCategory::ApiError,
@@ -87,20 +105,29 @@ pub async fn harness_error_capture(
 
     log::info!(
         "[HarnessRoutes:error_capture] agent={} category={:?} msg_len={}",
-        agent_id, category, error_message.len()
+        agent_id,
+        category,
+        error_message.len()
     );
 
     let engine = state.error_engine.lock().await;
-    let rule_id = engine.capture_and_learn(
-        &agent_id,
-        &category,
-        &error_message,
-        context.as_deref(),
-        None,
-    ).await;
+    let rule_id = engine
+        .capture_and_learn(
+            &agent_id,
+            &category,
+            &error_message,
+            context.as_deref(),
+            None,
+        )
+        .await;
 
-    log::info!("[HarnessRoutes:error_capture] Success | rule_id={}", rule_id);
-    Json(ApiResponse::ok(serde_json::json!({ "success": true, "rule_id": rule_id })))
+    log::info!(
+        "[HarnessRoutes:error_capture] Success | rule_id={}",
+        rule_id
+    );
+    Json(ApiResponse::ok(
+        serde_json::json!({ "success": true, "rule_id": rule_id }),
+    ))
 }
 
 /// 跨记忆检索 — 从目标Agent的记忆中检索与查询相关的条目
@@ -112,15 +139,22 @@ pub async fn harness_cross_memory_retrieve(
         Some(q) => q.to_string(),
         None => return Json(ApiResponse::err("Missing query")),
     };
-    let agent_id = params.get("agent_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let target_agent_ids: Vec<String> = params.get("target_agent_ids")
+    let agent_id = params
+        .get("agent_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let target_agent_ids: Vec<String> = params
+        .get("target_agent_ids")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
     let limit = params.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
 
     log::info!(
         "[HarnessRoutes:cross_memory_retrieve] source={} targets={:?} query_len={}",
-        agent_id, target_agent_ids, query.len()
+        agent_id,
+        target_agent_ids,
+        query.len()
     );
 
     let request = claw_harness::harness::types::CrossMemoryRequest {
@@ -134,8 +168,13 @@ pub async fn harness_cross_memory_retrieve(
     match claw_harness::harness::cross_memory::CrossMemoryEngine::retrieve(&request).await {
         Ok(results) => {
             let count = results.len();
-            log::info!("[HarnessRoutes:cross_memory_retrieve] Success | count={}", count);
-            Json(ApiResponse::ok(serde_json::json!({ "count": count, "results": results })))
+            log::info!(
+                "[HarnessRoutes:cross_memory_retrieve] Success | count={}",
+                count
+            );
+            Json(ApiResponse::ok(
+                serde_json::json!({ "count": count, "results": results }),
+            ))
         }
         Err(e) => {
             log::error!("[HarnessRoutes:cross_memory_retrieve] Failed: {}", e);
@@ -154,10 +193,16 @@ pub async fn harness_cross_memory_parse_mentions(
         None => return Json(ApiResponse::err("Missing text")),
     };
 
-    log::info!("[HarnessRoutes:cross_memory_parse_mentions] text_len={}", text.len());
+    log::info!(
+        "[HarnessRoutes:cross_memory_parse_mentions] text_len={}",
+        text.len()
+    );
 
     let mentions = claw_harness::harness::cross_memory::CrossMemoryEngine::parse_mentions(&text);
-    log::info!("[HarnessRoutes:cross_memory_parse_mentions] Success | mentions={}", mentions.len());
+    log::info!(
+        "[HarnessRoutes:cross_memory_parse_mentions] Success | mentions={}",
+        mentions.len()
+    );
     Json(ApiResponse::ok(serde_json::json!({ "mentions": mentions })))
 }
 
@@ -171,11 +216,18 @@ pub async fn harness_error_build_prompt_section(
         None => return Json(ApiResponse::err("Missing agent_id")),
     };
 
-    log::info!("[HarnessRoutes:error_build_prompt_section] agent_id={}", agent_id);
+    log::info!(
+        "[HarnessRoutes:error_build_prompt_section] agent_id={}",
+        agent_id
+    );
 
     let engine = state.error_engine.lock().await;
     let section = engine.get_rules_for_prompt(&agent_id).await;
-    log::info!("[HarnessRoutes:error_build_prompt_section] Success | agent_id={} section_len={}", agent_id, section.len());
+    log::info!(
+        "[HarnessRoutes:error_build_prompt_section] Success | agent_id={} section_len={}",
+        agent_id,
+        section.len()
+    );
     Json(ApiResponse::ok(serde_json::json!({ "section": section })))
 }
 
@@ -193,7 +245,11 @@ pub async fn harness_error_get_rules(
 
     let engine = state.error_engine.lock().await;
     let rules = engine.get_active_rules(&agent_id).await;
-    log::info!("[HarnessRoutes:error_get_rules] Success | agent_id={} count={}", agent_id, rules.len());
+    log::info!(
+        "[HarnessRoutes:error_get_rules] Success | agent_id={} count={}",
+        agent_id,
+        rules.len()
+    );
     Json(ApiResponse::ok(serde_json::json!({ "rules": rules })))
 }
 
@@ -205,7 +261,10 @@ pub async fn harness_observability_stats(
     let config = state.get_config().await;
     let default_agent = &config.model.default_model;
     let stats = state.observability.get_agent_stats(default_agent).await;
-    log::info!("[HarnessRoutes:observability_stats] Returned stats for agent={}", default_agent);
+    log::info!(
+        "[HarnessRoutes:observability_stats] Returned stats for agent={}",
+        default_agent
+    );
     Json(ApiResponse::ok(stats))
 }
 
@@ -220,11 +279,17 @@ pub async fn harness_observability_events(
     let events = state.observability.get_events(agent_id, None, limit).await;
     match serde_json::to_value(&events) {
         Ok(v) => {
-            log::info!("[HarnessRoutes:observability_events] Returned {} events", events.len());
+            log::info!(
+                "[HarnessRoutes:observability_events] Returned {} events",
+                events.len()
+            );
             Json(ApiResponse::ok(v))
         }
         Err(e) => {
-            log::error!("[HarnessRoutes:observability_events] Serialization failed: {}", e);
+            log::error!(
+                "[HarnessRoutes:observability_events] Serialization failed: {}",
+                e
+            );
             Json(ApiResponse::err(&e.to_string()))
         }
     }
@@ -234,14 +299,35 @@ impl ClawRouter for HarnessRoutes {
     /// 注册Harness路由 — 错误学习/画像/跨记忆/可观测性接口
     fn router() -> Router {
         Router::new()
-            .route("/api/harness/error-trigger-hit", post(harness_error_trigger_hit))
+            .route(
+                "/api/harness/error-trigger-hit",
+                post(harness_error_trigger_hit),
+            )
             .route("/api/harness/persona-update", post(harness_persona_update))
             .route("/api/harness/error-capture", post(harness_error_capture))
-            .route("/api/harness/cross-memory/retrieve", post(harness_cross_memory_retrieve))
-            .route("/api/harness/cross-memory/parse-mentions", post(harness_cross_memory_parse_mentions))
-            .route("/api/harness/error-build-prompt-section", post(harness_error_build_prompt_section))
-            .route("/api/harness/error-get-rules", post(harness_error_get_rules))
-            .route("/api/harness/observability/stats", get(harness_observability_stats))
-            .route("/api/harness/observability/events", post(harness_observability_events))
+            .route(
+                "/api/harness/cross-memory/retrieve",
+                post(harness_cross_memory_retrieve),
+            )
+            .route(
+                "/api/harness/cross-memory/parse-mentions",
+                post(harness_cross_memory_parse_mentions),
+            )
+            .route(
+                "/api/harness/error-build-prompt-section",
+                post(harness_error_build_prompt_section),
+            )
+            .route(
+                "/api/harness/error-get-rules",
+                post(harness_error_get_rules),
+            )
+            .route(
+                "/api/harness/observability/stats",
+                get(harness_observability_stats),
+            )
+            .route(
+                "/api/harness/observability/events",
+                post(harness_observability_events),
+            )
     }
 }

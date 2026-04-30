@@ -9,11 +9,11 @@
 //   6. 异步执行: 使用 tokio::process::Command + tokio::io::AsyncReadExt 非阻塞读写
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::sync::Mutex;
-use tokio::process::Command as TokioCommand;
-use tokio::process::Child as TokioChild;
-use tokio::io::AsyncReadExt;
 use std::time::Instant;
+use tokio::io::AsyncReadExt;
+use tokio::process::Child as TokioChild;
+use tokio::process::Command as TokioCommand;
+use tokio::sync::Mutex;
 
 /// 全局取消标志：设置为 true 时所有正在执行的 bash 命令会被中断
 static CANCEL_FLAG: AtomicBool = AtomicBool::new(false);
@@ -43,21 +43,47 @@ pub enum CommandCategory {
 
 /// 命令分类器 — 根据首词将命令分为搜索/读取/列表/写入/删除/静默/其他
 fn classify_command(cmd: &str) -> CommandCategory {
-    let first_word = cmd.trim_start().split_whitespace().next().unwrap_or("").to_lowercase();
-    
-    let search_cmds: &[&str] = &["find", "grep", "egrep", "fgrep", "rg", "ag", "ack", "locate", "which", "whereis", "type"];
-    let read_cmds: &[&str] = &["cat", "head", "tail", "less", "more", "wc", "stat", "file", "strings", "jq", "awk", "cut", "sort", "uniq", "tr", "diff", "env", "echo", "printf", "git", "svn", "hg"];
-    let list_cmds: &[&str] = &["ls", "tree", "du", "dir"];
-    let write_cmds: &[&str] = &["tee", "cp", "mv", "rename", "ln", "chmod", "chown", "touch", "mkdir", "git"];
-    let delete_cmds: &[&str] = &["rm", "rmdir", "shred"];
-    let silent_cmds: &[&str] = &["cd", "export", "set", "unset", "alias", "source", ".", ":", "true", "false"];
+    let first_word = cmd
+        .trim_start()
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .to_lowercase();
 
-    if silent_cmds.contains(&first_word.as_str()) { return CommandCategory::Silent; }
-    if delete_cmds.contains(&first_word.as_str()) { return CommandCategory::Delete; }
-    if write_cmds.contains(&first_word.as_str()) { return CommandCategory::Write; }
-    if search_cmds.contains(&first_word.as_str()) { return CommandCategory::Search; }
-    if read_cmds.contains(&first_word.as_str()) { return CommandCategory::Read; }
-    if list_cmds.contains(&first_word.as_str()) { return CommandCategory::List; }
+    let search_cmds: &[&str] = &[
+        "find", "grep", "egrep", "fgrep", "rg", "ag", "ack", "locate", "which", "whereis", "type",
+    ];
+    let read_cmds: &[&str] = &[
+        "cat", "head", "tail", "less", "more", "wc", "stat", "file", "strings", "jq", "awk", "cut",
+        "sort", "uniq", "tr", "diff", "env", "echo", "printf", "git", "svn", "hg",
+    ];
+    let list_cmds: &[&str] = &["ls", "tree", "du", "dir"];
+    let write_cmds: &[&str] = &[
+        "tee", "cp", "mv", "rename", "ln", "chmod", "chown", "touch", "mkdir", "git",
+    ];
+    let delete_cmds: &[&str] = &["rm", "rmdir", "shred"];
+    let silent_cmds: &[&str] = &[
+        "cd", "export", "set", "unset", "alias", "source", ".", ":", "true", "false",
+    ];
+
+    if silent_cmds.contains(&first_word.as_str()) {
+        return CommandCategory::Silent;
+    }
+    if delete_cmds.contains(&first_word.as_str()) {
+        return CommandCategory::Delete;
+    }
+    if write_cmds.contains(&first_word.as_str()) {
+        return CommandCategory::Write;
+    }
+    if search_cmds.contains(&first_word.as_str()) {
+        return CommandCategory::Search;
+    }
+    if read_cmds.contains(&first_word.as_str()) {
+        return CommandCategory::Read;
+    }
+    if list_cmds.contains(&first_word.as_str()) {
+        return CommandCategory::List;
+    }
 
     CommandCategory::Other
 }
@@ -93,10 +119,17 @@ fn check_dangerous_command(cmd: &str) -> Option<String> {
         }
     }
 
-    if lower.contains("rm ") && (lower.contains("-rf") || lower.contains("-fr")) && !lower.contains("node_modules") && !lower.contains(".git") {
+    if lower.contains("rm ")
+        && (lower.contains("-rf") || lower.contains("-fr"))
+        && !lower.contains("node_modules")
+        && !lower.contains(".git")
+    {
         let parts: Vec<&str> = lower.split("rm ").collect();
         if parts.len() > 1 {
-            let target = parts[1].trim_start_matches("-rf").trim_start_matches("-fr").trim();
+            let target = parts[1]
+                .trim_start_matches("-rf")
+                .trim_start_matches("-fr")
+                .trim();
             if target == "/" || target == "~" || target == "*" || target == "." {
                 return Some(format!("🚫 危险命令被拦截: {} (尝试删除 {})", cmd, target));
             }
@@ -108,16 +141,21 @@ fn check_dangerous_command(cmd: &str) -> Option<String> {
 
 /// 输出累加器 — 收集stdout/stderr，带尾部保留截断保护
 struct OutputAccumulator {
-    content: String,                   // 累积的输出文本
-    max_bytes: usize,                  // 最大字节数限制（默认 100KB）
-    total_bytes: usize,                // 实际接收的总字节（含被截断部分）
-    truncated: bool,                   // 是否已被截断
+    content: String,    // 累积的输出文本
+    max_bytes: usize,   // 最大字节数限制（默认 100KB）
+    total_bytes: usize, // 实际接收的总字节（含被截断部分）
+    truncated: bool,    // 是否已被截断
 }
 
 impl OutputAccumulator {
     /// 创建输出累加器，指定最大字节数限制
     fn new(max_bytes: usize) -> Self {
-        Self { content: String::new(), max_bytes, total_bytes: 0, truncated: false }
+        Self {
+            content: String::new(),
+            max_bytes,
+            total_bytes: 0,
+            truncated: false,
+        }
     }
 
     /// 追加数据 — 超过限制时截断并标记
@@ -136,13 +174,17 @@ impl OutputAccumulator {
         }
     }
 
-    fn push_str(&mut self, s: &str) { self.content.push_str(s); }
+    fn push_str(&mut self, s: &str) {
+        self.content.push_str(s);
+    }
 
     /// 完成累加 — 如有截断则添加截断提示前缀
     fn finish(mut self) -> String {
         if self.truncated {
-            self.content = format!("...(输出已截断, 总计 {} 字节, 显示最后 {} 字节)\n{}",
-                self.total_bytes, self.max_bytes, self.content);
+            self.content = format!(
+                "...(输出已截断, 总计 {} 字节, 显示最后 {} 字节)\n{}",
+                self.total_bytes, self.max_bytes, self.content
+            );
         }
         self.content
     }
@@ -156,7 +198,11 @@ impl OutputAccumulator {
 ///   - 超时使用 tokio::time::timeout 实现（可被取消）
 ///   - 取消通过 AtomicBool + 定期检查实现
 #[tauri::command]
-pub async fn tool_bash(command: String, working_dir: Option<String>, timeout_secs: Option<u64>) -> Result<serde_json::Value, String> {
+pub async fn tool_bash(
+    command: String,
+    working_dir: Option<String>,
+    timeout_secs: Option<u64>,
+) -> Result<serde_json::Value, String> {
     let start_time = Instant::now();
 
     if let Some(blocked) = check_dangerous_command(&command) {
@@ -183,11 +229,14 @@ pub async fn tool_bash(command: String, working_dir: Option<String>, timeout_sec
     #[cfg(target_os = "windows")]
     let mut child: TokioChild = {
         let mut cmd = TokioCommand::new("powershell");
-        cmd.arg("-NoProfile").arg("-NonInteractive").arg("-Command").arg(&command)
-           .stdin(std::process::Stdio::null())
-           .stdout(std::process::Stdio::piped())
-           .stderr(std::process::Stdio::piped())
-           .kill_on_drop(true);
+        cmd.arg("-NoProfile")
+            .arg("-NonInteractive")
+            .arg("-Command")
+            .arg(&command)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .kill_on_drop(true);
         if let Some(dir) = &working_dir {
             if !std::path::Path::new(dir).exists() {
                 return Ok(serde_json::json!({
@@ -203,11 +252,12 @@ pub async fn tool_bash(command: String, working_dir: Option<String>, timeout_sec
     #[cfg(not(target_os = "windows"))]
     let mut child: TokioChild = {
         let mut cmd = TokioCommand::new("sh");
-        cmd.arg("-c").arg(&command)
-           .stdin(std::process::Stdio::null())
-           .stdout(std::process::Stdio::piped())
-           .stderr(std::process::Stdio::piped())
-           .kill_on_drop(true);
+        cmd.arg("-c")
+            .arg(&command)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .kill_on_drop(true);
         if let Some(dir) = &working_dir {
             if !std::path::Path::new(dir).exists() {
                 return Ok(serde_json::json!({
@@ -221,8 +271,14 @@ pub async fn tool_bash(command: String, working_dir: Option<String>, timeout_sec
     };
 
     let pid = child.id().unwrap_or(0);
-    log::info!("[Bash] PID={} command='{}' timeout={}s dir={:?} category={}", 
-        pid, command, timeout, working_dir, category_name);
+    log::info!(
+        "[Bash] PID={} command='{}' timeout={}s dir={:?} category={}",
+        pid,
+        command,
+        timeout,
+        working_dir,
+        category_name
+    );
 
     {
         let mut running = RUNNING_CHILD.lock().await;
@@ -271,7 +327,12 @@ pub async fn tool_bash(command: String, working_dir: Option<String>, timeout_sec
 
     if timed_out || CANCEL_FLAG.load(Ordering::SeqCst) {
         if timed_out {
-            log::warn!("[Bash] PID={} 超时 ({}s > {}s), 终止进程", pid, elapsed_ms / 1000, timeout);
+            log::warn!(
+                "[Bash] PID={} 超时 ({}s > {}s), 终止进程",
+                pid,
+                elapsed_ms / 1000,
+                timeout
+            );
         }
         let _ = child.kill().await;
         let _ = child.wait().await;
@@ -282,16 +343,23 @@ pub async fn tool_bash(command: String, working_dir: Option<String>, timeout_sec
             *running = None;
         }
 
-        let status_msg = if timed_out { format!("⏰ 命令执行超时 ({}s)", timeout) } else { "❌ 命令被用户取消".to_string() };
+        let status_msg = if timed_out {
+            format!("⏰ 命令执行超时 ({}s)", timeout)
+        } else {
+            "❌ 命令被用户取消".to_string()
+        };
         return Ok(serde_json::json!({
             "tool": "Bash", "success": false, "timed_out": timed_out, "cancelled": !timed_out,
-            "output": format!("{}\n[STDERR]:\n{}\n[STDOUT]:\n{}", 
+            "output": format!("{}\n[STDERR]:\n{}\n[STDOUT]:\n{}",
                 status_msg, stderr_acc.finish(), stdout_acc.finish()),
             "exit_code": -1, "pid": pid, "duration_ms": elapsed_ms, "category": category_name
         }));
     }
 
-    let status = child.wait().await.map_err(|e| format!("等待进程失败: {}", e))?;
+    let status = child
+        .wait()
+        .await
+        .map_err(|e| format!("等待进程失败: {}", e))?;
     let exit_code = status.code().unwrap_or(-1);
     let success = exit_code == 0;
 
@@ -307,18 +375,29 @@ pub async fn tool_bash(command: String, working_dir: Option<String>, timeout_sec
         if stdout_text.is_empty() {
             format!("[退出码 {}]\n[STDERR]:\n{}", exit_code, stderr_text)
         } else {
-            format!("[退出码 {}]\n[STDERR]:\n{}\n[STDOUT]:\n{}", exit_code, stderr_text, stdout_text)
+            format!(
+                "[退出码 {}]\n[STDERR]:\n{}\n[STDOUT]:\n{}",
+                exit_code, stderr_text, stdout_text
+            )
         }
     } else if success && stdout_text.is_empty() {
         format!("[退出码 {}] (无输出)", exit_code)
     } else if !success {
-        format!("[退出码 {} - 失败]\n[STDERR]:\n{}\n[STDOUT]:\n{}", exit_code, stderr_text, stdout_text)
+        format!(
+            "[退出码 {} - 失败]\n[STDERR]:\n{}\n[STDOUT]:\n{}",
+            exit_code, stderr_text, stdout_text
+        )
     } else {
         format!("[退出码 {}]\n{}", exit_code, stdout_text)
     };
 
-    log::info!("[Bash] PID={} exit_code={} duration={}ms output_len={}", 
-        pid, exit_code, elapsed_ms, output.len());
+    log::info!(
+        "[Bash] PID={} exit_code={} duration={}ms output_len={}",
+        pid,
+        exit_code,
+        elapsed_ms,
+        output.len()
+    );
 
     Ok(serde_json::json!({
         "tool": "Bash", "success": success,

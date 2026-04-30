@@ -1,7 +1,7 @@
 // Claw Desktop - 错误学习 - 捕获错误并生成规避规则
 use crate::harness::types::{
-    AvoidanceRule, ErrorCategory, ErrorEvent,
-    MAX_AVOIDANCE_RULES_PER_AGENT, RULE_SIMILARITY_THRESHOLD,
+    AvoidanceRule, ErrorCategory, ErrorEvent, MAX_AVOIDANCE_RULES_PER_AGENT,
+    RULE_SIMILARITY_THRESHOLD,
 };
 use sea_orm::ConnectionTrait;
 use std::collections::HashMap;
@@ -39,7 +39,10 @@ impl ErrorLearningEngine {
     }
 
     /// 捕获并处理错误 — 一步完成捕获和规则生成
-    pub async fn capture_and_process(&self, event: ErrorEvent) -> Result<Option<AvoidanceRule>, String> {
+    pub async fn capture_and_process(
+        &self,
+        event: ErrorEvent,
+    ) -> Result<Option<AvoidanceRule>, String> {
         let agent_id = event.agent_id.clone();
         let category = event.category.clone();
         let error_message = event.error_message.clone();
@@ -48,7 +51,8 @@ impl ErrorLearningEngine {
 
         self.capture_error(event).await;
 
-        self.generate_rule(&agent_id, &category, &error_message, &user_input, &context).await
+        self.generate_rule(&agent_id, &category, &error_message, &user_input, &context)
+            .await
     }
 
     /// 生成规避规则 — 提取错误模式、分析根因、生成修复建议
@@ -159,10 +163,7 @@ impl ErrorLearningEngine {
 
     /// 获取用于Prompt注入的规避规则文本 — 将活跃规则格式化为可注入System Prompt的段落
     pub async fn get_rules_for_prompt(&self, agent_id: &str) -> String {
-        AvoidanceRule::rules_to_prompt_section(
-            &self.get_active_rules(agent_id).await,
-            agent_id,
-        )
+        AvoidanceRule::rules_to_prompt_section(&self.get_active_rules(agent_id).await, agent_id)
     }
 
     /// 获取指定Agent的所有活跃规则 — 排除已废弃和已过期的
@@ -188,7 +189,11 @@ impl ErrorLearningEngine {
             for rule in agent_rules.iter_mut() {
                 if rule.id == rule_id {
                     rule.is_deprecated = true;
-                    log::info!("[ErrorLearning:deprecate_rule] Deprecated rule {} for agent={}", rule_id, agent_id);
+                    log::info!(
+                        "[ErrorLearning:deprecate_rule] Deprecated rule {} for agent={}",
+                        rule_id,
+                        agent_id
+                    );
                     return Ok(());
                 }
             }
@@ -203,7 +208,11 @@ impl ErrorLearningEngine {
             for rule in agent_rules.iter_mut() {
                 if rule.id == rule_id {
                     rule.trigger_count += 1;
-                    log::info!("[ErrorLearning:trigger_rule_hit] Rule {} hit count={}", rule_id, rule.trigger_count);
+                    log::info!(
+                        "[ErrorLearning:trigger_rule_hit] Rule {} hit count={}",
+                        rule_id,
+                        rule.trigger_count
+                    );
                     return;
                 }
             }
@@ -231,17 +240,23 @@ impl ErrorLearningEngine {
             generated_rule_id: None,
         };
         self.capture_error(event).await;
-        match self.generate_rule(
-            agent_id,
-            category,
-            error_message,
-            &format!("Auto-generated from error: {}", error_message),
-            context.unwrap_or(""),
-        ).await {
+        match self
+            .generate_rule(
+                agent_id,
+                category,
+                error_message,
+                &format!("Auto-generated from error: {}", error_message),
+                context.unwrap_or(""),
+            )
+            .await
+        {
             Ok(Some(rule)) => rule.id,
             Ok(None) => String::new(),
             Err(e) => {
-                log::warn!("[ErrorLearning:capture_and_learn] generate_rule failed: {}", e);
+                log::warn!(
+                    "[ErrorLearning:capture_and_learn] generate_rule failed: {}",
+                    e
+                );
                 String::new()
             }
         }
@@ -275,33 +290,16 @@ impl ErrorLearningEngine {
 
             loaded.push(AvoidanceRule {
                 id: row.try_get::<String>("", "id").unwrap_or_default(),
-                agent_id: row
-                    .try_get::<String>("", "agent_id")
-                    .unwrap_or_default(),
-                pattern: row
-                    .try_get::<String>("", "pattern")
-                    .unwrap_or_default(),
+                agent_id: row.try_get::<String>("", "agent_id").unwrap_or_default(),
+                pattern: row.try_get::<String>("", "pattern").unwrap_or_default(),
                 category,
-                cause: row
-                    .try_get::<String>("", "cause")
-                    .unwrap_or_default(),
+                cause: row.try_get::<String>("", "cause").unwrap_or_default(),
                 fix: row.try_get::<String>("", "fix").unwrap_or_default(),
-                trigger_count: row
-                    .try_get::<i32>("", "trigger_count")
-                    .unwrap_or(0) as u32,
-                last_triggered_at: row
-                    .try_get::<i64>("", "last_triggered_at")
-                    .unwrap_or(0),
-                created_at: row
-                    .try_get::<i64>("", "created_at")
-                    .unwrap_or(0),
-                expires_at: row
-                    .try_get::<Option<i64>>("", "expires_at")
-                    .ok()
-                    .flatten(),
-                is_deprecated: row
-                    .try_get::<bool>("", "is_deprecated")
-                    .unwrap_or(false),
+                trigger_count: row.try_get::<i32>("", "trigger_count").unwrap_or(0) as u32,
+                last_triggered_at: row.try_get::<i64>("", "last_triggered_at").unwrap_or(0),
+                created_at: row.try_get::<i64>("", "created_at").unwrap_or(0),
+                expires_at: row.try_get::<Option<i64>>("", "expires_at").ok().flatten(),
+                is_deprecated: row.try_get::<bool>("", "is_deprecated").unwrap_or(false),
             });
         }
 
@@ -384,8 +382,12 @@ impl ErrorLearningEngine {
                 }
             }
             ErrorCategory::LogicError => "LLM produced logically incorrect output".to_string(),
-            ErrorCategory::ContextError => "Decision based on outdated or incorrect context".to_string(),
-            ErrorCategory::ValidationError => "Output did not meet expected format or constraints".to_string(),
+            ErrorCategory::ContextError => {
+                "Decision based on outdated or incorrect context".to_string()
+            }
+            ErrorCategory::ValidationError => {
+                "Output did not meet expected format or constraints".to_string()
+            }
             ErrorCategory::Other => "Unclassified error occurred".to_string(),
         }
     }
@@ -412,10 +414,17 @@ impl ErrorLearningEngine {
                 }
             }
             ErrorCategory::LogicError => {
-                format!("Double-check reasoning steps when handling: {}", claw_types::truncate_str_safe(&pattern, 80))
+                format!(
+                    "Double-check reasoning steps when handling: {}",
+                    claw_types::truncate_str_safe(&pattern, 80)
+                )
             }
-            ErrorCategory::ContextError => "Always verify information freshness before using it".to_string(),
-            ErrorCategory::ValidationError => "Ensure output follows the expected format/schema".to_string(),
+            ErrorCategory::ContextError => {
+                "Always verify information freshness before using it".to_string()
+            }
+            ErrorCategory::ValidationError => {
+                "Ensure output follows the expected format/schema".to_string()
+            }
             ErrorCategory::Other => "Review and handle this error pattern carefully".to_string(),
         }
     }

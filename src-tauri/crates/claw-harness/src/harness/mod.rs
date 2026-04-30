@@ -9,12 +9,12 @@
 // - 交叉记忆：@mention 跨 Agent 记忆检索
 // - 任务拆分：主Agent拆分→子Agent执行→聚合返回
 
-pub mod types;
-pub mod persona;
-pub mod error_learning;
-pub mod cross_memory;
-pub mod validation;
-pub mod observability;
 pub mod agents_md;
 pub mod cron;
+pub mod cross_memory;
+pub mod error_learning;
 pub mod hooks;
+pub mod observability;
+pub mod persona;
+pub mod types;
+pub mod validation;

@@ -205,7 +205,10 @@ fn load_cache() -> Option<Vec<AppInfo>> {
     };
 
     if age.as_secs() > CACHE_TTL_SECS {
-        log::info!("[AppIndex:load_cache] Cache expired (age: {:.0}h), rebuilding", age.as_secs() / 3600);
+        log::info!(
+            "[AppIndex:load_cache] Cache expired (age: {:.0}h), rebuilding",
+            age.as_secs() / 3600
+        );
         return None;
     }
 
@@ -234,7 +237,8 @@ fn load_cache() -> Option<Vec<AppInfo>> {
 /// 更新全局索引状态 — 写入应用列表和名称映射，更新构建时间
 fn update_global_state(apps: Vec<AppInfo>) {
     let mut state = APP_INDEX.lock().unwrap_or_else(|e| e.into_inner());
-    let name_pairs: Vec<(String, usize)> = apps.iter()
+    let name_pairs: Vec<(String, usize)> = apps
+        .iter()
         .enumerate()
         .map(|(i, app)| (app.name.to_lowercase(), i))
         .collect();
@@ -253,7 +257,11 @@ pub fn ensure_indexed() -> Vec<AppInfo> {
         let state = APP_INDEX.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(built_at) = state.last_built {
             if built_at.elapsed().as_secs() < CACHE_TTL_SECS && !state.apps.is_empty() {
-                log::info!("[AppIndex:ensure_indexed] Using cached index ({} apps, age: {:.0}s)", state.apps.len(), built_at.elapsed().as_secs());
+                log::info!(
+                    "[AppIndex:ensure_indexed] Using cached index ({} apps, age: {:.0}s)",
+                    state.apps.len(),
+                    built_at.elapsed().as_secs()
+                );
                 return state.apps.clone();
             }
         }
@@ -327,7 +335,9 @@ pub fn find_by_name(name: &str) -> Option<AppInfo> {
     }
 
     for app in &apps {
-        if app.name.to_lowercase().contains(&name_lower) || name_lower.contains(&app.name.to_lowercase()) {
+        if app.name.to_lowercase().contains(&name_lower)
+            || name_lower.contains(&app.name.to_lowercase())
+        {
             return Some(app.clone());
         }
     }
@@ -445,19 +455,37 @@ $results | ConvertTo-Json -Compress
         if let Ok(json_arr) = serde_json::from_str::<serde_json::Value>(&stdout) {
             if let Some(arr) = json_arr.as_array() {
                 for item in arr {
-                    let name = item.get("Name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                    if name.is_empty() { continue; }
+                    let name = item
+                        .get("Name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if name.is_empty() {
+                        continue;
+                    }
 
                     apps.push(AppInfo {
                         name,
-                        executable_path: item.get("Path").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        executable_path: item
+                            .get("Path")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
                         description: None,
                         publisher: {
-                            let p = item.get("Publisher").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                            let p = item
+                                .get("Publisher")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string();
                             if p.is_empty() { None } else { Some(p) }
                         },
                         version: {
-                            let v = item.get("Version").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                            let v = item
+                                .get("Version")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string();
                             if v.is_empty() { None } else { Some(v) }
                         },
                         launch_command: None,
@@ -469,7 +497,10 @@ $results | ConvertTo-Json -Compress
         }
     }
 
-    log::info!("[AppIndex:scan_windows_registry] Found {} apps from registry", apps.len());
+    log::info!(
+        "[AppIndex:scan_windows_registry] Found {} apps from registry",
+        apps.len()
+    );
     apps
 }
 
@@ -511,9 +542,19 @@ $results | ConvertTo-Json -Compress
         if let Ok(json_arr) = serde_json::from_str::<serde_json::Value>(&stdout) {
             if let Some(arr) = json_arr.as_array() {
                 for item in arr {
-                    let name = item.get("Name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                    if name.is_empty() { continue; }
-                    let path = item.get("Path").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let name = item
+                        .get("Name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if name.is_empty() {
+                        continue;
+                    }
+                    let path = item
+                        .get("Path")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
 
                     apps.push(AppInfo {
                         name,
@@ -530,7 +571,10 @@ $results | ConvertTo-Json -Compress
         }
     }
 
-    log::info!("[AppIndex:scan_windows_start_menu] Found {} apps from Start Menu", apps.len());
+    log::info!(
+        "[AppIndex:scan_windows_start_menu] Found {} apps from Start Menu",
+        apps.len()
+    );
     apps
 }
 
@@ -571,9 +615,19 @@ $results | ConvertTo-Json -Compress
         if let Ok(json_arr) = serde_json::from_str::<serde_json::Value>(&stdout) {
             if let Some(arr) = json_arr.as_array() {
                 for item in arr {
-                    let name = item.get("Name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                    if name.is_empty() { continue; }
-                    let path = item.get("Path").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let name = item
+                        .get("Name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if name.is_empty() {
+                        continue;
+                    }
+                    let path = item
+                        .get("Path")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
 
                     apps.push(AppInfo {
                         name,
@@ -590,7 +644,10 @@ $results | ConvertTo-Json -Compress
         }
     }
 
-    log::info!("[AppIndex:scan_windows_desktop] Found {} apps from Desktop", apps.len());
+    log::info!(
+        "[AppIndex:scan_windows_desktop] Found {} apps from Desktop",
+        apps.len()
+    );
     apps
 }
 
@@ -624,9 +681,19 @@ $results | ConvertTo-Json -Compress
         if let Ok(json_arr) = serde_json::from_str::<serde_json::Value>(&stdout) {
             if let Some(arr) = json_arr.as_array() {
                 for item in arr {
-                    let name = item.get("Name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                    if name.is_empty() { continue; }
-                    let app_id = item.get("AppID").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let name = item
+                        .get("Name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if name.is_empty() {
+                        continue;
+                    }
+                    let app_id = item
+                        .get("AppID")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
 
                     apps.push(AppInfo {
                         name,
@@ -634,7 +701,11 @@ $results | ConvertTo-Json -Compress
                         description: None,
                         publisher: None,
                         version: None,
-                        launch_command: if app_id.is_empty() { None } else { Some(app_id) },
+                        launch_command: if app_id.is_empty() {
+                            None
+                        } else {
+                            Some(app_id)
+                        },
                         app_source: "uwp".to_string(),
                         keywords: vec!["uwp".to_string(), "windows store".to_string()],
                     });
@@ -694,9 +765,19 @@ $results | ConvertTo-Json -Compress
         if let Ok(json_arr) = serde_json::from_str::<serde_json::Value>(&stdout) {
             if let Some(arr) = json_arr.as_array() {
                 for item in arr {
-                    let name = item.get("Name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                    if name.is_empty() { continue; }
-                    let path = item.get("Path").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let name = item
+                        .get("Name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if name.is_empty() {
+                        continue;
+                    }
+                    let path = item
+                        .get("Path")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
 
                     apps.push(AppInfo {
                         name,
@@ -713,7 +794,10 @@ $results | ConvertTo-Json -Compress
         }
     }
 
-    log::info!("[AppIndex:scan_windows_path] Found {} apps from Program Files", apps.len());
+    log::info!(
+        "[AppIndex:scan_windows_path] Found {} apps from Program Files",
+        apps.len()
+    );
     apps
 }
 
@@ -723,8 +807,10 @@ fn scan_linux_desktop_entries() -> Vec<AppInfo> {
     let desktop_dirs = [
         "/usr/share/applications",
         "/usr/local/share/applications",
-        &format!("{}/.local/share/applications",
-            std::env::var("HOME").unwrap_or_default()),
+        &format!(
+            "{}/.local/share/applications",
+            std::env::var("HOME").unwrap_or_default()
+        ),
         "/var/lib/flatpak/exports/share/applications",
         "/var/lib/snapd/desktop/applications",
     ];
@@ -732,23 +818,34 @@ fn scan_linux_desktop_entries() -> Vec<AppInfo> {
     let mut apps = Vec::new();
     for dir in &desktop_dirs {
         let dir_path = std::path::Path::new(dir);
-        if !dir_path.exists() { continue; }
+        if !dir_path.exists() {
+            continue;
+        }
         if let Ok(entries) = std::fs::read_dir(dir_path) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().and_then(|e| e.to_str()) != Some("desktop") { continue; }
+                if path.extension().and_then(|e| e.to_str()) != Some("desktop") {
+                    continue;
+                }
                 if let Ok(content) = std::fs::read_to_string(&path) {
                     let (name, exec, comment, categories) = parse_desktop_entry(&content);
-                    if name.is_empty() { continue; }
+                    if name.is_empty() {
+                        continue;
+                    }
                     apps.push(AppInfo {
                         name,
                         executable_path: path.to_string_lossy().to_string(),
-                        description: if comment.is_empty() { None } else { Some(comment) },
+                        description: if comment.is_empty() {
+                            None
+                        } else {
+                            Some(comment)
+                        },
                         publisher: None,
                         version: None,
                         launch_command: if exec.is_empty() { None } else { Some(exec) },
                         app_source: "desktop_entry".to_string(),
-                        keywords: categories.split(';')
+                        keywords: categories
+                            .split(';')
                             .filter(|s| !s.is_empty())
                             .map(String::from)
                             .collect(),
@@ -758,7 +855,10 @@ fn scan_linux_desktop_entries() -> Vec<AppInfo> {
         }
     }
 
-    log::info!("[AppIndex:scan_linux_desktop_entries] Found {} .desktop apps", apps.len());
+    log::info!(
+        "[AppIndex:scan_linux_desktop_entries] Found {} .desktop apps",
+        apps.len()
+    );
     apps
 }
 
@@ -772,11 +872,17 @@ fn parse_desktop_entry(content: &str) -> (String, String, String, String) {
 
     for line in content.lines() {
         let line = line.trim();
-        if line.starts_with('[') && line.ends_with(']') { break; }
+        if line.starts_with('[') && line.ends_with(']') {
+            break;
+        }
         if line.starts_with("Name=") {
             name = line[5..].to_string();
         } else if line.starts_with("Exec=") {
-            exec = line[5..].split_whitespace().next().unwrap_or(&line[5..]).to_string();
+            exec = line[5..]
+                .split_whitespace()
+                .next()
+                .unwrap_or(&line[5..])
+                .to_string();
         } else if line.starts_with("Comment=") {
             comment = line[8..].to_string();
         } else if line.starts_with("Categories=") {
@@ -796,20 +902,30 @@ fn scan_linux_path() -> Vec<AppInfo> {
 
     for dir in path_var.split(':') {
         let dir_path = std::path::Path::new(dir);
-        if !dir_path.exists() { continue; }
+        if !dir_path.exists() {
+            continue;
+        }
         if let Ok(entries) = std::fs::read_dir(dir_path) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if let Some(ext) = path.extension() {
-                    if ext != "exe" && ext.to_str() != Some("") { continue; }
+                    if ext != "exe" && ext.to_str() != Some("") {
+                        continue;
+                    }
                 }
                 if let Some(file_name) = path.file_name() {
                     let name = file_name.to_string_lossy().to_string();
                     let lower = name.to_lowercase();
-                    if seen.contains(&lower) { continue; }
+                    if seen.contains(&lower) {
+                        continue;
+                    }
                     seen.insert(lower);
 
-                    if path.metadata().map(|m| m.permissions().mode() & 0o111 != 0).unwrap_or(false) {
+                    if path
+                        .metadata()
+                        .map(|m| m.permissions().mode() & 0o111 != 0)
+                        .unwrap_or(false)
+                    {
                         apps.push(AppInfo {
                             name,
                             executable_path: path.to_string_lossy().to_string(),
@@ -826,7 +942,10 @@ fn scan_linux_path() -> Vec<AppInfo> {
         }
     }
 
-    log::info!("[AppIndex:scan_linux_path] Found {} executables from PATH", apps.len());
+    log::info!(
+        "[AppIndex:scan_linux_path] Found {} executables from PATH",
+        apps.len()
+    );
     apps
 }
 
@@ -835,9 +954,7 @@ fn scan_linux_path() -> Vec<AppInfo> {
 fn scan_linux_snap() -> Result<Vec<AppInfo>> {
     use std::process::Command;
 
-    let output = Command::new("snap")
-        .args(["list", "--ascii"])
-        .output();
+    let output = Command::new("snap").args(["list", "--ascii"]).output();
 
     let mut apps = Vec::new();
     if let Ok(out) = output {
@@ -861,7 +978,10 @@ fn scan_linux_snap() -> Result<Vec<AppInfo>> {
         }
     }
 
-    log::info!("[AppIndex:scan_linux_snap] Found {} snap packages", apps.len());
+    log::info!(
+        "[AppIndex:scan_linux_snap] Found {} snap packages",
+        apps.len()
+    );
     Ok(apps)
 }
 
@@ -886,7 +1006,11 @@ fn scan_linux_flatpak() -> Result<Vec<AppInfo>> {
                         executable_path: format!("flatpak run {}", parts[0]),
                         description: None,
                         publisher: None,
-                        version: if parts.len() >= 3 { Some(parts[2].to_string()) } else { None },
+                        version: if parts.len() >= 3 {
+                            Some(parts[2].to_string())
+                        } else {
+                            None
+                        },
                         launch_command: Some(format!("flatpak run {}", parts[0])),
                         app_source: "flatpak".to_string(),
                         keywords: vec!["flatpak".to_string()],
@@ -896,7 +1020,10 @@ fn scan_linux_flatpak() -> Result<Vec<AppInfo>> {
         }
     }
 
-    log::info!("[AppIndex:scan_linux_flatpak] Found {} flatpak apps", apps.len());
+    log::info!(
+        "[AppIndex:scan_linux_flatpak] Found {} flatpak apps",
+        apps.len()
+    );
     Ok(apps)
 }
 
@@ -911,23 +1038,31 @@ fn scan_macos_applications() -> Vec<AppInfo> {
     let mut apps = Vec::new();
     for dir in &app_dirs {
         let dir_path = std::path::Path::new(dir);
-        if !dir_path.exists() { continue; }
+        if !dir_path.exists() {
+            continue;
+        }
         if let Ok(entries) = std::fs::read_dir(dir_path) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                let is_app = path.extension()
+                let is_app = path
+                    .extension()
                     .and_then(|e| e.to_str())
                     .map_or(false, |e| e == "app")
                     || path.to_string_lossy().ends_with(".app");
 
-                if !is_app { continue; }
+                if !is_app {
+                    continue;
+                }
 
-                let name = path.file_stem()
+                let name = path
+                    .file_stem()
                     .and_then(|s| s.to_str())
                     .unwrap_or("")
                     .to_string();
 
-                if name.is_empty() { continue; }
+                if name.is_empty() {
+                    continue;
+                }
 
                 let plist_path = path.join("Contents/Info.plist");
                 let (bundle_id, version, min_version) = read_macos_plist(&plist_path);
@@ -942,7 +1077,9 @@ fn scan_macos_applications() -> Vec<AppInfo> {
                     app_source: "applications".to_string(),
                     keywords: {
                         let mut kw = vec!["macos".to_string()];
-                        if let Some(ref bid) = bundle_id { kw.push(bid.clone()); }
+                        if let Some(ref bid) = bundle_id {
+                            kw.push(bid.clone());
+                        }
                         kw
                     },
                 });
@@ -950,38 +1087,69 @@ fn scan_macos_applications() -> Vec<AppInfo> {
         }
     }
 
-    log::info!("[AppIndex:scan_macos_applications] Found {} .app bundles", apps.len());
+    log::info!(
+        "[AppIndex:scan_macos_applications] Found {} .app bundles",
+        apps.len()
+    );
     apps
 }
 
 /// macOS: 读取Info.plist — 提取Bundle ID和版本号
 #[cfg(target_os = "macos")]
-fn read_macos_plist(plist_path: &std::path::Path) -> (Option<String>, Option<String>, Option<String>) {
+fn read_macos_plist(
+    plist_path: &std::path::Path,
+) -> (Option<String>, Option<String>, Option<String>) {
     use std::process::Command;
 
-    if !plist_path.exists() { return (None, None, None); }
+    if !plist_path.exists() {
+        return (None, None, None);
+    }
 
     let output = Command::new("/usr/libexec/PlistBuddy")
-        .args(["-c", "Print :CFBundleIdentifier", &plist_path.to_string_lossy()])
+        .args([
+            "-c",
+            "Print :CFBundleIdentifier",
+            &plist_path.to_string_lossy(),
+        ])
         .output();
 
     let bundle_id = if let Ok(out) = output {
         if out.status.success() {
             let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if s.is_empty() || s.starts_with("Print") { None } else { Some(s) }
-        } else { None }
-    } else { None };
+            if s.is_empty() || s.starts_with("Print") {
+                None
+            } else {
+                Some(s)
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
 
     let output2 = Command::new("/usr/libexec/PlistBuddy")
-        .args(["-c", "Print :CFBundleShortVersionString", &plist_path.to_string_lossy()])
+        .args([
+            "-c",
+            "Print :CFBundleShortVersionString",
+            &plist_path.to_string_lossy(),
+        ])
         .output();
 
     let version = if let Ok(out) = output2 {
         if out.status.success() {
             let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if s.is_empty() || s.starts_with("Print") { None } else { Some(s) }
-        } else { None }
-    } else { None };
+            if s.is_empty() || s.starts_with("Print") {
+                None
+            } else {
+                Some(s)
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
 
     (bundle_id, version, None)
 }
@@ -992,14 +1160,13 @@ fn scan_macos_homebrew() -> Result<Vec<AppInfo>> {
     use std::process::Command;
 
     let mut apps = Vec::new();
-    let brew_paths = [
-        "/opt/homebrew/bin",
-        "/usr/local/bin",
-    ];
+    let brew_paths = ["/opt/homebrew/bin", "/usr/local/bin"];
 
     for brew_dir in &brew_paths {
         let dir = std::path::Path::new(brew_dir);
-        if !dir.exists() { continue; }
+        if !dir.exists() {
+            continue;
+        }
         if let Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -1044,7 +1211,10 @@ fn scan_macos_homebrew() -> Result<Vec<AppInfo>> {
         }
     }
 
-    log::info!("[AppIndex:scan_macos_homebrew] Found {} homebrew apps", apps.len());
+    log::info!(
+        "[AppIndex:scan_macos_homebrew] Found {} homebrew apps",
+        apps.len()
+    );
     Ok(apps)
 }
 
@@ -1057,20 +1227,28 @@ fn scan_macos_path() -> Vec<AppInfo> {
 
     for dir in path_var.split(':') {
         let dir_path = std::path::Path::new(dir);
-        if !dir_path.exists() { continue; }
+        if !dir_path.exists() {
+            continue;
+        }
         if let Ok(entries) = std::fs::read_dir(dir_path) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if let Some(file_name) = path.file_name() {
                     let name = file_name.to_string_lossy().to_string();
                     let lower = name.to_lowercase();
-                    if seen.contains(&lower) { continue; }
+                    if seen.contains(&lower) {
+                        continue;
+                    }
                     seen.insert(lower);
 
-                    if path.metadata().map(|m| {
-                        let mode = m.permissions().mode();
-                        mode & 0o111 != 0 && !name.starts_with('.')
-                    }).unwrap_or(false) {
+                    if path
+                        .metadata()
+                        .map(|m| {
+                            let mode = m.permissions().mode();
+                            mode & 0o111 != 0 && !name.starts_with('.')
+                        })
+                        .unwrap_or(false)
+                    {
                         apps.push(AppInfo {
                             name,
                             executable_path: path.to_string_lossy().to_string(),
@@ -1087,6 +1265,9 @@ fn scan_macos_path() -> Vec<AppInfo> {
         }
     }
 
-    log::info!("[AppIndex:scan_macos_path] Found {} PATH executables", apps.len());
+    log::info!(
+        "[AppIndex:scan_macos_path] Found {} PATH executables",
+        apps.len()
+    );
     apps
 }

@@ -22,7 +22,7 @@ pub async fn move_to(x: f64, y: f64) -> Result<()> {
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
         Err(AutomaticallyError::PlatformNotSupported(
-            "Mouse control not supported on this platform".to_string()
+            "Mouse control not supported on this platform".to_string(),
         ))
     }
 }
@@ -47,7 +47,7 @@ pub async fn get_position() -> Result<(f64, f64)> {
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
         Err(AutomaticallyError::PlatformNotSupported(
-            "Mouse position query not supported on this platform".to_string()
+            "Mouse position query not supported on this platform".to_string(),
         ))
     }
 }
@@ -98,7 +98,7 @@ pub async fn mouse_down(button: &str) -> Result<()> {
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
         Err(AutomaticallyError::PlatformNotSupported(
-            "Mouse down not supported on this platform".to_string()
+            "Mouse down not supported on this platform".to_string(),
         ))
     }
 }
@@ -123,7 +123,7 @@ pub async fn mouse_up(button: &str) -> Result<()> {
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
         Err(AutomaticallyError::PlatformNotSupported(
-            "Mouse up not supported on this platform".to_string()
+            "Mouse up not supported on this platform".to_string(),
         ))
     }
 }
@@ -154,7 +154,7 @@ pub async fn scroll(amount: i32) -> Result<()> {
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
         Err(AutomaticallyError::PlatformNotSupported(
-            "Mouse scroll not supported on this platform".to_string()
+            "Mouse scroll not supported on this platform".to_string(),
         ))
     }
 }
@@ -172,7 +172,7 @@ pub async fn drag(from_x: f64, from_y: f64, to_x: f64, to_y: f64) -> Result<()> 
 /// Windows平台：获取屏幕尺寸
 #[cfg(target_os = "windows")]
 fn get_screen_size_windows() -> (i32, i32) {
-    use windows::Win32::Graphics::Gdi::{GetDC, GetDeviceCaps, HORZRES, VERTRES, ReleaseDC};
+    use windows::Win32::Graphics::Gdi::{GetDC, GetDeviceCaps, HORZRES, ReleaseDC, VERTRES};
     use windows::Win32::UI::WindowsAndMessaging::GetDesktopWindow;
 
     unsafe {
@@ -204,13 +204,7 @@ fn move_to_windows(x: f64, y: f64) -> Result<()> {
     let abs_y = (y * 65535.0 / screen_h as f64) as i32;
 
     unsafe {
-        mouse_event(
-            MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE,
-            abs_x,
-            abs_y,
-            0,
-            0,
-        );
+        mouse_event(MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE, abs_x, abs_y, 0, 0);
     }
 
     Ok(())
@@ -235,14 +229,19 @@ fn get_position_windows() -> Result<(f64, f64)> {
 #[cfg(target_os = "windows")]
 fn mouse_down_windows(button: &str) -> Result<()> {
     use windows::Win32::UI::Input::KeyboardAndMouse::{
-        MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_MIDDLEDOWN, mouse_event,
+        MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_RIGHTDOWN, mouse_event,
     };
 
     let flags = match button {
         "left" => MOUSEEVENTF_LEFTDOWN,
         "right" => MOUSEEVENTF_RIGHTDOWN,
         "middle" => MOUSEEVENTF_MIDDLEDOWN,
-        _ => return Err(AutomaticallyError::Input(format!("Unknown mouse button: {}", button))),
+        _ => {
+            return Err(AutomaticallyError::Input(format!(
+                "Unknown mouse button: {}",
+                button
+            )));
+        }
     };
 
     unsafe {
@@ -256,14 +255,19 @@ fn mouse_down_windows(button: &str) -> Result<()> {
 #[cfg(target_os = "windows")]
 fn mouse_up_windows(button: &str) -> Result<()> {
     use windows::Win32::UI::Input::KeyboardAndMouse::{
-        MOUSEEVENTF_LEFTUP, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_MIDDLEUP, mouse_event,
+        MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_RIGHTUP, mouse_event,
     };
 
     let flags = match button {
         "left" => MOUSEEVENTF_LEFTUP,
         "right" => MOUSEEVENTF_RIGHTUP,
         "middle" => MOUSEEVENTF_MIDDLEUP,
-        _ => return Err(AutomaticallyError::Input(format!("Unknown mouse button: {}", button))),
+        _ => {
+            return Err(AutomaticallyError::Input(format!(
+                "Unknown mouse button: {}",
+                button
+            )));
+        }
     };
 
     unsafe {
@@ -276,9 +280,7 @@ fn mouse_up_windows(button: &str) -> Result<()> {
 /// Windows平台：滚动鼠标滚轮
 #[cfg(target_os = "windows")]
 fn scroll_windows(amount: i32) -> Result<()> {
-    use windows::Win32::UI::Input::KeyboardAndMouse::{
-        MOUSEEVENTF_WHEEL, mouse_event,
-    };
+    use windows::Win32::UI::Input::KeyboardAndMouse::{MOUSEEVENTF_WHEEL, mouse_event};
 
     // WHEEL_DELTA = 120
     let wheel_delta = amount * 120;
@@ -299,7 +301,9 @@ fn move_to_linux(x: f64, y: f64) -> Result<()> {
     unsafe {
         let display = xlib::XOpenDisplay(std::ptr::null());
         if display.is_null() {
-            return Err(AutomaticallyError::Input("Cannot open X display".to_string()));
+            return Err(AutomaticallyError::Input(
+                "Cannot open X display".to_string(),
+            ));
         }
 
         let screen = xlib::XDefaultScreen(display);
@@ -319,7 +323,9 @@ fn get_position_linux() -> Result<(f64, f64)> {
     unsafe {
         let display = xlib::XOpenDisplay(std::ptr::null());
         if display.is_null() {
-            return Err(AutomaticallyError::Input("Cannot open X display".to_string()));
+            return Err(AutomaticallyError::Input(
+                "Cannot open X display".to_string(),
+            ));
         }
 
         let mut root_x = 0;
@@ -360,13 +366,20 @@ fn mouse_down_linux(button: &str) -> Result<()> {
         "left" => 1,
         "middle" => 2,
         "right" => 3,
-        _ => return Err(AutomaticallyError::Input(format!("Unknown mouse button: {}", button))),
+        _ => {
+            return Err(AutomaticallyError::Input(format!(
+                "Unknown mouse button: {}",
+                button
+            )));
+        }
     };
 
     unsafe {
         let display = xlib::XOpenDisplay(std::ptr::null());
         if display.is_null() {
-            return Err(AutomaticallyError::Input("Cannot open X display".to_string()));
+            return Err(AutomaticallyError::Input(
+                "Cannot open X display".to_string(),
+            ));
         }
 
         xtest::XTestFakeButtonEvent(display, button_num, 1, 0);
@@ -387,13 +400,20 @@ fn mouse_up_linux(button: &str) -> Result<()> {
         "left" => 1,
         "middle" => 2,
         "right" => 3,
-        _ => return Err(AutomaticallyError::Input(format!("Unknown mouse button: {}", button))),
+        _ => {
+            return Err(AutomaticallyError::Input(format!(
+                "Unknown mouse button: {}",
+                button
+            )));
+        }
     };
 
     unsafe {
         let display = xlib::XOpenDisplay(std::ptr::null());
         if display.is_null() {
-            return Err(AutomaticallyError::Input("Cannot open X display".to_string()));
+            return Err(AutomaticallyError::Input(
+                "Cannot open X display".to_string(),
+            ));
         }
 
         xtest::XTestFakeButtonEvent(display, button_num, 0, 0);
@@ -413,7 +433,9 @@ fn scroll_linux(amount: i32) -> Result<()> {
     unsafe {
         let display = xlib::XOpenDisplay(std::ptr::null());
         if display.is_null() {
-            return Err(AutomaticallyError::Input("Cannot open X display".to_string()));
+            return Err(AutomaticallyError::Input(
+                "Cannot open X display".to_string(),
+            ));
         }
 
         // 按钮 4 和 5 分别对应滚轮向上和向下
@@ -447,7 +469,8 @@ fn move_to_macos(x: f64, y: f64) -> Result<()> {
         CGEventType::MouseMoved,
         core_graphics::geometry::CGPoint::new(x, y),
         CGMouseButton::Left,
-    ).map_err(|_| AutomaticallyError::Input("Failed to create mouse event".to_string()))?;
+    )
+    .map_err(|_| AutomaticallyError::Input("Failed to create mouse event".to_string()))?;
 
     event.post(core_graphics::event::CGEventTapLocation::HID);
 
@@ -483,7 +506,12 @@ fn mouse_down_macos(button: &str) -> Result<()> {
         "left" => CGMouseButton::Left,
         "right" => CGMouseButton::Right,
         "middle" => CGMouseButton::Center,
-        _ => return Err(AutomaticallyError::Input(format!("Unknown mouse button: {}", button))),
+        _ => {
+            return Err(AutomaticallyError::Input(format!(
+                "Unknown mouse button: {}",
+                button
+            )));
+        }
     };
 
     let event_type = match button {
@@ -497,7 +525,8 @@ fn mouse_down_macos(button: &str) -> Result<()> {
         event_type,
         core_graphics::geometry::CGPoint::new(0.0, 0.0),
         button_type,
-    ).map_err(|_| AutomaticallyError::Input("Failed to create mouse event".to_string()))?;
+    )
+    .map_err(|_| AutomaticallyError::Input("Failed to create mouse event".to_string()))?;
 
     event.post(core_graphics::event::CGEventTapLocation::HID);
 
@@ -517,7 +546,12 @@ fn mouse_up_macos(button: &str) -> Result<()> {
         "left" => CGMouseButton::Left,
         "right" => CGMouseButton::Right,
         "middle" => CGMouseButton::Center,
-        _ => return Err(AutomaticallyError::Input(format!("Unknown mouse button: {}", button))),
+        _ => {
+            return Err(AutomaticallyError::Input(format!(
+                "Unknown mouse button: {}",
+                button
+            )));
+        }
     };
 
     let event_type = match button {
@@ -531,7 +565,8 @@ fn mouse_up_macos(button: &str) -> Result<()> {
         event_type,
         core_graphics::geometry::CGPoint::new(0.0, 0.0),
         button_type,
-    ).map_err(|_| AutomaticallyError::Input("Failed to create mouse event".to_string()))?;
+    )
+    .map_err(|_| AutomaticallyError::Input("Failed to create mouse event".to_string()))?;
 
     event.post(core_graphics::event::CGEventTapLocation::HID);
 
@@ -547,14 +582,8 @@ fn scroll_macos(amount: i32) -> Result<()> {
     let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
         .map_err(|_| AutomaticallyError::Input("Failed to create event source".to_string()))?;
 
-    let event = CGEvent::new_scroll_event(
-        source,
-        CGScrollEventUnit::Pixel,
-        1,
-        amount,
-        0,
-        0,
-    ).map_err(|_| AutomaticallyError::Input("Failed to create scroll event".to_string()))?;
+    let event = CGEvent::new_scroll_event(source, CGScrollEventUnit::Pixel, 1, amount, 0, 0)
+        .map_err(|_| AutomaticallyError::Input("Failed to create scroll event".to_string()))?;
 
     event.post(core_graphics::event::CGEventTapLocation::HID);
 

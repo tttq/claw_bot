@@ -1,11 +1,11 @@
 // Claw Desktop - Chrome CDP - Chrome DevTools Protocol通信实现
 #![allow(dead_code)]
 
-use serde::{Deserialize, Serialize};
-use tokio_tungstenite::tungstenite::Message;
+use base64::Engine;
 use futures::SinkExt;
 use futures::StreamExt;
-use base64::Engine;
+use serde::{Deserialize, Serialize};
+use tokio_tungstenite::tungstenite::Message;
 
 use std::sync::atomic::{AtomicI32, Ordering};
 
@@ -65,7 +65,11 @@ impl ChromeCdpClient {
     }
 
     /// 发送CDP命令 — 通过WebSocket发送JSON-RPC命令并等待响应
-    pub async fn send_command(&self, method: &str, params: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+    pub async fn send_command(
+        &self,
+        method: &str,
+        params: Option<serde_json::Value>,
+    ) -> Result<serde_json::Value, String> {
         let id = next_cdp_id();
         let command = serde_json::json!({
             "id": id,
@@ -73,7 +77,8 @@ impl ChromeCdpClient {
             "params": params.unwrap_or(serde_json::Value::Null)
         });
 
-        self.write.send(Message::Text(command.to_string()))
+        self.write
+            .send(Message::Text(command.to_string()))
             .map_err(|e| format!("Failed to send command: {}", e))?;
 
         Ok(serde_json::json!({ "id": id, "method": method }))
@@ -81,16 +86,22 @@ impl ChromeCdpClient {
 
     /// 导航到指定URL
     pub async fn navigate(&self, url: &str) -> Result<(), String> {
-        self.send_command("Page.navigate", Some(serde_json::json!({ "url": url }))).await?;
+        self.send_command("Page.navigate", Some(serde_json::json!({ "url": url })))
+            .await?;
         Ok(())
     }
 
     /// 获取页面文本内容 — 通过Runtime.evaluate获取document.body.innerText
     pub async fn get_page_content(&self) -> Result<String, String> {
-        let result = self.send_command("Runtime.evaluate", Some(serde_json::json!({
-            "expression": "document.body.innerText",
-            "returnByValue": true
-        }))).await?;
+        let result = self
+            .send_command(
+                "Runtime.evaluate",
+                Some(serde_json::json!({
+                    "expression": "document.body.innerText",
+                    "returnByValue": true
+                })),
+            )
+            .await?;
 
         if let Some(value_str) = result
             .get("result")
@@ -106,11 +117,15 @@ impl ChromeCdpClient {
 
     /// 执行JavaScript代码 — 通过Runtime.evaluate执行并返回结果
     pub async fn execute_javascript(&self, script: &str) -> Result<serde_json::Value, String> {
-        self.send_command("Runtime.evaluate", Some(serde_json::json!({
-            "expression": script,
-            "returnByValue": true,
-            "awaitPromise": true
-        }))).await
+        self.send_command(
+            "Runtime.evaluate",
+            Some(serde_json::json!({
+                "expression": script,
+                "returnByValue": true,
+                "awaitPromise": true
+            })),
+        )
+        .await
     }
 
     /// 点击元素 — 通过querySelector查找元素并触发click事件
@@ -126,7 +141,11 @@ impl ChromeCdpClient {
     }
 
     /// 填充输入框 — 使用原生setter设置值并触发input/change事件
-    pub async fn fill_input(&self, selector: &str, value: &str) -> Result<serde_json::Value, String> {
+    pub async fn fill_input(
+        &self,
+        selector: &str,
+        value: &str,
+    ) -> Result<serde_json::Value, String> {
         let script = format!(
             r#"
             const el = document.querySelector('{}');
@@ -146,10 +165,15 @@ impl ChromeCdpClient {
 
     /// 截图 — 通过Page.captureScreenshot获取Base64编码的截图
     pub async fn screenshot(&self, format: &str) -> Result<Vec<u8>, String> {
-        let result = self.send_command("Page.captureScreenshot", Some(serde_json::json!({
-            "format": format,
-            "fromSurface": true
-        }))).await?;
+        let result = self
+            .send_command(
+                "Page.captureScreenshot",
+                Some(serde_json::json!({
+                    "format": format,
+                    "fromSurface": true
+                })),
+            )
+            .await?;
 
         if let Some(data_str) = result
             .get("result")
@@ -166,7 +190,10 @@ impl ChromeCdpClient {
     }
 
     /// 获取控制台消息 — 初始化控制台捕获（当前仅返回初始化状态）
-    pub async fn get_console_messages(&self, only_errors: bool) -> Result<Vec<ConsoleMessage>, String> {
+    pub async fn get_console_messages(
+        &self,
+        only_errors: bool,
+    ) -> Result<Vec<ConsoleMessage>, String> {
         let _filter = if only_errors { "error" } else { "" };
         let script = format!(
             r#"
@@ -209,10 +236,15 @@ impl ChromeCdpClient {
 
     /// 获取页面完整HTML — 通过Runtime.evaluate获取document.documentElement.outerHTML
     pub async fn get_page_html(&self) -> Result<String, String> {
-        let result = self.send_command("Runtime.evaluate", Some(serde_json::json!({
-            "expression": "document.documentElement.outerHTML",
-            "returnByValue": true
-        }))).await?;
+        let result = self
+            .send_command(
+                "Runtime.evaluate",
+                Some(serde_json::json!({
+                    "expression": "document.documentElement.outerHTML",
+                    "returnByValue": true
+                })),
+            )
+            .await?;
 
         if let Some(html) = result
             .get("result")
@@ -259,7 +291,8 @@ impl ChromeCdpClient {
 
     /// 滚动到页面底部
     pub async fn scroll_to_bottom(&self) -> Result<(), String> {
-        self.execute_javascript("window.scrollTo(0, document.body.scrollHeight)").await?;
+        self.execute_javascript("window.scrollTo(0, document.body.scrollHeight)")
+            .await?;
         Ok(())
     }
 
@@ -297,9 +330,13 @@ impl ChromeCdpClient {
 
     /// 刷新页面 — 可选忽略缓存
     pub async fn reload(&self, ignore_cache: bool) -> Result<(), String> {
-        self.send_command("Page.reload", Some(serde_json::json!({
-            "ignoreCache": ignore_cache
-        }))).await?;
+        self.send_command(
+            "Page.reload",
+            Some(serde_json::json!({
+                "ignoreCache": ignore_cache
+            })),
+        )
+        .await?;
         Ok(())
     }
 
@@ -324,10 +361,14 @@ impl ChromeCdpClient {
 
     /// 打印页面
     pub async fn print_page(&self) -> Result<(), String> {
-        self.send_command("Page.printToPDF", Some(serde_json::json!({
-            "landscape": false,
-            "displayHeaderFooter": true
-        }))).await?;
+        self.send_command(
+            "Page.printToPDF",
+            Some(serde_json::json!({
+                "landscape": false,
+                "displayHeaderFooter": true
+            })),
+        )
+        .await?;
         Ok(())
     }
 }

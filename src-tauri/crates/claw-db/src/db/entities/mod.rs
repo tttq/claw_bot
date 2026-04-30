@@ -2,13 +2,13 @@
 pub mod conversations;
 pub mod messages;
 
-pub mod memory_units;
 pub mod entities;
-pub mod unit_entities;
-pub mod memory_links;
 pub mod entity_cooccurrences;
+pub mod memory_links;
+pub mod memory_units;
+pub mod unit_entities;
 
 // Channel 相关实体
 pub mod channel_accounts;
-pub mod channel_sessions;
 pub mod channel_message_log;
+pub mod channel_sessions;

@@ -11,7 +11,7 @@ pub struct ApiMessage {
 pub struct PromptBuilder;
 
 impl PromptBuilder {
-/// 构建系统提示词 — 包含Agent配置和工具目录信息
+    /// 构建系统提示词 — 包含Agent配置和工具目录信息
     pub async fn build_system_prompt(
         config: &AppConfig,
         agent_id: Option<&str>,
@@ -19,10 +19,17 @@ impl PromptBuilder {
         tool_count: usize,
         tool_catalog: Option<&str>,
     ) -> String {
-        claw_rag::rag::build_system_prompt_with_agent(config, agent_id, max_turns, tool_count, tool_catalog).await
+        claw_rag::rag::build_system_prompt_with_agent(
+            config,
+            agent_id,
+            max_turns,
+            tool_count,
+            tool_catalog,
+        )
+        .await
     }
 
-/// 构建API消息列表 — 组装系统提示词、RAG上下文和历史消息
+    /// 构建API消息列表 — 组装系统提示词、RAG上下文和历史消息
     pub fn build_messages(
         history: &[ApiMessage],
         system_prompt: &str,
@@ -47,8 +54,12 @@ impl PromptBuilder {
         msgs
     }
 
-/// 从工具调用信息构建assistant消息的内容块（Anthropic格式）
-    pub fn build_assistant_content_from_tool_uses(tool_uses: &[crate::llm::ToolCallInfo], text: &str, reasoning: Option<&str>) -> Vec<serde_json::Value> {
+    /// 从工具调用信息构建assistant消息的内容块（Anthropic格式）
+    pub fn build_assistant_content_from_tool_uses(
+        tool_uses: &[crate::llm::ToolCallInfo],
+        text: &str,
+        reasoning: Option<&str>,
+    ) -> Vec<serde_json::Value> {
         let mut content = Vec::new();
         if let Some(rc) = reasoning {
             if !rc.is_empty() {

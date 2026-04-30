@@ -1,5 +1,5 @@
 // Claw Desktop - TypeScript类型 - 生成前端TypeScript类型定义
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 /// 前端应用配置 — 包含应用、模型、API、UI、高级和工具设置
@@ -137,10 +137,18 @@ pub struct TsToolSettings {
     pub agent: bool,
 }
 
-fn default_visibility() -> String { "public".to_string() }
-fn default_parallel() -> usize { 5 }
-fn default_task_timeout() -> u64 { 300 }
-fn default_true() -> bool { true }
+fn default_visibility() -> String {
+    "public".to_string()
+}
+fn default_parallel() -> usize {
+    5
+}
+fn default_task_timeout() -> u64 {
+    300
+}
+fn default_true() -> bool {
+    true
+}
 
 impl From<&crate::config::AppConfig> for TsAppConfig {
     fn from(c: &crate::config::AppConfig) -> Self {

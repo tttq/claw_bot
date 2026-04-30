@@ -1,13 +1,13 @@
 // Claw Desktop - 微信适配器 - 微信消息收发
-use async_trait::async_trait;
-use tokio::sync::RwLock;
-use crate::error::{ChannelError, ChannelResult};
-use crate::traits::{ChannelPlugin, OutboundSender, ConfigValidator};
-use crate::types::*;
-use crate::config::ChannelAccountConfig;
+use super::context_token::{ContextTokenStore, MessageDeduplicator};
 use super::ilink_api::{ILinkClient, ILinkConfig};
 use super::markdown;
-use super::context_token::{ContextTokenStore, MessageDeduplicator};
+use crate::config::ChannelAccountConfig;
+use crate::error::{ChannelError, ChannelResult};
+use crate::traits::{ChannelPlugin, ConfigValidator, OutboundSender};
+use crate::types::*;
+use async_trait::async_trait;
+use tokio::sync::RwLock;
 
 pub struct WeixinPlugin {
     meta: ChannelMeta,
@@ -58,15 +58,26 @@ impl WeixinPlugin {
                     sensitive: false,
                     placeholder: Some("https://ilinkai.weixin.qq.com".to_string()),
                     help_text: None,
-                    default_value: Some(serde_json::Value::String("https://ilinkai.weixin.qq.com".to_string())),
+                    default_value: Some(serde_json::Value::String(
+                        "https://ilinkai.weixin.qq.com".to_string(),
+                    )),
                 },
                 ConfigFieldMeta {
                     key: "dm_policy".to_string(),
                     label: "DM Policy".to_string(),
                     field_type: ConfigFieldType::Select(vec![
-                        SelectOption { value: "open".to_string(), label: "Open".to_string() },
-                        SelectOption { value: "allowlist".to_string(), label: "Allowlist".to_string() },
-                        SelectOption { value: "disabled".to_string(), label: "Disabled".to_string() },
+                        SelectOption {
+                            value: "open".to_string(),
+                            label: "Open".to_string(),
+                        },
+                        SelectOption {
+                            value: "allowlist".to_string(),
+                            label: "Allowlist".to_string(),
+                        },
+                        SelectOption {
+                            value: "disabled".to_string(),
+                            label: "Disabled".to_string(),
+                        },
                     ]),
                     required: false,
                     sensitive: false,
@@ -78,9 +89,18 @@ impl WeixinPlugin {
                     key: "group_policy".to_string(),
                     label: "Group Policy".to_string(),
                     field_type: ConfigFieldType::Select(vec![
-                        SelectOption { value: "open".to_string(), label: "Open".to_string() },
-                        SelectOption { value: "allowlist".to_string(), label: "Allowlist".to_string() },
-                        SelectOption { value: "disabled".to_string(), label: "Disabled".to_string() },
+                        SelectOption {
+                            value: "open".to_string(),
+                            label: "Open".to_string(),
+                        },
+                        SelectOption {
+                            value: "allowlist".to_string(),
+                            label: "Allowlist".to_string(),
+                        },
+                        SelectOption {
+                            value: "disabled".to_string(),
+                            label: "Disabled".to_string(),
+                        },
                     ]),
                     required: false,
                     sensitive: false,
@@ -119,25 +139,40 @@ impl WeixinPlugin {
         ILinkConfig {
             token: auth.get("token").cloned().unwrap_or_default(),
             account_id: auth.get("account_id").cloned().unwrap_or_default(),
-            base_url: auth.get("base_url").cloned().unwrap_or_else(|| "https://ilinkai.weixin.qq.com".to_string()),
-            cdn_base_url: auth.get("cdn_base_url").cloned().unwrap_or_else(|| "https://novac2c.cdn.weixin.qq.com/c2c".to_string()),
+            base_url: auth
+                .get("base_url")
+                .cloned()
+                .unwrap_or_else(|| "https://ilinkai.weixin.qq.com".to_string()),
+            cdn_base_url: auth
+                .get("cdn_base_url")
+                .cloned()
+                .unwrap_or_else(|| "https://novac2c.cdn.weixin.qq.com/c2c".to_string()),
         }
     }
 }
 
 #[async_trait]
 impl ChannelPlugin for WeixinPlugin {
-    fn meta(&self) -> &ChannelMeta { &self.meta }
-    fn capabilities(&self) -> &ChannelCapabilities { &self.capabilities }
+    fn meta(&self) -> &ChannelMeta {
+        &self.meta
+    }
+    fn capabilities(&self) -> &ChannelCapabilities {
+        &self.capabilities
+    }
 
     async fn initialize(&self, account_config: &ChannelAccountConfig) -> ChannelResult<()> {
         let ilink_config = self.build_ilink_config(account_config);
         if ilink_config.token.is_empty() || ilink_config.account_id.is_empty() {
-            return Err(ChannelError::Config("WeChat token and account_id are required".to_string()));
+            return Err(ChannelError::Config(
+                "WeChat token and account_id are required".to_string(),
+            ));
         }
         let client = ILinkClient::new(ilink_config);
         *self.client.write().await = Some(client);
-        log::info!("[WeChat] Plugin initialized for account {}", account_config.id);
+        log::info!(
+            "[WeChat] Plugin initialized for account {}",
+            account_config.id
+        );
         Ok(())
     }
 
@@ -172,11 +207,17 @@ impl ChannelPlugin for WeixinPlugin {
 impl OutboundSender for WeixinPlugin {
     async fn send_text(&self, msg: &OutboundMessage) -> ChannelResult<SendResult> {
         let client_guard = self.client.read().await;
-        let client = client_guard.as_ref().ok_or_else(|| ChannelError::Internal("WeChat client not initialized".to_string()))?;
+        let client = client_guard
+            .as_ref()
+            .ok_or_else(|| ChannelError::Internal("WeChat client not initialized".to_string()))?;
 
         let text = match &msg.content {
             MessageContent::Text { text } => text.clone(),
-            _ => return Err(ChannelError::Unsupported("Only text messages supported".to_string())),
+            _ => {
+                return Err(ChannelError::Unsupported(
+                    "Only text messages supported".to_string(),
+                ));
+            }
         };
 
         let formatted = markdown::normalize_markdown_for_weixin(&text);
@@ -189,18 +230,29 @@ impl OutboundSender for WeixinPlugin {
             if i > 0 {
                 tokio::time::sleep(std::time::Duration::from_millis(350)).await;
             }
-            client.send_message(&msg.target_id, chunk, context_token.as_deref()).await
+            client
+                .send_message(&msg.target_id, chunk, context_token.as_deref())
+                .await
                 .map_err(|e| ChannelError::Connection(e))?;
         }
 
-        Ok(SendResult::ok(uuid::Uuid::new_v4().to_string(), ChannelId::WeChat))
+        Ok(SendResult::ok(
+            uuid::Uuid::new_v4().to_string(),
+            ChannelId::WeChat,
+        ))
     }
 
     async fn send_media(&self, _msg: &OutboundMessage) -> ChannelResult<SendResult> {
-        Err(ChannelError::Unsupported("Media sending not yet implemented for WeChat".to_string()))
+        Err(ChannelError::Unsupported(
+            "Media sending not yet implemented for WeChat".to_string(),
+        ))
     }
 
-    async fn stream_text(&self, msg: &OutboundMessage, _on_token: Box<dyn Fn(String) + Send + Sync>) -> ChannelResult<SendResult> {
+    async fn stream_text(
+        &self,
+        msg: &OutboundMessage,
+        _on_token: Box<dyn Fn(String) + Send + Sync>,
+    ) -> ChannelResult<SendResult> {
         self.send_text(msg).await
     }
 }
@@ -209,12 +261,17 @@ impl OutboundSender for WeixinPlugin {
 impl ConfigValidator for WeixinPlugin {
     async fn validate_config(&self, config: &serde_json::Value) -> ChannelResult<()> {
         let token = config.get("token").and_then(|v| v.as_str()).unwrap_or("");
-        let account_id = config.get("account_id").and_then(|v| v.as_str()).unwrap_or("");
+        let account_id = config
+            .get("account_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         if token.is_empty() {
             return Err(ChannelError::Config("WeChat token is required".to_string()));
         }
         if account_id.is_empty() {
-            return Err(ChannelError::Config("WeChat account_id is required".to_string()));
+            return Err(ChannelError::Config(
+                "WeChat account_id is required".to_string(),
+            ));
         }
         Ok(())
     }

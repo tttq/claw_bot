@@ -6,14 +6,14 @@ use std::collections::HashSet;
 /// 工具调用指纹 - 用于唯一标识一次工具调用（工具名+参数组合）
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ToolCallFingerprint {
-    pub name: String,        // 工具名称
-    pub arguments: String,   // 工具参数的JSON字符串
+    pub name: String,      // 工具名称
+    pub arguments: String, // 工具参数的JSON字符串
 }
 
 /// 工具调用去重器 - 在单轮工具循环中追踪已执行的工具调用，防止重复执行
 pub struct ToolCallDeduplicator {
-    seen: HashSet<ToolCallFingerprint>,   // 已见过的工具调用指纹集合
-    removed_count: usize,                  // 已移除的重复调用计数
+    seen: HashSet<ToolCallFingerprint>, // 已见过的工具调用指纹集合
+    removed_count: usize,               // 已移除的重复调用计数
 }
 
 impl ToolCallDeduplicator {

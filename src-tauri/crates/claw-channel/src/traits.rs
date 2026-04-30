@@ -1,8 +1,8 @@
 // Claw Desktop - 渠道Trait - 定义渠道适配器的统一接口
-use async_trait::async_trait;
+use crate::config::ChannelAccountConfig;
 use crate::error::ChannelResult;
 use crate::types::*;
-use crate::config::ChannelAccountConfig;
+use async_trait::async_trait;
 
 // ====== Channel Plugin 核心 Trait ======
 

@@ -1,7 +1,7 @@
 // Claw Desktop - Cron定时任务 - 定时执行Agent任务
-use serde::{Deserialize, Serialize};
 use claw_db::db::get_db;
 use sea_orm::{ConnectionTrait, Statement};
+use serde::{Deserialize, Serialize};
 
 /// Cron定时任务定义
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,11 +59,14 @@ impl CronStore {
     /// 根据ID获取Cron任务
     pub async fn get(id: &str) -> Result<Option<CronJob>, String> {
         let db = get_db().await;
-        let rows = db.query_all(Statement::from_sql_and_values(
-            db.get_database_backend(),
-            "SELECT * FROM cron_jobs WHERE id = ?1",
-            [id.into()],
-        )).await.map_err(|e| e.to_string())?;
+        let rows = db
+            .query_all(Statement::from_sql_and_values(
+                db.get_database_backend(),
+                "SELECT * FROM cron_jobs WHERE id = ?1",
+                [id.into()],
+            ))
+            .await
+            .map_err(|e| e.to_string())?;
 
         rows.first().map(|row| row_to_cron_job(row)).transpose()
     }
@@ -71,11 +74,14 @@ impl CronStore {
     /// 列出所有Cron任务
     pub async fn list() -> Result<Vec<CronJob>, String> {
         let db = get_db().await;
-        let rows = db.query_all(Statement::from_sql_and_values(
-            db.get_database_backend(),
-            "SELECT * FROM cron_jobs ORDER BY created_at DESC",
-            [],
-        )).await.map_err(|e| e.to_string())?;
+        let rows = db
+            .query_all(Statement::from_sql_and_values(
+                db.get_database_backend(),
+                "SELECT * FROM cron_jobs ORDER BY created_at DESC",
+                [],
+            ))
+            .await
+            .map_err(|e| e.to_string())?;
 
         rows.iter().map(|row| row_to_cron_job(row)).collect()
     }
@@ -104,7 +110,9 @@ impl CronStore {
             db.get_database_backend(),
             "DELETE FROM cron_jobs WHERE id = ?1",
             [id.into()],
-        )).await.map_err(|e| e.to_string())?;
+        ))
+        .await
+        .map_err(|e| e.to_string())?;
         Ok(())
     }
 
@@ -156,14 +164,23 @@ fn row_to_cron_job(row: &sea_orm::QueryResult) -> Result<CronJob, String> {
         schedule: row.try_get::<String>("", "schedule").unwrap_or_default(),
         prompt: row.try_get::<String>("", "prompt").unwrap_or_default(),
         agent_id: row.try_get::<Option<String>>("", "agent_id").ok().flatten(),
-        delivery_channel_id: row.try_get::<Option<String>>("", "delivery_channel_id").ok().flatten(),
-        delivery_chat_id: row.try_get::<Option<String>>("", "delivery_chat_id").ok().flatten(),
+        delivery_channel_id: row
+            .try_get::<Option<String>>("", "delivery_channel_id")
+            .ok()
+            .flatten(),
+        delivery_chat_id: row
+            .try_get::<Option<String>>("", "delivery_chat_id")
+            .ok()
+            .flatten(),
         enabled: row.try_get::<bool>("", "enabled").unwrap_or(true),
         silent_on_empty: row.try_get::<bool>("", "silent_on_empty").unwrap_or(false),
         last_run_at: row.try_get::<Option<i64>>("", "last_run_at").ok().flatten(),
         next_run_at: row.try_get::<Option<i64>>("", "next_run_at").ok().flatten(),
         run_count: row.try_get::<i64>("", "run_count").unwrap_or(0),
-        last_result: row.try_get::<Option<String>>("", "last_result").ok().flatten(),
+        last_result: row
+            .try_get::<Option<String>>("", "last_result")
+            .ok()
+            .flatten(),
         created_at: row.try_get::<i64>("", "created_at").unwrap_or(0),
         updated_at: row.try_get::<i64>("", "updated_at").unwrap_or(0),
     })

@@ -1,9 +1,9 @@
 // Claw Desktop - 配置路由 - 处理应用配置的WS请求
 use axum::{
+    Json, Router,
     extract::Extension,
     http::StatusCode,
     routing::{get, post},
-    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -39,10 +39,20 @@ pub async fn save_config(
     Json(req): Json<SaveConfigRequest>,
 ) -> (StatusCode, Json<ApiResponse<serde_json::Value>>) {
     let cfg_path = claw_config::path_resolver::config_path();
-    log::info!("[HTTP:Config] POST /api/config | target={}", cfg_path.display());
+    log::info!(
+        "[HTTP:Config] POST /api/config | target={}",
+        cfg_path.display()
+    );
     if let Some(parent) = cfg_path.parent() {
         if let Err(e) = std::fs::create_dir_all(parent) {
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(ApiResponse::err(&format!("Failed to create dir {}: {}", parent.display(), e))));
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::err(&format!(
+                    "Failed to create dir {}: {}",
+                    parent.display(),
+                    e
+                ))),
+            );
         }
     }
 
@@ -50,17 +60,35 @@ pub async fn save_config(
         Ok(config) => {
             let parent = match cfg_path.parent() {
                 Some(p) => p,
-                None => return (StatusCode::INTERNAL_SERVER_ERROR, Json(ApiResponse::err("config path has no parent"))),
+                None => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ApiResponse::err("config path has no parent")),
+                    );
+                }
             };
             if let Err(e) = config.save(parent) {
-                return (StatusCode::INTERNAL_SERVER_ERROR, Json(ApiResponse::err(&format!("Save failed (path={}): {}", cfg_path.display(), e))));
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ApiResponse::err(&format!(
+                        "Save failed (path={}): {}",
+                        cfg_path.display(),
+                        e
+                    ))),
+                );
             }
 
             state.set_config(config).await;
             log::info!("[HTTP:Config] Config saved successfully");
-            (StatusCode::OK, Json(ApiResponse::ok(serde_json::json!({ "success": true }))))
+            (
+                StatusCode::OK,
+                Json(ApiResponse::ok(serde_json::json!({ "success": true }))),
+            )
         }
-        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::err(&format!("Invalid config: {}", e)))),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::err(&format!("Invalid config: {}", e))),
+        ),
     }
 }
 

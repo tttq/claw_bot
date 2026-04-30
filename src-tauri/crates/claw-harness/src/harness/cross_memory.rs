@@ -1,6 +1,6 @@
-﻿// Claw Desktop - 交叉记忆 - Agent间的记忆共享和检索
+// Claw Desktop - 交叉记忆 - Agent间的记忆共享和检索
 use crate::harness::types::{
-    CrossMemoryEntry, CrossMemoryRequest, MemoryVisibility, CROSS_MEMORY_MAX_CHARS,
+    CROSS_MEMORY_MAX_CHARS, CrossMemoryEntry, CrossMemoryRequest, MemoryVisibility,
 };
 use sea_orm::{ConnectionTrait, EntityTrait};
 
@@ -22,9 +22,7 @@ impl CrossMemoryEngine {
             request.query.len()
         );
 
-        let context_limit = request
-            .context_limit
-            .unwrap_or(CROSS_MEMORY_MAX_CHARS);
+        let context_limit = request.context_limit.unwrap_or(CROSS_MEMORY_MAX_CHARS);
 
         let mut all_entries = Vec::new();
 
@@ -33,7 +31,9 @@ impl CrossMemoryEngine {
                 continue;
             }
 
-            match Self::retrieve_from_agent(target_id, &request.query, &request.min_visibility).await {
+            match Self::retrieve_from_agent(target_id, &request.query, &request.min_visibility)
+                .await
+            {
                 Ok(entries) => {
                     all_entries.extend(entries);
                 }
@@ -94,7 +94,8 @@ impl CrossMemoryEngine {
                  FROM memory_units \
                  WHERE agent_id = ?1 AND visibility IN ('private', 'team', 'public') \
                  ORDER BY importance_score DESC \
-                 LIMIT 10".to_string(),
+                 LIMIT 10"
+                    .to_string(),
                 vec![agent_id.into()],
             ),
             MemoryVisibility::Team => (
@@ -102,7 +103,8 @@ impl CrossMemoryEngine {
                  FROM memory_units \
                  WHERE agent_id = ?1 AND visibility IN ('team', 'public') \
                  ORDER BY importance_score DESC \
-                 LIMIT 10".to_string(),
+                 LIMIT 10"
+                    .to_string(),
                 vec![agent_id.into()],
             ),
             MemoryVisibility::Public => (
@@ -110,7 +112,8 @@ impl CrossMemoryEngine {
                  FROM memory_units \
                  WHERE agent_id = ?1 AND visibility = 'public' \
                  ORDER BY importance_score DESC \
-                 LIMIT 10".to_string(),
+                 LIMIT 10"
+                    .to_string(),
                 vec![agent_id.into()],
             ),
         };
@@ -125,24 +128,16 @@ impl CrossMemoryEngine {
             .map_err(|e: sea_orm::DbErr| e.to_string())?;
 
         let query_lower = query.to_lowercase();
-        let query_words: std::collections::HashSet<&str> =
-            query_lower.split_whitespace().collect();
+        let query_words: std::collections::HashSet<&str> = query_lower.split_whitespace().collect();
 
         let mut entries = Vec::new();
         for row in &rows {
-            let text = row
-                .try_get::<String>("", "text")
-                .unwrap_or_default();
+            let text = row.try_get::<String>("", "text").unwrap_or_default();
             let fact_type = row
                 .try_get::<String>("", "fact_type")
                 .unwrap_or_else(|_| "observation".to_string());
-            let occurred_at = row
-                .try_get::<Option<i64>>("", "occurred_at")
-                .ok()
-                .flatten();
-            let importance = row
-                .try_get::<f64>("", "importance_score")
-                .unwrap_or(1.0);
+            let occurred_at = row.try_get::<Option<i64>>("", "occurred_at").ok().flatten();
+            let importance = row.try_get::<f64>("", "importance_score").unwrap_or(1.0);
 
             let text_lower = text.to_lowercase();
             let text_words: std::collections::HashSet<&str> =
@@ -150,7 +145,11 @@ impl CrossMemoryEngine {
 
             let intersection = query_words.intersection(&text_words).count() as f64;
             let union = query_words.union(&text_words).count() as f64;
-            let jaccard = if union > 0.0 { intersection / union } else { 0.0 };
+            let jaccard = if union > 0.0 {
+                intersection / union
+            } else {
+                0.0
+            };
 
             let relevance = jaccard * 0.6 + (importance / 5.0).min(1.0) * 0.4;
 
@@ -191,7 +190,8 @@ impl CrossMemoryEngine {
         }
 
         let mut context = String::from("\n## Cross-Agent Memory (from other agents)\n");
-        context.push_str("The following information was retrieved from other agents' memories:\n\n");
+        context
+            .push_str("The following information was retrieved from other agents' memories:\n\n");
 
         for entry in entries {
             context.push_str(&format!(
@@ -227,7 +227,9 @@ impl CrossMemoryEngine {
             if chars[i] == '@' && i + 1 < chars.len() && chars[i + 1].is_alphabetic() {
                 let start = i;
                 i += 1;
-                while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_' || chars[i] == '-') {
+                while i < chars.len()
+                    && (chars[i].is_alphanumeric() || chars[i] == '_' || chars[i] == '-')
+                {
                     i += 1;
                 }
                 results.push((start, i));

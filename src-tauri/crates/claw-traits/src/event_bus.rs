@@ -1,7 +1,7 @@
 // Claw Desktop - 事件总线Trait - 定义发布/订阅事件总线接口
 use async_trait::async_trait;
-use claw_types::events::AppEvent;
 use claw_types::common::SubscriptionId;
+use claw_types::events::AppEvent;
 use std::sync::OnceLock;
 
 /// 事件处理器 trait

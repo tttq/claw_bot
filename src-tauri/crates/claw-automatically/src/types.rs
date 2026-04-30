@@ -230,14 +230,24 @@ impl AppInfo {
         let query_lower = query.to_lowercase();
         let name_lower = self.name.to_lowercase();
 
-        if name_lower == query_lower { return 100.0; }
-        if name_lower.starts_with(&query_lower) { return 90.0; }
-        if name_lower.contains(&query_lower) { return 80.0; }
+        if name_lower == query_lower {
+            return 100.0;
+        }
+        if name_lower.starts_with(&query_lower) {
+            return 90.0;
+        }
+        if name_lower.contains(&query_lower) {
+            return 80.0;
+        }
 
         let search_text = self.search_text();
-        if search_text.contains(&query_lower) { return 60.0; }
+        if search_text.contains(&query_lower) {
+            return 60.0;
+        }
 
-        if self.fuzzy_match(query) { return 40.0; }
+        if self.fuzzy_match(query) {
+            return 40.0;
+        }
 
         let query_chars: Vec<char> = query_lower.chars().collect();
         let mut matched = 0usize;

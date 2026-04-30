@@ -6,11 +6,11 @@ use tokio::sync::RwLock;
 
 use reqwest::Client as HttpClient;
 
+use crate::config::ChannelAccountConfig;
 use crate::error::{ChannelError, ChannelResult};
+use crate::streaming::StreamingController;
 use crate::traits::{ChannelPlugin, OutboundSender};
 use crate::types::*;
-use crate::config::ChannelAccountConfig;
-use crate::streaming::StreamingController;
 
 const DISCORD_API_BASE: &str = "https://discord.com/api/v10";
 
@@ -52,7 +52,9 @@ impl ChannelPlugin for DiscordPlugin {
                     field_type: ConfigFieldType::Password,
                     required: true,
                     sensitive: true,
-                    placeholder: Some("MTIzNDU2Nzg5MDEyMzQ1Njc4.OABCDEF.GhIjKlMnOpqRsTuVwXyZ".to_string()),
+                    placeholder: Some(
+                        "MTIzNDU2Nzg5MDEyMzQ1Njc4.OABCDEF.GhIjKlMnOpqRsTuVwXyZ".to_string(),
+                    ),
                     help_text: Some("从 Discord Developer Portal 获取".to_string()),
                     default_value: None,
                 },
@@ -83,7 +85,12 @@ impl ChannelPlugin for DiscordPlugin {
     fn capabilities(&self) -> &ChannelCapabilities {
         static CAPS: std::sync::OnceLock<ChannelCapabilities> = std::sync::OnceLock::new();
         CAPS.get_or_init(|| ChannelCapabilities {
-            chat_types: vec![ChatType::Direct, ChatType::Group, ChatType::Channel, ChatType::Thread],
+            chat_types: vec![
+                ChatType::Direct,
+                ChatType::Group,
+                ChatType::Channel,
+                ChatType::Thread,
+            ],
             supports_polls: false,
             supports_reactions: true,
             supports_edit: true,
@@ -254,7 +261,8 @@ impl DiscordClient {
             return Err(ChannelError::Auth("Invalid bot token format".to_string()));
         }
 
-        let resp = self.http
+        let resp = self
+            .http
             .get(format!("{}/users/@me", DISCORD_API_BASE))
             .header("Authorization", self.auth_header_value())
             .header("Content-Type", "application/json")
@@ -263,8 +271,9 @@ impl DiscordClient {
             .map_err(|e| ChannelError::Connection(format!("Discord API request failed: {}", e)))?;
 
         if resp.status().is_success() {
-            let user: DiscordUser = resp.json().await
-                .map_err(|e| ChannelError::Internal(format!("Failed to parse Discord response: {}", e)))?;
+            let user: DiscordUser = resp.json().await.map_err(|e| {
+                ChannelError::Internal(format!("Failed to parse Discord response: {}", e))
+            })?;
             log::info!(
                 "[Discord] Token validated - Bot: {}#{} (ID: {})",
                 user.username,
@@ -275,25 +284,38 @@ impl DiscordClient {
         } else {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            Err(ChannelError::Auth(format!("Discord token validation failed ({}): {}", status, body)))
+            Err(ChannelError::Auth(format!(
+                "Discord token validation failed ({}): {}",
+                status, body
+            )))
         }
     }
 
     pub async fn start_gateway(&self) -> ChannelResult<()> {
-        self.is_running.store(true, std::sync::atomic::Ordering::SeqCst);
-        log::info!("[Discord] Starting WebSocket Gateway for account: {}", self.account_id);
+        self.is_running
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        log::info!(
+            "[Discord] Starting WebSocket Gateway for account: {}",
+            self.account_id
+        );
 
-        let gateway_url = format!("{}/gateway?v=10&encoding=json", DISCORD_API_BASE.replace("/api/v10", ""));
+        let gateway_url = format!(
+            "{}/gateway?v=10&encoding=json",
+            DISCORD_API_BASE.replace("/api/v10", "")
+        );
         log::info!("[Discord] Connecting to gateway: {}", gateway_url);
 
         match tokio_tungstenite::connect_async(&gateway_url).await {
             Ok((ws_stream, _response)) => {
-                log::info!("[Discord] WebSocket Gateway connected for account: {}", self.account_id);
-                
+                log::info!(
+                    "[Discord] WebSocket Gateway connected for account: {}",
+                    self.account_id
+                );
+
                 use futures_util::{SinkExt, StreamExt};
-                
+
                 let (mut write, mut read) = ws_stream.split();
-                
+
                 let identify_payload = serde_json::json!({
                     "op": 2,
                     "d": {
@@ -307,22 +329,25 @@ impl DiscordClient {
                     }
                 });
 
-                if let Err(e) = write.send(tokio_tungstenite::tungstenite::Message::text(
-                    serde_json::to_string(&identify_payload).unwrap_or_default()
-                )).await {
+                if let Err(e) = write
+                    .send(tokio_tungstenite::tungstenite::Message::text(
+                        serde_json::to_string(&identify_payload).unwrap_or_default(),
+                    ))
+                    .await
+                {
                     log::error!("[Discord] Failed to send identify payload: {}", e);
                 }
 
                 log::info!("[Discord] Identify payload sent, starting event loop...");
-                
+
                 let is_running = self.is_running.clone();
                 let account_id = self.account_id.clone();
-                
+
                 tokio::spawn(async move {
                     let mut heartbeat_interval: Option<u64> = None;
                     let mut last_sequence: Option<i64> = None;
                     let mut last_heartbeat = tokio::time::Instant::now();
-                    
+
                     loop {
                         if !is_running.load(std::sync::atomic::Ordering::SeqCst) {
                             log::info!("[Discord:{}] Gateway loop stopped by request", account_id);
@@ -330,41 +355,66 @@ impl DiscordClient {
                         }
 
                         if let Some(hb_ms) = heartbeat_interval {
-                            if last_heartbeat.elapsed() >= tokio::time::Duration::from_millis(hb_ms) {
+                            if last_heartbeat.elapsed() >= tokio::time::Duration::from_millis(hb_ms)
+                            {
                                 let heartbeat_payload = serde_json::json!({
                                     "op": 1,
                                     "d": last_sequence
                                 });
-                                if let Err(e) = write.send(tokio_tungstenite::tungstenite::Message::text(
-                                    serde_json::to_string(&heartbeat_payload).unwrap_or_default()
-                                )).await {
-                                    log::warn!("[Discord:{}] Failed to send heartbeat: {}", account_id, e);
+                                if let Err(e) = write
+                                    .send(tokio_tungstenite::tungstenite::Message::text(
+                                        serde_json::to_string(&heartbeat_payload)
+                                            .unwrap_or_default(),
+                                    ))
+                                    .await
+                                {
+                                    log::warn!(
+                                        "[Discord:{}] Failed to send heartbeat: {}",
+                                        account_id,
+                                        e
+                                    );
                                     break;
                                 }
                                 last_heartbeat = tokio::time::Instant::now();
-                                log::debug!("[Discord:{}] Heartbeat sent (seq={:?})", account_id, last_sequence);
+                                log::debug!(
+                                    "[Discord:{}] Heartbeat sent (seq={:?})",
+                                    account_id,
+                                    last_sequence
+                                );
                             }
                         }
-                        
-                        match tokio::time::timeout(
-                            tokio::time::Duration::from_secs(5),
-                            read.next()
-                        ).await {
+
+                        match tokio::time::timeout(tokio::time::Duration::from_secs(5), read.next())
+                            .await
+                        {
                             Ok(Some(Ok(msg))) => {
                                 if let tokio_tungstenite::tungstenite::Message::Text(text) = &msg {
-                                    if let Ok(event) = serde_json::from_str::<serde_json::Value>(text) {
+                                    if let Ok(event) =
+                                        serde_json::from_str::<serde_json::Value>(text)
+                                    {
                                         if let Some(op) = event.get("op").and_then(|v| v.as_u64()) {
                                             match op {
                                                 0 => {
-                                                    if let Some(t) = event.get("t").and_then(|v| v.as_str()) {
-                                                        log::debug!("[Discord:{}] Event: {}", account_id, t);
+                                                    if let Some(t) =
+                                                        event.get("t").and_then(|v| v.as_str())
+                                                    {
+                                                        log::debug!(
+                                                            "[Discord:{}] Event: {}",
+                                                            account_id,
+                                                            t
+                                                        );
                                                     }
-                                                    if let Some(s) = event.get("s").and_then(|v| v.as_i64()) {
+                                                    if let Some(s) =
+                                                        event.get("s").and_then(|v| v.as_i64())
+                                                    {
                                                         last_sequence = Some(s);
                                                     }
                                                 }
                                                 1 => {
-                                                    log::debug!("[Discord:{}] Heartbeat requested", account_id);
+                                                    log::debug!(
+                                                        "[Discord:{}] Heartbeat requested",
+                                                        account_id
+                                                    );
                                                     let heartbeat_payload = serde_json::json!({
                                                         "op": 1,
                                                         "d": last_sequence
@@ -379,15 +429,26 @@ impl DiscordClient {
                                                 }
                                                 10 => {
                                                     if let Some(d) = event.get("d") {
-                                                        if let Some(hb) = d.get("heartbeat_interval").and_then(|v| v.as_u64()) {
+                                                        if let Some(hb) = d
+                                                            .get("heartbeat_interval")
+                                                            .and_then(|v| v.as_u64())
+                                                        {
                                                             heartbeat_interval = Some(hb);
-                                                            last_heartbeat = tokio::time::Instant::now();
-                                                            log::info!("[Discord:{}] Heartbeat interval: {}ms", account_id, hb);
+                                                            last_heartbeat =
+                                                                tokio::time::Instant::now();
+                                                            log::info!(
+                                                                "[Discord:{}] Heartbeat interval: {}ms",
+                                                                account_id,
+                                                                hb
+                                                            );
                                                         }
                                                     }
                                                 }
                                                 11 => {
-                                                    log::debug!("[Discord:{}] Heartbeat ACK", account_id);
+                                                    log::debug!(
+                                                        "[Discord:{}] Heartbeat ACK",
+                                                        account_id
+                                                    );
                                                 }
                                                 _ => {}
                                             }
@@ -404,16 +465,22 @@ impl DiscordClient {
                                 break;
                             }
                             Err(_) => {
-                                log::debug!("[Discord:{}] Read timeout, checking running state", account_id);
+                                log::debug!(
+                                    "[Discord:{}] Read timeout, checking running state",
+                                    account_id
+                                );
                             }
                         }
                     }
                 });
-                
+
                 Ok(())
             }
             Err(e) => {
-                log::warn!("[Discord] ⚠️ WebSocket Gateway connection failed ({}), using REST-only mode", e);
+                log::warn!(
+                    "[Discord] ⚠️ WebSocket Gateway connection failed ({}), using REST-only mode",
+                    e
+                );
                 log::info!("[Discord] REST API functions (send_text, send_media) remain available");
                 Ok(())
             }
@@ -421,7 +488,8 @@ impl DiscordClient {
     }
 
     pub async fn stop(&self) -> ChannelResult<()> {
-        self.is_running.store(false, std::sync::atomic::Ordering::SeqCst);
+        self.is_running
+            .store(false, std::sync::atomic::Ordering::SeqCst);
         log::info!("[Discord] Stopped gateway for account: {}", self.account_id);
         Ok(())
     }
@@ -445,21 +513,26 @@ impl DiscordClient {
 
         let text = match &msg.content {
             MessageContent::Text { text } => text.clone(),
-            _ => return Err(ChannelError::Unsupported("Expected text content".to_string())),
+            _ => {
+                return Err(ChannelError::Unsupported(
+                    "Expected text content".to_string(),
+                ));
+            }
         };
 
         if text.len() > 2000 {
             return Err(ChannelError::MessageTooLong(text.len(), 2000));
         }
 
-        let message_ref = msg.reply_to_message_id.as_ref().map(|rid| {
-            DiscordMessageReference {
+        let message_ref = msg
+            .reply_to_message_id
+            .as_ref()
+            .map(|rid| DiscordMessageReference {
                 message_id: rid.clone(),
                 channel_id: Some(msg.target_id.clone()),
                 guild_id: None,
                 fail_if_not_exists: false,
-            }
-        });
+            });
 
         let payload = DiscordSendPayload {
             content: text,
@@ -468,7 +541,8 @@ impl DiscordClient {
 
         let url = format!("{}/channels/{}/messages", DISCORD_API_BASE, msg.target_id);
 
-        let resp = self.http
+        let resp = self
+            .http
             .post(&url)
             .header("Authorization", self.auth_header_value())
             .header("Content-Type", "application/json")
@@ -478,7 +552,9 @@ impl DiscordClient {
             .map_err(|e| ChannelError::Connection(format!("Discord API request failed: {}", e)))?;
 
         if resp.status().is_success() {
-            let sent: DiscordMessageResponse = resp.json().await
+            let sent: DiscordMessageResponse = resp
+                .json()
+                .await
                 .map_err(|e| ChannelError::Internal(format!("Failed to parse response: {}", e)))?;
             let message_id = format!("dc_{}", sent.id);
             log::info!(
@@ -491,7 +567,10 @@ impl DiscordClient {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
             log::error!("[Discord] Failed to send ({}): {}", status, body);
-            Err(ChannelError::Internal(format!("Discord send failed ({}): {}", status, body)))
+            Err(ChannelError::Internal(format!(
+                "Discord send failed ({}): {}",
+                status, body
+            )))
         }
     }
 
@@ -501,28 +580,46 @@ impl DiscordClient {
         }
 
         let (url_str, mime_type, caption) = match &msg.content {
-            MessageContent::Media { url, mime_type, caption } => {
-                (url.clone(), mime_type.clone(), caption.clone())
+            MessageContent::Media {
+                url,
+                mime_type,
+                caption,
+            } => (url.clone(), mime_type.clone(), caption.clone()),
+            _ => {
+                return Err(ChannelError::Unsupported(
+                    "Expected media content".to_string(),
+                ));
             }
-            _ => return Err(ChannelError::Unsupported("Expected media content".to_string())),
         };
 
         let url_preview: String = url_str.chars().take(50).collect();
-        log::info!("[Discord] Uploading media to Discord CDN (mime: {}, url: {}...)", 
-            mime_type, 
-            if url_str.len() > 50 { format!("{}...", url_preview) } else { url_str.clone() });
+        log::info!(
+            "[Discord] Uploading media to Discord CDN (mime: {}, url: {}...)",
+            mime_type,
+            if url_str.len() > 50 {
+                format!("{}...", url_preview)
+            } else {
+                url_str.clone()
+            }
+        );
 
-        let download_resp = self.http
+        let download_resp = self
+            .http
             .get(&url_str)
             .send()
             .await
             .map_err(|e| ChannelError::Internal(format!("Failed to download media: {}", e)))?;
 
         if !download_resp.status().is_success() {
-            return Err(ChannelError::Internal(format!("Media download failed: {}", download_resp.status())));
+            return Err(ChannelError::Internal(format!(
+                "Media download failed: {}",
+                download_resp.status()
+            )));
         }
 
-        let bytes_vec = download_resp.bytes().await
+        let bytes_vec = download_resp
+            .bytes()
+            .await
             .map_err(|e| ChannelError::Internal(format!("Failed to read media bytes: {}", e)))?
             .to_vec();
 
@@ -539,17 +636,21 @@ impl DiscordClient {
 
         let upload_url = format!("{}/channels/{}/messages", DISCORD_API_BASE, msg.target_id);
 
-        let resp = self.http
+        let resp = self
+            .http
             .post(&upload_url)
             .header("Authorization", self.auth_header_value())
             .multipart(form)
             .send()
             .await
-            .map_err(|e| ChannelError::Connection(format!("Discord upload request failed: {}", e)))?;
+            .map_err(|e| {
+                ChannelError::Connection(format!("Discord upload request failed: {}", e))
+            })?;
 
         if resp.status().is_success() {
-            let sent: DiscordMessageResponse = resp.json().await
-                .map_err(|e| ChannelError::Internal(format!("Failed to parse upload response: {}", e)))?;
+            let sent: DiscordMessageResponse = resp.json().await.map_err(|e| {
+                ChannelError::Internal(format!("Failed to parse upload response: {}", e))
+            })?;
             let message_id = format!("dc_media_{}", sent.id);
             log::info!(
                 "[Discord] ✅ Uploaded media to #{} (size: {}KB, id: {})",
@@ -561,14 +662,19 @@ impl DiscordClient {
         } else {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            
-            log::warn!("[Discord] ⚠️ Upload failed ({}): {}, falling back to link mode", status, body);
-            
+
+            log::warn!(
+                "[Discord] ⚠️ Upload failed ({}): {}, falling back to link mode",
+                status,
+                body
+            );
+
             let fallback_payload = serde_json::json!({
                 "content": format!("{} [Media: {}]", caption.unwrap_or_else(|| "[Media]".to_string()), url_str),
             });
 
-            let fallback_resp = self.http
+            let fallback_resp = self
+                .http
                 .post(&upload_url)
                 .header("Authorization", self.auth_header_value())
                 .header("Content-Type", "application/json")
@@ -578,12 +684,23 @@ impl DiscordClient {
                 .map_err(|e| ChannelError::Connection(format!("Discord fallback failed: {}", e)))?;
 
             if fallback_resp.status().is_success() {
-                let sent: DiscordMessageResponse = fallback_resp.json().await
+                let sent: DiscordMessageResponse = fallback_resp
+                    .json()
+                    .await
                     .map_err(|e| ChannelError::Internal(format!("Fallback parse error: {}", e)))?;
-                log::info!("[Discord] Sent media as link (fallback) - id: dc_link_{}", sent.id);
-                Ok(SendResult::ok(format!("dc_link_{}", sent.id), ChannelId::Discord))
+                log::info!(
+                    "[Discord] Sent media as link (fallback) - id: dc_link_{}",
+                    sent.id
+                );
+                Ok(SendResult::ok(
+                    format!("dc_link_{}", sent.id),
+                    ChannelId::Discord,
+                ))
             } else {
-                Err(ChannelError::Internal(format!("Discord media send completely failed ({})", status)))
+                Err(ChannelError::Internal(format!(
+                    "Discord media send completely failed ({})",
+                    status
+                )))
             }
         }
     }
@@ -599,7 +716,11 @@ impl DiscordClient {
 
         let text = match &msg.content {
             MessageContent::Text { text } => text.clone(),
-            _ => return Err(ChannelError::Unsupported("Expected text content".to_string())),
+            _ => {
+                return Err(ChannelError::Unsupported(
+                    "Expected text content".to_string(),
+                ));
+            }
         };
 
         let on_token = Arc::from(on_token);

@@ -3,10 +3,10 @@
 //       System Prompt 注入、以及与 agent.md 文件的同步
 
 use crate::harness::types::{AgentPersona, CommunicationStyle};
+use log;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use log;
 
 /// 人物画像管理器（内存缓存 + 文件持久化）
 pub struct PersonaManager {
@@ -26,7 +26,11 @@ impl PersonaManager {
         // 确保目录存在
         if !mgr.base_dir.exists() {
             if let Err(e) = fs::create_dir_all(&mgr.base_dir) {
-                log::warn!("[PersonaManager] Failed to create base dir {:?}: {}", mgr.base_dir, e);
+                log::warn!(
+                    "[PersonaManager] Failed to create base dir {:?}: {}",
+                    mgr.base_dir,
+                    e
+                );
             }
         }
         mgr
@@ -50,7 +54,11 @@ impl PersonaManager {
                     log::info!("[PersonaManager] Loaded persona for agent '{}'", agent_id);
                 }
                 Err(e) => {
-                    log::warn!("[PersonaManager] Failed to parse persona for '{}': {}", agent_id, e);
+                    log::warn!(
+                        "[PersonaManager] Failed to parse persona for '{}': {}",
+                        agent_id,
+                        e
+                    );
                     let default = AgentPersona::default_for_agent(agent_id, agent_id);
                     self.cache.insert(agent_id.to_string(), default);
                 }
@@ -59,7 +67,10 @@ impl PersonaManager {
                 // 不存在则使用默认画像
                 let default = AgentPersona::default_for_agent(agent_id, agent_id);
                 self.cache.insert(agent_id.to_string(), default);
-                log::debug!("[PersonaManager] Using default persona for agent '{}'", agent_id);
+                log::debug!(
+                    "[PersonaManager] Using default persona for agent '{}'",
+                    agent_id
+                );
             }
         }
     }
@@ -89,7 +100,8 @@ impl PersonaManager {
                 let lower = line.to_lowercase();
                 if lower.contains("personality") || lower.contains("性格") {
                     if let Some(value) = extract_colon_value(line) {
-                        personality_traits = value.split(['/', '、', ','])
+                        personality_traits = value
+                            .split(['/', '、', ','])
                             .map(|s| s.trim().to_string())
                             .filter(|s| !s.is_empty())
                             .collect();
@@ -107,18 +119,26 @@ impl PersonaManager {
                             _ => CommunicationStyle::default(),
                         };
                     }
-                } else if lower.contains("expertise") || lower.contains("domain") || lower.contains("领域") {
+                } else if lower.contains("expertise")
+                    || lower.contains("domain")
+                    || lower.contains("领域")
+                {
                     if let Some(value) = extract_colon_value(line) {
                         expertise_domain = value.trim().to_string();
                     }
-                } else if lower.contains("constraint") || lower.contains("约束") || lower.contains("限制") {
+                } else if lower.contains("constraint")
+                    || lower.contains("约束")
+                    || lower.contains("限制")
+                {
                     if let Some(value) = extract_colon_value(line) {
-                        behavior_constraints = value.split([';', '|'])
+                        behavior_constraints = value
+                            .split([';', '|'])
                             .map(|s| s.trim().to_string())
                             .filter(|s| !s.is_empty())
                             .collect();
                     }
-                } else if lower.contains("tone") || lower.contains("基调") || lower.contains("回复") {
+                } else if lower.contains("tone") || lower.contains("基调") || lower.contains("回复")
+                {
                     if let Some(value) = extract_colon_value(line) {
                         response_tone_instruction = value.trim().to_string();
                     }
@@ -170,14 +190,18 @@ impl PersonaManager {
             persona.language_preference,
         );
 
-        fs::write(&path, &md_content).map_err(|e| format!("Failed to write persona file {:?}: {}", path, e))?;
+        fs::write(&path, &md_content)
+            .map_err(|e| format!("Failed to write persona file {:?}: {}", path, e))?;
 
         // 更新缓存
         let mut updated = persona.clone();
         updated.updated_at = chrono::Utc::now().timestamp();
         self.cache.insert(persona.agent_id.clone(), updated);
 
-        log::info!("[PersonaManager] Saved persona for agent '{}'", persona.agent_id);
+        log::info!(
+            "[PersonaManager] Saved persona for agent '{}'",
+            persona.agent_id
+        );
         Ok(())
     }
 
@@ -195,10 +219,15 @@ impl PersonaManager {
         };
 
         match field.to_lowercase().as_str() {
-            "name" | "display_name" => { persona.display_name = value.to_string(); }
+            "name" | "display_name" => {
+                persona.display_name = value.to_string();
+            }
             "traits" | "personality" => {
-                persona.personality_traits = value.split([',', '/', '、'])
-                    .map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+                persona.personality_traits = value
+                    .split([',', '/', '、'])
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
             }
             "style" | "communication_style" => {
                 persona.communication_style = match value.to_lowercase().as_str() {
@@ -211,13 +240,22 @@ impl PersonaManager {
                     _ => return Err(format!("Invalid communication style: {}", value)),
                 };
             }
-            "domain" | "expertise" => { persona.expertise_domain = value.to_string(); }
-            "constraints" => {
-                persona.behavior_constraints = value.split([',', ';', '|'])
-                    .map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+            "domain" | "expertise" => {
+                persona.expertise_domain = value.to_string();
             }
-            "tone" => { persona.response_tone_instruction = value.to_string(); }
-            "language" => { persona.language_preference = value.to_string(); }
+            "constraints" => {
+                persona.behavior_constraints = value
+                    .split([',', ';', '|'])
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+            }
+            "tone" => {
+                persona.response_tone_instruction = value.to_string();
+            }
+            "language" => {
+                persona.language_preference = value.to_string();
+            }
             _ => return Err(format!("Unknown field: {}", field)),
         }
 
@@ -243,11 +281,7 @@ impl PersonaManager {
 
     /// 构建带画像增强的完整 System Prompt
     /// 将 persona 片段注入基础 system prompt
-    pub fn build_enhanced_system_prompt(
-        &mut self,
-        agent_id: &str,
-        base_prompt: &str,
-    ) -> String {
+    pub fn build_enhanced_system_prompt(&mut self, agent_id: &str, base_prompt: &str) -> String {
         let persona_fragment = match self.get_persona(agent_id) {
             Some(p) => p.to_system_prompt_fragment(),
             None => String::new(),
@@ -273,7 +307,8 @@ impl PersonaManager {
 fn extract_colon_value(line: &str) -> Option<String> {
     // 支持 "Key: Value" 和 "**Key**: Value" 格式
     if let Some(pos) = line.find(':') {
-        let value = line[pos + 1..].trim()
+        let value = line[pos + 1..]
+            .trim()
             .trim_start_matches("**")
             .trim_end_matches("**")
             .trim()

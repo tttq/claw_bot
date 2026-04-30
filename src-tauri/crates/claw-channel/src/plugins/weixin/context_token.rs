@@ -14,7 +14,8 @@ impl ContextTokenStore {
             [account_id.into(), user_id.into()],
         )).await.ok()?;
 
-        rows.first().and_then(|row| row.try_get::<String>("", "context_token").ok())
+        rows.first()
+            .and_then(|row| row.try_get::<String>("", "context_token").ok())
     }
 
     pub async fn set(account_id: &str, user_id: &str, token: &str) -> Result<(), String> {
@@ -35,7 +36,9 @@ pub struct MessageDeduplicator {
 
 impl MessageDeduplicator {
     pub fn new() -> Self {
-        Self { ttl: Duration::from_secs(300) }
+        Self {
+            ttl: Duration::from_secs(300),
+        }
     }
 
     pub async fn is_duplicate(&self, message_id: &str) -> bool {
@@ -43,11 +46,14 @@ impl MessageDeduplicator {
         let now = chrono::Utc::now().timestamp();
         let cutoff = now - self.ttl.as_secs() as i64;
 
-        if let Ok(rows) = db.query_all(Statement::from_sql_and_values(
-            db.get_database_backend(),
-            "SELECT 1 FROM message_dedup WHERE message_id = ?1 AND seen_at > ?2",
-            [message_id.into(), cutoff.into()],
-        )).await {
+        if let Ok(rows) = db
+            .query_all(Statement::from_sql_and_values(
+                db.get_database_backend(),
+                "SELECT 1 FROM message_dedup WHERE message_id = ?1 AND seen_at > ?2",
+                [message_id.into(), cutoff.into()],
+            ))
+            .await
+        {
             !rows.is_empty()
         } else {
             false
@@ -61,7 +67,9 @@ impl MessageDeduplicator {
             db.get_database_backend(),
             "INSERT OR REPLACE INTO message_dedup (message_id, seen_at) VALUES (?1, ?2)",
             [message_id.into(), now.into()],
-        )).await.map_err(|e| e.to_string())?;
+        ))
+        .await
+        .map_err(|e| e.to_string())?;
 
         let _ = self.cleanup_expired().await;
         Ok(())
@@ -75,7 +83,9 @@ impl MessageDeduplicator {
             db.get_database_backend(),
             "DELETE FROM message_dedup WHERE seen_at < ?1",
             [cutoff.into()],
-        )).await.map_err(|e| e.to_string())?;
+        ))
+        .await
+        .map_err(|e| e.to_string())?;
         Ok(())
     }
 }

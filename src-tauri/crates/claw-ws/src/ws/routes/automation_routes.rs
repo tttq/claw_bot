@@ -1,11 +1,11 @@
 // Claw Desktop - 自动化路由 - 处理桌面自动化(CUA/鼠标键盘/窗口/应用)的WS请求
 use axum::{
+    Json, Router,
     extract::{Extension, Query},
     routing::{get, post},
-    Json, Router,
 };
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::ws::app_state::AppState;
 use crate::ws::response::ApiResponse;
@@ -23,7 +23,10 @@ pub async fn automation_cua_execute(
         Some(i) => i.to_string(),
         None => return Json(ApiResponse::err("Missing instruction")),
     };
-    log::info!("[Automation:cua_execute] instruction_len={}", instruction.len());
+    log::info!(
+        "[Automation:cua_execute] instruction_len={}",
+        instruction.len()
+    );
     Json(ApiResponse::ok(serde_json::json!({
         "success": false,
         "instruction": instruction,
@@ -39,9 +42,14 @@ pub async fn automation_execute(
     Extension(_state): Extension<Arc<AppState>>,
     Json(body): Json<serde_json::Value>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let instruction = body.get("instruction").and_then(|v| v.as_str()).unwrap_or("");
+    let instruction = body
+        .get("instruction")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     log::info!("[Automation:execute] instruction={}", instruction);
-    Json(ApiResponse::ok(serde_json::json!({ "success": false, "error": "Automation engine not available in WS mode" })))
+    Json(ApiResponse::ok(
+        serde_json::json!({ "success": false, "error": "Automation engine not available in WS mode" }),
+    ))
 }
 
 /// 截取屏幕截图
@@ -57,9 +65,14 @@ pub async fn automation_ocr(
     Extension(_state): Extension<Arc<AppState>>,
     Json(body): Json<serde_json::Value>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let language = body.get("language").and_then(|v| v.as_str()).unwrap_or("eng");
+    let language = body
+        .get("language")
+        .and_then(|v| v.as_str())
+        .unwrap_or("eng");
     log::info!("[Automation:ocr] language={}", language);
-    Json(ApiResponse::ok(serde_json::json!({ "text": "", "language": language })))
+    Json(ApiResponse::ok(
+        serde_json::json!({ "text": "", "language": language }),
+    ))
 }
 
 /// 鼠标点击
@@ -163,7 +176,10 @@ pub async fn automation_window_focus(
     Extension(_state): Extension<Arc<AppState>>,
     Json(body): Json<serde_json::Value>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let title = body.get("titleContains").and_then(|v| v.as_str()).unwrap_or("");
+    let title = body
+        .get("titleContains")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     log::info!("[Automation:window_focus] titleContains={}", title);
     Json(ApiResponse::ok(serde_json::json!({})))
 }
@@ -235,8 +251,14 @@ pub async fn automation_manop_execute(
     Extension(_state): Extension<Arc<AppState>>,
     Json(body): Json<serde_json::Value>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let instruction = body.get("instruction").and_then(|v| v.as_str()).unwrap_or("");
-    log::info!("[Automation:manop_execute] instruction_len={}", instruction.len());
+    let instruction = body
+        .get("instruction")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    log::info!(
+        "[Automation:manop_execute] instruction_len={}",
+        instruction.len()
+    );
     Json(ApiResponse::ok(serde_json::json!({})))
 }
 
@@ -283,30 +305,66 @@ impl ClawRouter for AutomationRoutes {
         Router::new()
             .route("/api/automation/cua-execute", post(automation_cua_execute))
             .route("/api/automation/execute", post(automation_execute))
-            .route("/api/automation/capture-screen", get(automation_capture_screen))
+            .route(
+                "/api/automation/capture-screen",
+                get(automation_capture_screen),
+            )
             .route("/api/automation/ocr", post(automation_ocr))
             .route("/api/automation/mouse/click", post(automation_mouse_click))
-            .route("/api/automation/mouse/double-click", post(automation_mouse_double_click))
-            .route("/api/automation/mouse/right-click", post(automation_mouse_right_click))
-            .route("/api/automation/mouse/scroll", post(automation_mouse_scroll))
+            .route(
+                "/api/automation/mouse/double-click",
+                post(automation_mouse_double_click),
+            )
+            .route(
+                "/api/automation/mouse/right-click",
+                post(automation_mouse_right_click),
+            )
+            .route(
+                "/api/automation/mouse/scroll",
+                post(automation_mouse_scroll),
+            )
             .route("/api/automation/mouse/drag", post(automation_mouse_drag))
-            .route("/api/automation/keyboard/type", post(automation_keyboard_type))
-            .route("/api/automation/keyboard/press", post(automation_keyboard_press))
-            .route("/api/automation/window/active", get(automation_window_active))
+            .route(
+                "/api/automation/keyboard/type",
+                post(automation_keyboard_type),
+            )
+            .route(
+                "/api/automation/keyboard/press",
+                post(automation_keyboard_press),
+            )
+            .route(
+                "/api/automation/window/active",
+                get(automation_window_active),
+            )
             .route("/api/automation/window/title", get(automation_window_title))
             .route("/api/automation/window/list", get(automation_window_list))
-            .route("/api/automation/window/focus", post(automation_window_focus))
+            .route(
+                "/api/automation/window/focus",
+                post(automation_window_focus),
+            )
             .route("/api/automation/screen/size", get(automation_screen_size))
             .route("/api/automation/apps/list", get(automation_apps_list))
             .route("/api/automation/apps/launch", post(automation_apps_launch))
             .route("/api/automation/config", get(automation_config))
             .route("/api/automation/manop/init", post(automation_manop_init))
             .route("/api/automation/manop/status", get(automation_manop_status))
-            .route("/api/automation/manop/download", post(automation_manop_download))
-            .route("/api/automation/manop/execute", post(automation_manop_execute))
-            .route("/api/automation/manop/configure-cloud", post(automation_manop_configure_cloud))
+            .route(
+                "/api/automation/manop/download",
+                post(automation_manop_download),
+            )
+            .route(
+                "/api/automation/manop/execute",
+                post(automation_manop_execute),
+            )
+            .route(
+                "/api/automation/manop/configure-cloud",
+                post(automation_manop_configure_cloud),
+            )
             .route("/api/automation/apps/search", get(automation_apps_search))
             .route("/api/automation/apps/find", get(automation_apps_find))
-            .route("/api/automation/apps/refresh-index", post(automation_apps_refresh_index))
+            .route(
+                "/api/automation/apps/refresh-index",
+                post(automation_apps_refresh_index),
+            )
     }
 }

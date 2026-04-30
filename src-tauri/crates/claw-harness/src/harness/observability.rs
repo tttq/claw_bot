@@ -1,4 +1,4 @@
-﻿// Claw Desktop - 可观测性 - 调用统计、事件流、延迟监控
+// Claw Desktop - 可观测性 - 调用统计、事件流、延迟监控
 use crate::harness::types::{HarnessEvent, HarnessEventType};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -113,10 +113,8 @@ impl ObservabilityEngine {
     /// 获取Agent统计 — 返回错误数、完成数、失败数、跨记忆访问数、验证失败数、成功率
     pub async fn get_agent_stats(&self, agent_id: &str) -> serde_json::Value {
         let events = self.events.read().await;
-        let agent_events: Vec<&HarnessEvent> = events
-            .iter()
-            .filter(|e| e.agent_id == agent_id)
-            .collect();
+        let agent_events: Vec<&HarnessEvent> =
+            events.iter().filter(|e| e.agent_id == agent_id).collect();
 
         let total = agent_events.len();
         let errors = agent_events

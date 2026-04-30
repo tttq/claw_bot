@@ -1,14 +1,14 @@
 // Claw Desktop - 应用全局状态
 // 管理Tauri应用的生命周期状态：配置、数据库、事件总线、WebSocket服务器句柄等
-use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
-use tokio::sync::Mutex as TokioMutex;
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
+use tokio::sync::Mutex as TokioMutex;
 
 use async_trait::async_trait;
-use serde_json::Value;
-use claw_types::common::SubscriptionId;
 use claw_traits::event_bus::{EventBus, EventHandler};
+use claw_types::common::SubscriptionId;
+use serde_json::Value;
 
 pub struct ClawAppState {
     pub config: Mutex<claw_config::config::AppConfig>,
@@ -35,12 +35,15 @@ impl TauriEventBus {
     }
 
     fn event_matches_pattern(event_type: &str, pattern: &str) -> bool {
-        if pattern == "*" { return true; }
-        if pattern == event_type { return true; }
+        if pattern == "*" {
+            return true;
+        }
+        if pattern == event_type {
+            return true;
+        }
         if pattern.ends_with(".*") {
             let prefix = &pattern[..pattern.len() - 2];
-            return event_type.starts_with(prefix) &&
-                event_type[prefix.len()..].starts_with('.');
+            return event_type.starts_with(prefix) && event_type[prefix.len()..].starts_with('.');
         }
         if pattern.ends_with(".>") {
             let prefix = &pattern[..pattern.len() - 2];
@@ -53,7 +56,10 @@ impl TauriEventBus {
 #[async_trait]
 impl EventBus for TauriEventBus {
     async fn publish(&self, event: claw_types::events::AppEvent) {
-        let _ = self.handle.emit("event-bus", serde_json::to_value(&event).unwrap_or(Value::Null));
+        let _ = self.handle.emit(
+            "event-bus",
+            serde_json::to_value(&event).unwrap_or(Value::Null),
+        );
 
         let event_type = serde_json::to_value(&event)
             .ok()
@@ -89,7 +95,11 @@ impl EventBus for TauriEventBus {
             handler,
         };
         self.subscriptions.lock().await.insert(id, entry);
-        log::info!("[EventBus] Subscribed | id={}, pattern={}", id, event_pattern);
+        log::info!(
+            "[EventBus] Subscribed | id={}, pattern={}",
+            id,
+            event_pattern
+        );
         id
     }
 
@@ -115,8 +125,14 @@ impl ClawAppState {
     pub async fn new(app_handle: AppHandle, config: claw_config::config::AppConfig) -> Self {
         log::info!("[AppState] Initializing...");
         let event_bus = Self::create_event_bus(app_handle);
-        log::info!("[AppState] Ready — config={}, event_bus=✅", config.model.default_model);
-        Self { config: Mutex::new(config), event_bus }
+        log::info!(
+            "[AppState] Ready — config={}, event_bus=✅",
+            config.model.default_model
+        );
+        Self {
+            config: Mutex::new(config),
+            event_bus,
+        }
     }
 
     pub fn get_config(&self) -> claw_config::config::AppConfig {
@@ -137,11 +153,26 @@ mod tests {
     #[test]
     fn test_event_matches_pattern() {
         assert!(TauriEventBus::event_matches_pattern("tool.executed", "*"));
-        assert!(TauriEventBus::event_matches_pattern("tool.executed", "tool.executed"));
-        assert!(TauriEventBus::event_matches_pattern("tool.executed", "tool.*"));
-        assert!(!TauriEventBus::event_matches_pattern("tool.executed", "channel.*"));
-        assert!(TauriEventBus::event_matches_pattern("tool.executed.completed", "tool.>"));
-        assert!(!TauriEventBus::event_matches_pattern("tool.executed", "channel.>"));
+        assert!(TauriEventBus::event_matches_pattern(
+            "tool.executed",
+            "tool.executed"
+        ));
+        assert!(TauriEventBus::event_matches_pattern(
+            "tool.executed",
+            "tool.*"
+        ));
+        assert!(!TauriEventBus::event_matches_pattern(
+            "tool.executed",
+            "channel.*"
+        ));
+        assert!(TauriEventBus::event_matches_pattern(
+            "tool.executed.completed",
+            "tool.>"
+        ));
+        assert!(!TauriEventBus::event_matches_pattern(
+            "tool.executed",
+            "channel.>"
+        ));
     }
 
     #[test]
@@ -184,7 +215,10 @@ mod tests {
         let bus1 = state.get_event_bus();
         let bus2 = state.get_event_bus();
 
-        assert!(Arc::ptr_eq(&bus1, &bus2), "EventBus clones should point to same instance");
+        assert!(
+            Arc::ptr_eq(&bus1, &bus2),
+            "EventBus clones should point to same instance"
+        );
     }
 
     fn create_mock_event_bus() -> Arc<dyn EventBus> {

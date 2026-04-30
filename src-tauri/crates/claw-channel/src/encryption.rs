@@ -1,9 +1,9 @@
 // Claw Desktop - 渠道加密 - 消息加密和解密
 use aes_gcm::{
-    aead::{Aead, KeyInit, OsRng},
     Aes256Gcm, Nonce,
+    aead::{Aead, KeyInit, OsRng},
 };
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use rand::RngCore;
 use std::collections::HashMap;
 
@@ -16,8 +16,7 @@ pub struct EncryptionService {
 
 impl EncryptionService {
     pub fn new(master_key: &[u8; KEY_SIZE]) -> Self {
-        let cipher = Aes256Gcm::new_from_slice(master_key)
-            .expect("Invalid key length");
+        let cipher = Aes256Gcm::new_from_slice(master_key).expect("Invalid key length");
         Self { cipher }
     }
 

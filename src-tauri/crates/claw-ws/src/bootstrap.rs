@@ -1,5 +1,5 @@
 // Claw Desktop - WS引导 - 启动WebSocket服务器
-use std::sync::{OnceLock};
+use std::sync::OnceLock;
 use tokio::sync::OnceCell;
 
 static WS_STATE: OnceCell<WsState> = OnceCell::const_new();
@@ -19,9 +19,7 @@ pub async fn bootstrap(app_handle: tauri::AppHandle) -> Result<&'static WsState,
     use crate::ws::router;
     use crate::ws::server;
 
-    let cfg = claw_config::config::get_config()
-        .await?
-        .clone();
+    let cfg = claw_config::config::get_config().await?.clone();
 
     router::init_router(cfg);
 
@@ -45,11 +43,14 @@ pub async fn bootstrap(app_handle: tauri::AppHandle) -> Result<&'static WsState,
 
     let _ = WS_PORT.set(port);
     let state = WsState { port };
-    WS_STATE.set(state)
+    WS_STATE
+        .set(state)
         .map_err(|_| "WS state already set".to_string())?;
 
     log::info!("[WsBootstrap] Initialized (port={})", port);
-    WS_STATE.get().ok_or_else(|| "WS state not initialized".to_string())
+    WS_STATE
+        .get()
+        .ok_or_else(|| "WS state not initialized".to_string())
 }
 
 /// 获取WS服务器端口

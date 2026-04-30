@@ -1,13 +1,13 @@
-﻿// Claw Desktop - WS认证 - RSA握手、令牌验证、会话密钥解密
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
-use rsa::{RsaPrivateKey, RsaPublicKey, Oaep};
-use rsa::pkcs8::{EncodePrivateKey, DecodePrivateKey, EncodePublicKey};
-use rsa::sha2::Sha256;
-use sha2::Digest;
-use serde::{Deserialize, Serialize};
-use std::sync::OnceLock;
-use std::path::PathBuf;
+// Claw Desktop - WS认证 - RSA握手、令牌验证、会话密钥解密
 use base64::Engine;
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use rsa::pkcs8::{DecodePrivateKey, EncodePrivateKey, EncodePublicKey};
+use rsa::sha2::Sha256;
+use rsa::{Oaep, RsaPrivateKey, RsaPublicKey};
+use serde::{Deserialize, Serialize};
+use sha2::Digest;
+use std::path::PathBuf;
+use std::sync::OnceLock;
 
 static KEY_PAIR: OnceLock<(RsaPrivateKey, RsaPublicKey)> = OnceLock::new();
 static JWT_SECRET: OnceLock<String> = OnceLock::new();
@@ -35,9 +35,7 @@ fn load_or_generate_secret() -> String {
     }
 
     log::info!("[Auth] Generating new JWT secret");
-    let secret = format!("{:x}", Sha256::digest(
-        &rand::random::<[u8; 32]>()
-    ));
+    let secret = format!("{:x}", Sha256::digest(&rand::random::<[u8; 32]>()));
 
     if let Some(dir) = get_app_data_dir() {
         let _ = std::fs::create_dir_all(&dir);
@@ -67,15 +65,17 @@ fn load_or_generate_keypair() -> (RsaPrivateKey, RsaPublicKey) {
                     log::info!("[Auth] Loaded persisted RSA key pair from {:?}", path);
                     return (private_key, public_key);
                 }
-                Err(e) => log::warn!("[Auth] Failed to parse persisted key pair: {}, regenerating...", e),
+                Err(e) => log::warn!(
+                    "[Auth] Failed to parse persisted key pair: {}, regenerating...",
+                    e
+                ),
             }
         }
     }
 
     log::info!("[Auth] Generating new RSA key pair");
     let mut rng = rand::thread_rng();
-    let private_key = RsaPrivateKey::new(&mut rng, 2048)
-        .expect("Failed to generate RSA key pair");
+    let private_key = RsaPrivateKey::new(&mut rng, 2048).expect("Failed to generate RSA key pair");
     let public_key = RsaPublicKey::from(&private_key);
 
     if let Some(dir) = get_app_data_dir() {
@@ -107,7 +107,8 @@ fn get_jwt_secret() -> &'static str {
 /// 获取RSA公钥PEM — 用于客户端加密会话密钥
 pub fn get_public_key_pem() -> Result<String, String> {
     let public_key = &get_or_init_key_pair().1;
-    let pem = public_key.to_public_key_pem(rsa::pkcs8::LineEnding::LF)
+    let pem = public_key
+        .to_public_key_pem(rsa::pkcs8::LineEnding::LF)
         .map_err(|e| format!("Failed to encode public key as SPKI PEM: {}", e))?;
     Ok(pem.into())
 }

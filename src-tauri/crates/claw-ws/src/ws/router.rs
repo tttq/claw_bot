@@ -1,7 +1,7 @@
-﻿// Claw Desktop - WS路由器 - 请求方法到处理函数的映射
-use claw_config::config::AppConfig;
+// Claw Desktop - WS路由器 - 请求方法到处理函数的映射
 use crate::ws::auth;
 use crate::ws::protocol::{WsRequest, WsResponse};
+use claw_config::config::AppConfig;
 use std::sync::OnceLock;
 use tokio::sync::Mutex as TokioMutex;
 
@@ -27,7 +27,11 @@ pub(crate) async fn get_config() -> AppConfig {
 pub async fn dispatch(req: WsRequest) -> WsResponse {
     if req.method != "auth_handshake" {
         if req.token.is_empty() || !auth::is_token_valid(&req.token) {
-            return WsResponse::err(&req.id, &req.method, "Unauthorized: invalid or expired token");
+            return WsResponse::err(
+                &req.id,
+                &req.method,
+                "Unauthorized: invalid or expired token",
+            );
         }
     }
 
@@ -38,12 +42,21 @@ pub async fn dispatch(req: WsRequest) -> WsResponse {
              Use HTTP {} /api/{} instead. \
              See src/ws/http.ts ROUTE_MAP for endpoint details.",
             req.method,
-            if req.method.starts_with("get_") || req.method.starts_with("list")
-                || req.method == "tool_list_all" || req.method == "agent_list"
-                || req.method == "channel_list" || req.method == "skill_list"
-                || req.method == "memory_list_entities" || req.method == "memory_stats"
-                || req.method == "get_db_stats" || req.method == "get_session_info"
-                { "GET" } else { "POST" },
+            if req.method.starts_with("get_")
+                || req.method.starts_with("list")
+                || req.method == "tool_list_all"
+                || req.method == "agent_list"
+                || req.method == "channel_list"
+                || req.method == "skill_list"
+                || req.method == "memory_list_entities"
+                || req.method == "memory_stats"
+                || req.method == "get_db_stats"
+                || req.method == "get_session_info"
+            {
+                "GET"
+            } else {
+                "POST"
+            },
             req.method
         )),
     };

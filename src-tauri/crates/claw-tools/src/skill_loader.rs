@@ -1,11 +1,10 @@
+use serde::{Deserialize, Serialize};
+use serde_json::{self, Value as JsonValue, json};
 /// Claw Desktop - 技能加载器 - 从磁盘加载SKILL.md格式的技能文件
 // 对标 def_claw src/skills/loadSkillsDir.ts
 // 功能：从磁盘目录加载 SKILL.md 文件 → 解析 YAML frontmatter → 注册到工具注册表
-
 use std::fs;
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
-use serde_json::{self, json, Value as JsonValue};
 
 /// 已加载的技能完整定义（从 SKILL.md 解析得到）
 /// 包含元数据、正文内容、来源类型和文件路径
@@ -36,7 +35,9 @@ pub struct LoadedSkill {
     pub source: SkillSource,
 }
 
-const fn true_fn() -> bool { true }
+const fn true_fn() -> bool {
+    true
+}
 
 /// 技能来源类型（决定注册到工具表时的 ToolSource）
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -50,7 +51,9 @@ pub enum SkillSource {
 }
 
 impl Default for SkillSource {
-    fn default() -> Self { Self::Bundled }
+    fn default() -> Self {
+        Self::Bundled
+    }
 }
 
 /// 解析SKILL.md文件 — 提取YAML frontmatter和Markdown正文
@@ -69,7 +72,9 @@ fn parse_skill_file(path: &Path) -> Option<(serde_yaml::Value, String)> {
 /// 解析 YAML frontmatter（元数据）+ Markdown body（正文模板）
 /// 跳过 AutomationSkill 格式的文件（含有 app_name 字段）
 pub fn load_skill_from_file(path: &Path, source: SkillSource) -> Option<LoadedSkill> {
-    if !path.exists() { return None; }
+    if !path.exists() {
+        return None;
+    }
     let (fm, body) = parse_skill_file(path)?;
 
     if fm.get("app_name").is_some() {
@@ -77,33 +82,42 @@ pub fn load_skill_from_file(path: &Path, source: SkillSource) -> Option<LoadedSk
         return None;
     }
     let dir_name = path.parent()?.file_name()?.to_string_lossy().to_string();
-    
+
     let get_str = |key: &str| -> Option<String> {
         fm.get(key).and_then(|v: &serde_yaml::Value| match v {
             serde_yaml::Value::String(s) => Some(s.clone()),
             _ => None,
         })
     };
-    
+
     let get_bool = |key: &str| -> bool {
-        fm.get(key).and_then(|v: &serde_yaml::Value| match v {
-            serde_yaml::Value::Bool(b) => Some(*b),
-            _ => None,
-        }).unwrap_or(true)
-    };
-    
-    let get_arr = |key: &str| -> Vec<String> {
-        fm.get(key).and_then(|v: &serde_yaml::Value| match v {
-            serde_yaml::Value::Sequence(arr) => Some(arr.iter().filter_map(|i| match i {
-                serde_yaml::Value::String(s) => Some(s.clone()),
+        fm.get(key)
+            .and_then(|v: &serde_yaml::Value| match v {
+                serde_yaml::Value::Bool(b) => Some(*b),
                 _ => None,
-            }).collect()),
-            _ => None,
-        }).unwrap_or_default()
+            })
+            .unwrap_or(true)
+    };
+
+    let get_arr = |key: &str| -> Vec<String> {
+        fm.get(key)
+            .and_then(|v: &serde_yaml::Value| match v {
+                serde_yaml::Value::Sequence(arr) => Some(
+                    arr.iter()
+                        .filter_map(|i| match i {
+                            serde_yaml::Value::String(s) => Some(s.clone()),
+                            _ => None,
+                        })
+                        .collect(),
+                ),
+                _ => None,
+            })
+            .unwrap_or_default()
     };
 
     let name = get_str("name").unwrap_or(dir_name);
-    let description = get_str("description").or_else(|| extract_description_from_body(&body))
+    let description = get_str("description")
+        .or_else(|| extract_description_from_body(&body))
         .unwrap_or_else(|| format!("Skill: {}", name));
     let when_to_use = get_str("when_to_use").or_else(|| get_str("whenToUse"));
     let allowed_tools = get_str("allowed-tools")
@@ -115,14 +129,33 @@ pub fn load_skill_from_file(path: &Path, source: SkillSource) -> Option<LoadedSk
     let effort = get_str("effort");
     let paths_val = fm.get("paths");
     let paths: Option<Vec<String>> = paths_val.and_then(|v: &serde_yaml::Value| match v {
-        serde_yaml::Value::Sequence(arr) => Some(arr.iter().filter_map(|i| match i {
-            serde_yaml::Value::String(s) => Some(s.clone()),
-            _ => None,
-        }).collect()),
+        serde_yaml::Value::Sequence(arr) => Some(
+            arr.iter()
+                .filter_map(|i| match i {
+                    serde_yaml::Value::String(s) => Some(s.clone()),
+                    _ => None,
+                })
+                .collect(),
+        ),
         _ => None,
     });
 
-    Some(LoadedSkill { name, display_name: None, description, when_to_use, allowed_tools, argument_hint, user_invocable: get_bool("user-invocable"), version, model, effort, paths, content: body, file_path: path.to_string_lossy().to_string(), source })
+    Some(LoadedSkill {
+        name,
+        display_name: None,
+        description,
+        when_to_use,
+        allowed_tools,
+        argument_hint,
+        user_invocable: get_bool("user-invocable"),
+        version,
+        model,
+        effort,
+        paths,
+        content: body,
+        file_path: path.to_string_lossy().to_string(),
+        source,
+    })
 }
 
 /// 从Markdown正文中提取描述 — 取第一个非标题非代码块的文本行
@@ -130,11 +163,16 @@ fn extract_description_from_body(body: &str) -> Option<String> {
     for line in body.lines() {
         let trimmed = line.trim();
         if !trimmed.is_empty() && !trimmed.starts_with('#') && !trimmed.starts_with("```") {
-            return Some(if trimmed.len() > 120 { 
-                let safe_end = trimmed.char_indices().take(120).last().map(|(i, _)| i).unwrap_or(0);
-                format!("{}...", &trimmed[..safe_end]) 
-            } else { 
-                trimmed.to_string() 
+            return Some(if trimmed.len() > 120 {
+                let safe_end = trimmed
+                    .char_indices()
+                    .take(120)
+                    .last()
+                    .map(|(i, _)| i)
+                    .unwrap_or(0);
+                format!("{}...", &trimmed[..safe_end])
+            } else {
+                trimmed.to_string()
             });
         }
     }
@@ -144,15 +182,28 @@ fn extract_description_from_body(body: &str) -> Option<String> {
 /// 扫描指定目录下所有含 SKILL.md 的子目录，批量加载技能
 pub fn load_skills_from_dir(dir: &Path, source: &SkillSource) -> Vec<LoadedSkill> {
     let mut skills = Vec::new();
-    if !dir.exists() || !dir.is_dir() { return skills; }
+    if !dir.exists() || !dir.is_dir() {
+        return skills;
+    }
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
-            let ft = match entry.file_type() { Ok(ft) => ft, Err(_) => continue };
-            if !ft.is_dir() && !ft.is_symlink() { continue; }
+            let ft = match entry.file_type() {
+                Ok(ft) => ft,
+                Err(_) => continue,
+            };
+            if !ft.is_dir() && !ft.is_symlink() {
+                continue;
+            }
             let skill_md = entry.path().join("SKILL.md");
-            if !skill_md.exists() { continue; }
+            if !skill_md.exists() {
+                continue;
+            }
             if let Some(skill) = load_skill_from_file(&skill_md, source.clone()) {
-                log::info!("[SkillLoader] 加载技能: {} (来源: {:?})", skill.name, source);
+                log::info!(
+                    "[SkillLoader] 加载技能: {} (来源: {:?})",
+                    skill.name,
+                    source
+                );
                 skills.push(skill);
             }
         }
@@ -167,7 +218,9 @@ pub fn load_all_skills(directories: &[(PathBuf, SkillSource)]) -> Vec<LoadedSkil
     for (dir, source) in directories {
         let skills = load_skills_from_dir(dir, source);
         for skill in skills {
-            if seen_names.insert(skill.name.clone()) { all_skills.push(skill); }
+            if seen_names.insert(skill.name.clone()) {
+                all_skills.push(skill);
+            }
         }
     }
     all_skills
@@ -175,9 +228,9 @@ pub fn load_all_skills(directories: &[(PathBuf, SkillSource)]) -> Vec<LoadedSkil
 
 /// 将已加载的技能注册为工具（ToolDefinition），返回成功注册数量
 pub async fn register_skills_as_tools(skills: &[LoadedSkill]) -> usize {
-    use crate::tool_registry::{register_tool, ToolSource as TSrc};
+    use crate::tool_registry::{ToolSource as TSrc, register_tool};
     use claw_types::common::ToolDefinition;
-    
+
     let mut count = 0;
     for skill in skills {
         let tsrc = match skill.source {
@@ -186,12 +239,14 @@ pub async fn register_skills_as_tools(skills: &[LoadedSkill]) -> usize {
             SkillSource::Extension => TSrc::Extension,
             SkillSource::Mcp => TSrc::Mcp,
         };
-        
+
         let def = ToolDefinition {
             name: format!("Skill:{}", skill.name),
             description: if let Some(ref wtu) = skill.when_to_use {
                 format!("{} [使用场景: {}]", skill.description, wtu)
-            } else { skill.description.clone() },
+            } else {
+                skill.description.clone()
+            },
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -203,8 +258,10 @@ pub async fn register_skills_as_tools(skills: &[LoadedSkill]) -> usize {
             category: None,
             tags: Vec::new(),
         };
-        
-        if register_tool(def, tsrc, Some(format!("skill:{}", skill.name))).await { count += 1; }
+
+        if register_tool(def, tsrc, Some(format!("skill:{}", skill.name))).await {
+            count += 1;
+        }
     }
     log::info!("[SkillLoader] 已注册 {} 个技能工具", count);
     count
@@ -217,7 +274,10 @@ pub fn default_skill_directories() -> Vec<(PathBuf, SkillSource)> {
     if let Ok(root) = std::env::current_dir() {
         let dev_skills = root.join(".build_temp").join("skills");
         if dev_skills.exists() || root.join("src-tauri").exists() {
-            log::info!("[SkillLoader] Dev mode: adding .build_temp/skills @ {}", dev_skills.display());
+            log::info!(
+                "[SkillLoader] Dev mode: adding .build_temp/skills @ {}",
+                dev_skills.display()
+            );
             dirs.push((dev_skills, SkillSource::Bundled));
         }
     }
@@ -232,7 +292,10 @@ pub fn default_skill_directories() -> Vec<(PathBuf, SkillSource)> {
     }
 
     if let Ok(exe) = std::env::current_exe() {
-        dirs.push((exe.parent().unwrap_or(Path::new(".")).join("skills"), SkillSource::Bundled));
+        dirs.push((
+            exe.parent().unwrap_or(Path::new(".")).join("skills"),
+            SkillSource::Bundled,
+        ));
     }
 
     dirs
@@ -242,26 +305,36 @@ pub fn default_skill_directories() -> Vec<(PathBuf, SkillSource)> {
 pub async fn discover_and_load_all_skills() -> Vec<LoadedSkill> {
     let mut all_skills = Vec::new();
     let mut seen_names: std::collections::HashSet<String> = std::collections::HashSet::new();
-    
+
     let bundled = load_bundled_skills();
     for skill in bundled {
-        if seen_names.insert(skill.name.clone()) { all_skills.push(skill); }
+        if seen_names.insert(skill.name.clone()) {
+            all_skills.push(skill);
+        }
     }
-    
+
     let dirs = default_skill_directories();
     let user_skills = load_all_skills(&dirs);
     for skill in user_skills {
-        if seen_names.insert(skill.name.clone()) { all_skills.push(skill); }
+        if seen_names.insert(skill.name.clone()) {
+            all_skills.push(skill);
+        }
     }
-    
+
     register_skills_as_tools(&all_skills).await;
-    log::info!("[SkillLoader] 总计加载 {} 个技能（内置+用户）", all_skills.len());
+    log::info!(
+        "[SkillLoader] 总计加载 {} 个技能（内置+用户）",
+        all_skills.len()
+    );
     all_skills
 }
 
 /// Tauri命令：从指定目录加载技能并注册
 #[tauri::command]
-pub async fn cmd_load_skills_from_dir(dir: String, source: Option<String>) -> Result<JsonValue, String> {
+pub async fn cmd_load_skills_from_dir(
+    dir: String,
+    source: Option<String>,
+) -> Result<JsonValue, String> {
     let src = match source.as_deref() {
         Some("project") => SkillSource::Project,
         Some("extension") => SkillSource::Extension,
@@ -271,7 +344,9 @@ pub async fn cmd_load_skills_from_dir(dir: String, source: Option<String>) -> Re
     let path = PathBuf::from(&dir);
     let skills = load_skills_from_dir(&path, &src);
     let registered = register_skills_as_tools(&skills).await;
-    Ok(json!({"success":true,"directory":dir,"source":format!("{:?}",src),"found":skills.len(),"registered":registered,"skills":skills.iter().map(|s|json!({"name":s.name,"description":s.description,"version":s.version})).collect::<Vec<_>>()}))
+    Ok(
+        json!({"success":true,"directory":dir,"source":format!("{:?}",src),"found":skills.len(),"registered":registered,"skills":skills.iter().map(|s|json!({"name":s.name,"description":s.description,"version":s.version})).collect::<Vec<_>>()}),
+    )
 }
 
 /// Tauri命令：列出所有已加载的技能（包括已注册和内置的）
@@ -313,10 +388,10 @@ pub async fn cmd_list_loaded_skills() -> Result<JsonValue, String> {
 /// 从编译时嵌入的 bundled-skills 目录加载技能
 pub fn load_bundled_skills() -> Vec<LoadedSkill> {
     use crate::bundled_skills;
-    
+
     let bundled = bundled_skills::get_all_bundled_skills();
     let mut skills = Vec::new();
-    
+
     for info in bundled {
         let (fm, body) = if let Some(pos) = info.content.find("---") {
             let after_first = &info.content[pos + 3..];
@@ -334,31 +409,45 @@ pub fn load_bundled_skills() -> Vec<LoadedSkill> {
         } else {
             (None, info.content.clone())
         };
-        
+
         let get_fm_str = |key: &str| -> Option<String> {
-            fm.as_ref().and_then(|v| v.get(key).and_then(|v| match v {
-                serde_yaml::Value::String(s) => Some(s.clone()),
-                _ => None,
-            }))
-        };
-        
-        let get_fm_bool = |key: &str| -> bool {
-            fm.as_ref().and_then(|v| v.get(key).and_then(|v| match v {
-                serde_yaml::Value::Bool(b) => Some(*b),
-                _ => None,
-            })).unwrap_or(true)
-        };
-        
-        let get_fm_arr = |key: &str| -> Vec<String> {
-            fm.as_ref().and_then(|v| v.get(key).and_then(|v| match v {
-                serde_yaml::Value::Sequence(arr) => Some(arr.iter().filter_map(|i| match i {
+            fm.as_ref().and_then(|v| {
+                v.get(key).and_then(|v| match v {
                     serde_yaml::Value::String(s) => Some(s.clone()),
                     _ => None,
-                }).collect()),
-                _ => None,
-            })).unwrap_or_default()
+                })
+            })
         };
-        
+
+        let get_fm_bool = |key: &str| -> bool {
+            fm.as_ref()
+                .and_then(|v| {
+                    v.get(key).and_then(|v| match v {
+                        serde_yaml::Value::Bool(b) => Some(*b),
+                        _ => None,
+                    })
+                })
+                .unwrap_or(true)
+        };
+
+        let get_fm_arr = |key: &str| -> Vec<String> {
+            fm.as_ref()
+                .and_then(|v| {
+                    v.get(key).and_then(|v| match v {
+                        serde_yaml::Value::Sequence(arr) => Some(
+                            arr.iter()
+                                .filter_map(|i| match i {
+                                    serde_yaml::Value::String(s) => Some(s.clone()),
+                                    _ => None,
+                                })
+                                .collect(),
+                        ),
+                        _ => None,
+                    })
+                })
+                .unwrap_or_default()
+        };
+
         let name = get_fm_str("name").unwrap_or(info.name.clone());
         let description = get_fm_str("description")
             .or_else(|| extract_description_from_body(&body))
@@ -368,7 +457,7 @@ pub fn load_bundled_skills() -> Vec<LoadedSkill> {
             log::debug!("[SkillLoader] Skipping bundled AutomationSkill: {}", name);
             continue;
         }
-        
+
         skills.push(LoadedSkill {
             name,
             display_name: None,
@@ -388,7 +477,7 @@ pub fn load_bundled_skills() -> Vec<LoadedSkill> {
             source: SkillSource::Bundled,
         });
     }
-    
+
     log::info!("[SkillLoader] 从内置资源加载了 {} 个技能", skills.len());
     skills
 }
@@ -401,11 +490,15 @@ fn get_or_load_skills() -> &'static Vec<LoadedSkill> {
         let mut all = Vec::new();
         let mut seen = std::collections::HashSet::new();
         for s in load_bundled_skills() {
-            if seen.insert(s.name.clone()) { all.push(s); }
+            if seen.insert(s.name.clone()) {
+                all.push(s);
+            }
         }
         let dirs = default_skill_directories();
         for s in load_all_skills(&dirs) {
-            if seen.insert(s.name.clone()) { all.push(s); }
+            if seen.insert(s.name.clone()) {
+                all.push(s);
+            }
         }
         all
     })

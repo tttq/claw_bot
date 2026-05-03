@@ -1,14 +1,19 @@
 // Claw Desktop - 桌面自动化引擎
 // 提供屏幕捕获、鼠标键盘输入、Mano-P推理、CUA Agent、应用启动等桌面自动化能力
-pub mod agent;
-pub mod capture;
 pub mod error;
-pub mod input;
-pub mod manop;
-pub mod platform;
 pub mod types;
-
+pub mod capture;
+pub mod input;
+pub mod platform;
+pub mod agent;
+pub mod manop;
 pub mod commands;
+pub mod coordinate_validator;
+pub mod retry;
+pub mod clipboard;
+pub mod screenshot_diff;
+#[cfg(test)]
+mod tests;
 
 pub use error::{AutomaticallyError, Result};
 pub use types::*;

@@ -1,10 +1,13 @@
-// Claw Desktop - 自动化错误 - 错误类型定义
 use thiserror::Error;
 
-/// 自动化模块错误类型 — 涵盖截图、输入、模型、推理等各类错误
-#[derive(Debug, Error)]
+pub type Result<T> = std::result::Result<T, AutomaticallyError>;
+
+#[derive(Error, Debug, Clone)]
 pub enum AutomaticallyError {
-    #[error("Capture error: {0}")]
+    #[error("OCR error: {0}")]
+    Ocr(String),
+
+    #[error("Screen capture error: {0}")]
     Capture(String),
 
     #[error("Input simulation error: {0}")]
@@ -22,13 +25,13 @@ pub enum AutomaticallyError {
     #[error("Timeout error: {0}")]
     Timeout(String),
 
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
+    #[error("I/O error: {0}")]
+    Io(String),
 
     #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
+    Json(String),
 
-    #[error("Invalid coordinates: x={0}, y={1}, screen_width={2}, screen_height={3}")]
+    #[error("Invalid coordinates: ({0}, {1}) — screen bounds: ({2}, {3})")]
     InvalidCoordinates(f64, f64, u32, u32),
 
     #[error("Mano-P model error: {0}")]
@@ -45,7 +48,43 @@ pub enum AutomaticallyError {
 
     #[error("Platform not supported: {0}")]
     PlatformNotSupported(String),
+
+    #[error("Window not found: {0}")]
+    WindowNotFound(String),
+
+    #[error("Application not found: {0}")]
+    AppNotFound(String),
+
+    #[error("Image processing error: {0}")]
+    ImageProcessing(String),
+
+    #[error("File handling error: {0}")]
+    FileHandling(String),
+
+    #[error("Model error: {0}")]
+    Model(String),
+
+    #[error("Max retries exceeded: {0}")]
+    MaxRetriesExceeded(String),
+
+    #[error("Clipboard error: {0}")]
+    Clipboard(String),
+
+    #[error("Operation verify failed: {0}")]
+    Verify(String),
+
+    #[error("Coordinate out of screen bounds: ({0}, {1})")]
+    OutOfBounds(f64, f64),
 }
 
-/// 自动化模块统一Result类型别名
-pub type Result<T> = std::result::Result<T, AutomaticallyError>;
+impl From<std::io::Error> for AutomaticallyError {
+    fn from(e: std::io::Error) -> Self {
+        AutomaticallyError::Io(e.to_string())
+    }
+}
+
+impl From<serde_json::Error> for AutomaticallyError {
+    fn from(e: serde_json::Error) -> Self {
+        AutomaticallyError::Json(e.to_string())
+    }
+}

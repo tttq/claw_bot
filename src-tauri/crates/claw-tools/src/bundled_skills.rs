@@ -85,18 +85,18 @@ pub fn get_all_bundled_skills() -> Vec<BundledSkillInfo> {
 
 /// 从SKILL.md内容中提取description字段 — 解析YAML frontmatter
 fn extract_description_from_content(content: &str) -> String {
-    let frontmatter_start = content.find("---");
-    if frontmatter_start.is_none() {
-        return String::new();
-    }
+    let frontmatter_start = match content.find("---") {
+        Some(pos) => pos,
+        None => return String::new(),
+    };
 
-    let after_first = &content[frontmatter_start.unwrap() + 3..];
-    let frontmatter_end = after_first.find("---");
-    if frontmatter_end.is_none() {
-        return String::new();
-    }
+    let after_first = &content[frontmatter_start + 3..];
+    let frontmatter_end = match after_first.find("---") {
+        Some(pos) => pos,
+        None => return String::new(),
+    };
 
-    let yaml_str = &after_first[..frontmatter_end.unwrap()];
+    let yaml_str = &after_first[..frontmatter_end];
 
     for line in yaml_str.lines() {
         let line = line.trim();

@@ -14,6 +14,9 @@ impl LlmEngine {
     }
 
     pub fn get_config(&self) -> AppConfig {
-        self.config.lock().map(|g| g.clone()).unwrap_or_default()
+        self.config
+            .lock()
+            .map(|g| g.clone())
+            .unwrap_or_else(|e| e.into_inner().clone())
     }
 }

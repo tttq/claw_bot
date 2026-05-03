@@ -3,6 +3,8 @@
 // 支持点击/双击/右键/输入/快捷键/滚动/拖拽/启动应用等桌面交互动作
 use crate::AutomaticallyConfig;
 use crate::capture::screen;
+use crate::clipboard;
+use crate::coordinate_validator;
 use crate::error::{AutomaticallyError, Result};
 use crate::input::{keyboard, mouse};
 use crate::platform::{app_launcher, window};
@@ -299,8 +301,12 @@ AVAILABLE ACTIONS (respond with exactly one JSON object per turn):
 7. Drag: {{"type": "drag", "from_x": <number>, "from_y": <number>, "to_x": <number>, "to_y": <number>, "reasoning": "<why>"}}
 8. Open App: {{"type": "open_app", "app_name": "<app name>", "reasoning": "<why>"}}
 9. Wait: {{"type": "wait", "duration_ms": <number>, "reasoning": "<why>"}}
-10. Task Complete: {{"type": "done", "reasoning": "<why task is complete>"}}
-11. Task Failed: {{"type": "fail", "reasoning": "<why task cannot be completed>"}}
+10. Copy: {{"type": "copy", "reasoning": "<why>"}}
+11. Paste: {{"type": "paste", "reasoning": "<why>"}}
+12. Cut: {{"type": "cut", "reasoning": "<why>"}}
+13. Select All: {{"type": "select_all", "reasoning": "<why>"}}
+14. Task Complete: {{"type": "done", "reasoning": "<why task is complete>"}}
+15. Task Failed: {{"type": "fail", "reasoning": "<why task cannot be completed>"}}
 
 STRATEGY FOR COMPLEX TASKS:
 
@@ -427,7 +433,8 @@ RULES:
                 let y = action
                     .y
                     .ok_or_else(|| AutomaticallyError::Automation("click missing y".to_string()))?;
-                mouse::click(x, y).await
+                let (clamped_x, clamped_y) = coordinate_validator::validate_and_clamp(x, y);
+                mouse::click(clamped_x, clamped_y).await
             }
             "double_click" => {
                 let x = action.x.ok_or_else(|| {
@@ -436,7 +443,8 @@ RULES:
                 let y = action.y.ok_or_else(|| {
                     AutomaticallyError::Automation("double_click missing y".to_string())
                 })?;
-                mouse::double_click(x, y).await
+                let (clamped_x, clamped_y) = coordinate_validator::validate_and_clamp(x, y);
+                mouse::double_click(clamped_x, clamped_y).await
             }
             "right_click" => {
                 let x = action.x.ok_or_else(|| {
@@ -445,7 +453,8 @@ RULES:
                 let y = action.y.ok_or_else(|| {
                     AutomaticallyError::Automation("right_click missing y".to_string())
                 })?;
-                mouse::right_click(x, y).await
+                let (clamped_x, clamped_y) = coordinate_validator::validate_and_clamp(x, y);
+                mouse::right_click(clamped_x, clamped_y).await
             }
             "type" => {
                 let text = action.text.as_deref().ok_or_else(|| {
@@ -483,7 +492,23 @@ RULES:
                 let to_y = action.to_y.ok_or_else(|| {
                     AutomaticallyError::Automation("drag missing to_y".to_string())
                 })?;
-                mouse::drag(from_x, from_y, to_x, to_y).await
+                let (clamped_from_x, clamped_from_y) =
+                    coordinate_validator::validate_and_clamp(from_x, from_y);
+                let (clamped_to_x, clamped_to_y) =
+                    coordinate_validator::validate_and_clamp(to_x, to_y);
+                mouse::drag(clamped_from_x, clamped_from_y, clamped_to_x, clamped_to_y).await
+            }
+            "copy" => {
+                clipboard::copy().await
+            }
+            "paste" => {
+                clipboard::paste().await
+            }
+            "cut" => {
+                clipboard::cut().await
+            }
+            "select_all" => {
+                clipboard::select_all().await
             }
             "open_app" => {
                 let app_name = action.app_name.as_deref().ok_or_else(|| {
@@ -563,6 +588,10 @@ RULES:
             "wait" => format!("wait({}ms)", action.duration_ms.unwrap_or(1000)),
             "done" | "complete" => "TASK_COMPLETE".to_string(),
             "fail" => "TASK_FAILED".to_string(),
+            "copy" => "copy()".to_string(),
+            "paste" => "paste()".to_string(),
+            "cut" => "cut()".to_string(),
+            "select_all" => "select_all()".to_string(),
             _ => format!("unknown({})", action.action_type),
         }
     }

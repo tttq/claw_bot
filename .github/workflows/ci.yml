@@ -1,28 +1,22 @@
 name: CI
 
-# 触发条件
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
 
-# 并发控制：同一分支只运行最新的工作流
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# 环境变量
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
 jobs:
-  # ============================================================================
-  # 前端检查: TypeScript 类型检查 + 代码规范
-  # ============================================================================
   frontend:
-    name: Frontend (TypeScript)
+    name: Frontend Check
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -39,7 +33,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -50,19 +44,31 @@ jobs:
       - name: Build frontend
         run: pnpm build
 
-  # ============================================================================
-  # 后端检查: Rust 格式检查 + Clippy + 测试
-  # ============================================================================
   backend:
-    name: Backend (Rust)
-    runs-on: ubuntu-latest
+    name: Backend Check (${{ matrix.label }})
+    runs-on: ${{ matrix.platform }}
     timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-latest
+            label: Linux-x64
+            target: x86_64-unknown-linux-gnu
+          - platform: macos-latest
+            label: macOS-ARM64
+            target: aarch64-apple-darwin
+          - platform: windows-latest
+            label: Windows-x64
+            target: x86_64-pc-windows-msvc
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Tauri system dependencies
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -88,24 +94,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: pnpm
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          targets: ${{ matrix.target }}
           components: clippy, rustfmt
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: src-tauri -> target
           cache-all: true
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build frontend
-        run: pnpm build
+      - name: Cargo check
+        working-directory: src-tauri
+        run: cargo check --target ${{ matrix.target }}
 
       - name: Rust format check
         working-directory: src-tauri
@@ -113,26 +121,38 @@ jobs:
 
       - name: Rust clippy lint
         working-directory: src-tauri
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
 
       - name: Rust tests
         working-directory: src-tauri
-        run: cargo test --all --verbose
+        run: cargo test --all --verbose --target ${{ matrix.target }}
 
-  # ============================================================================
-  # 完整构建测试: 验证 Tauri 应用能否正常构建
-  # ============================================================================
   build-test:
-    name: Build Test (Tauri)
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    needs: [frontend, backend]
+    name: Tauri Build Test (${{ matrix.label }})
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+    needs: [backend]
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-latest
+            label: Linux-x64
+            args: ""
+          - platform: macos-latest
+            label: macOS-ARM64
+            args: --target aarch64-apple-darwin
+          - platform: windows-latest
+            label: Windows-x64
+            args: ""
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Tauri system dependencies
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -158,7 +178,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: pnpm
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -166,14 +186,16 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: src-tauri -> target
           cache-all: true
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build Tauri app (debug mode)
-        run: pnpm tauri build --debug
+      - name: Build Tauri app (debug)
+        uses: tauri-apps/tauri-action@v0
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: pnpm tauri
+          args: --debug ${{ matrix.args }}

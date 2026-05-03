@@ -141,7 +141,7 @@ impl SkillRegistry {
 
 /// 初始化技能注册表 — 扫描所有技能目录并加载 .md 文件
 pub fn init_skills() {
-    let mut registry = SKILL_REGISTRY.lock().unwrap();
+    let mut registry = SKILL_REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
     if registry.loaded {
         return;
     }
@@ -158,7 +158,7 @@ pub fn init_skills() {
 
 /// 强制重新加载技能 — 用于热扫描新增/修改的技能文件
 pub fn reload_skills() {
-    let mut registry = SKILL_REGISTRY.lock().unwrap();
+    let mut registry = SKILL_REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
     registry.skills.clear();
     registry.alias_index.clear();
     registry.loaded = false;
@@ -175,13 +175,13 @@ pub fn reload_skills() {
 
 pub fn match_skill(instruction: &str) -> Option<AutomationSkill> {
     init_skills();
-    let registry = SKILL_REGISTRY.lock().unwrap();
+    let registry = SKILL_REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
     registry.match_skill(instruction).cloned()
 }
 
 pub fn list_skills() -> Vec<AutomationSkill> {
     init_skills();
-    let registry = SKILL_REGISTRY.lock().unwrap();
+    let registry = SKILL_REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
     registry.skills.values().cloned().collect()
 }
 
@@ -410,6 +410,7 @@ fn load_builtin_skills(registry: &mut SkillRegistry) {
         create_word_skill(),
         create_notepad_skill(),
         create_explorer_skill(),
+        create_desktop_skill(),
     ];
 
     for skill in builtin_skills {
@@ -1151,7 +1152,51 @@ fn create_explorer_skill() -> AutomationSkill {
     shortcuts.insert("新建文件夹".to_string(), "Ctrl+Shift+N".to_string());
     shortcuts.insert("复制".to_string(), "Ctrl+C".to_string());
     shortcuts.insert("粘贴".to_string(), "Ctrl+V".to_string());
+    shortcuts.insert("剪切".to_string(), "Ctrl+X".to_string());
+    shortcuts.insert("全选".to_string(), "Ctrl+A".to_string());
     shortcuts.insert("删除".to_string(), "Delete".to_string());
+
+    let mut operations = HashMap::new();
+    operations.insert(
+        "copy_file".to_string(),
+        SkillOperation {
+            description: "复制选中文件".to_string(),
+            steps: vec![
+                OperationStep {
+                    action: "点击文件使其选中".to_string(),
+                    target: Some("文件图标".into()),
+                    shortcut: None,
+                    input_placeholder: None,
+                    wait_after_ms: 300,
+                    note: None,
+                },
+                OperationStep {
+                    action: "复制文件".to_string(),
+                    target: None,
+                    shortcut: Some("Ctrl+C".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 300,
+                    note: None,
+                },
+            ],
+        },
+    );
+    operations.insert(
+        "paste_file".to_string(),
+        SkillOperation {
+            description: "粘贴已复制/剪切的文件".to_string(),
+            steps: vec![
+                OperationStep {
+                    action: "在目标位置粘贴".to_string(),
+                    target: None,
+                    shortcut: Some("Ctrl+V".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+            ],
+        },
+    );
 
     AutomationSkill {
         name: "explorer".to_string(),
@@ -1164,8 +1209,88 @@ fn create_explorer_skill() -> AutomationSkill {
         description: "Windows文件资源管理器 — 支持导航目录、创建文件夹、复制粘贴文件等操作"
             .to_string(),
         shortcuts,
-        operations: HashMap::new(),
+        operations,
         ui_hints: vec![],
+        error_states: vec![],
+        source_path: None,
+    }
+}
+
+fn create_desktop_skill() -> AutomationSkill {
+    let mut shortcuts = HashMap::new();
+    shortcuts.insert("复制".to_string(), "Ctrl+C".to_string());
+    shortcuts.insert("粘贴".to_string(), "Ctrl+V".to_string());
+    shortcuts.insert("剪切".to_string(), "Ctrl+X".to_string());
+    shortcuts.insert("全选".to_string(), "Ctrl+A".to_string());
+    shortcuts.insert("撤销".to_string(), "Ctrl+Z".to_string());
+    shortcuts.insert("桌面".to_string(), "Win+D".to_string());
+    shortcuts.insert("运行".to_string(), "Win+R".to_string());
+    shortcuts.insert("任务管理器".to_string(), "Ctrl+Shift+Esc".to_string());
+    shortcuts.insert("锁定".to_string(), "Win+L".to_string());
+    shortcuts.insert("截图工具".to_string(), "Win+Shift+S".to_string());
+
+    let mut operations = HashMap::new();
+    operations.insert(
+        "screenshot_region".to_string(),
+        SkillOperation {
+            description: "使用系统截图工具截取屏幕区域".to_string(),
+            steps: vec![
+                OperationStep {
+                    action: "打开截图工具".to_string(),
+                    target: None,
+                    shortcut: Some("Win+Shift+S".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: Some("等待截图工具栏出现".into()),
+                },
+            ],
+        },
+    );
+    operations.insert(
+        "show_desktop".to_string(),
+        SkillOperation {
+            description: "显示桌面（最小化所有窗口）".to_string(),
+            steps: vec![
+                OperationStep {
+                    action: "显示桌面".to_string(),
+                    target: None,
+                    shortcut: Some("Win+D".into()),
+                    input_placeholder: None,
+                    wait_after_ms: 500,
+                    note: None,
+                },
+            ],
+        },
+    );
+
+    AutomationSkill {
+        name: "desktop".to_string(),
+        app_name: "桌面".to_string(),
+        aliases: vec!["Desktop".to_string(), "desktop".to_string(), "系统".to_string()],
+        description: "桌面通用操作 — 支持截图、显示桌面、运行命令、任务管理器等操作系统级操作"
+            .to_string(),
+        shortcuts,
+        operations,
+        ui_hints: vec![
+            UiHint {
+                element: "开始菜单".to_string(),
+                description: "Windows左下角的开始按钮".to_string(),
+                typical_position: Some("屏幕左下角".into()),
+                look_for: Some("Windows徽标图标".into()),
+            },
+            UiHint {
+                element: "任务栏".to_string(),
+                description: "屏幕底部的任务栏".to_string(),
+                typical_position: Some("屏幕底部".into()),
+                look_for: Some("应用图标列表".into()),
+            },
+            UiHint {
+                element: "系统托盘".to_string(),
+                description: "任务栏右侧的系统托盘".to_string(),
+                typical_position: Some("屏幕右下角".into()),
+                look_for: Some("时间和小图标".into()),
+            },
+        ],
         error_states: vec![],
         source_path: None,
     }

@@ -1,7 +1,7 @@
 // Claw Desktop - 常量定义 - LLM相关的硬编码常量（最大轮次、超时时间等）
 pub const MAX_TOOL_ROUNDS: usize = 15;
 pub const TOTAL_LOOP_TIMEOUT_SECS: u64 = 180;
-pub const MAX_SAME_TOOL_CONSECUTIVE: usize = 3;
+pub const MAX_SAME_TOOL_CONSECUTIVE: usize = 4;
 pub const MAX_API_RETRIES: usize = 3;
 pub const RETRY_DELAY_BASE_MS: u64 = 1000;
 pub const CONTEXT_OVERFLOW_MAX_RETRIES: usize = 2;

@@ -81,7 +81,15 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libsqlite3-dev \
-            patchelf
+            patchelf \
+            libx11-dev \
+            libxtst-dev \
+            libxfixes-dev \
+            libxrandr-dev \
+            libxdamage-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libxrender-dev
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
@@ -92,15 +100,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tauriScript: pnpm tauri
-          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && 'v__VERSION__' || '' }}
-          releaseName: ${{ startsWith(github.ref, 'refs/tags/v') && 'Claw v__VERSION__' || '' }}
-          releaseBody: ${{ startsWith(github.ref, 'refs/tags/v') && 'See the assets to download and install this version.' || '' }}
+          tagName: v__VERSION__
+          releaseName: Claw v__VERSION__
+          releaseBody: "See the assets to download and install this version."
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
 
       - name: Upload build artifacts
-        if: "!startsWith(github.ref, 'refs/tags/v')"
         uses: actions/upload-artifact@v4
         with:
           name: Claw-${{ matrix.label }}

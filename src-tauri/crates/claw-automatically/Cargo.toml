@@ -32,7 +32,7 @@ dirs = "6"
 toml.workspace = true
 serde_yaml.workspace = true
 claw-config.workspace = true
-tauri = { version = "2", features = [] }
+tauri.workspace = true
 
 # 内部 crate
 claw-traits = { workspace = true }

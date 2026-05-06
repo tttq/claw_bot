@@ -457,7 +457,6 @@ fn scroll_linux(amount: i32) -> Result<()> {
 /// macOS平台：移动鼠标 — 使用CoreGraphics CGEvent API
 #[cfg(target_os = "macos")]
 fn move_to_macos(x: f64, y: f64) -> Result<()> {
-    use core_graphics::display::CGDisplay;
     use core_graphics::event::{CGEvent, CGEventType, CGMouseButton};
     use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 
@@ -573,17 +572,23 @@ fn mouse_up_macos(button: &str) -> Result<()> {
     Ok(())
 }
 
-/// macOS平台：滚动鼠标滚轮 — 使用CoreGraphics CGScrollEvent
+/// macOS平台：滚动鼠标滚轮 — 使用CoreGraphics CGEvent
 #[cfg(target_os = "macos")]
 fn scroll_macos(amount: i32) -> Result<()> {
-    use core_graphics::event::{CGEvent, CGScrollEventUnit};
+    use core_graphics::event::{CGEvent, CGEventField};
     use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 
     let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
         .map_err(|_| AutomaticallyError::Input("Failed to create event source".to_string()))?;
 
-    let event = CGEvent::new_scroll_event(source, CGScrollEventUnit::Pixel, 1, amount, 0, 0)
+    let event = CGEvent::new(source)
         .map_err(|_| AutomaticallyError::Input("Failed to create scroll event".to_string()))?;
+
+    event.set_type(core_graphics::event::CGEventType::ScrollWheel);
+    event.set_integer_value_field(CGEventField::SCROLL_WHEEL_COUNT, 1);
+    event.set_integer_value_field(CGEventField::SCROLL_WHEEL_POINT_DELTA_AXIS_1, amount as i64);
+    event.set_integer_value_field(CGEventField::SCROLL_WHEEL_FIXED_DELTA_AXIS_1, (amount as i64) * 100);
+    event.set_integer_value_field(CGEventField::SCROLL_WHEEL_IS_PIXEL_BASED, 1);
 
     event.post(core_graphics::event::CGEventTapLocation::HID);
 

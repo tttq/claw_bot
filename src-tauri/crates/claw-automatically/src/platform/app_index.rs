@@ -8,6 +8,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{Instant, SystemTime};
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 static APP_INDEX: Lazy<Mutex<AppIndexState>> = Lazy::new(|| {
     Mutex::new(AppIndexState {
         apps: Vec::new(),
@@ -1065,7 +1068,7 @@ fn scan_macos_applications() -> Vec<AppInfo> {
                 }
 
                 let plist_path = path.join("Contents/Info.plist");
-                let (bundle_id, version, min_version) = read_macos_plist(&plist_path);
+                let (bundle_id, version, _min_version) = read_macos_plist(&plist_path);
 
                 apps.push(AppInfo {
                     name,

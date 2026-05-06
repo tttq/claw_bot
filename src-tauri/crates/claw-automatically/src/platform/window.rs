@@ -704,8 +704,8 @@ fn get_screen_size_macos() -> Result<(u32, u32)> {
 
     let display_id = CGMainDisplayID();
     let display = CGDisplay::new(display_id);
-    let width = display.pixels_wide();
-    let height = display.pixels_high();
+    let width = display.pixels_wide() as u32;
+    let height = display.pixels_high() as u32;
     Ok((width, height))
 }
 

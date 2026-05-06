@@ -337,36 +337,35 @@ fn capture_screen_linux() -> Result<ImageFrame> {
     }
 }
 
-/// macOS平台屏幕截图 — 使用CoreGraphics API截取桌面
+/// macOS平台屏幕截图 — 使用screencapture命令行工具
 #[cfg(target_os = "macos")]
 fn capture_screen_macos() -> Result<ImageFrame> {
-    use core_graphics::display::{CGDisplay, CGMainDisplayID};
+    use std::process::{Command, Stdio};
 
-    let display_id = CGMainDisplayID();
-    let display = CGDisplay::new(display_id);
+    let temp_path = std::env::temp_dir().join(format!("claw_capture_{}.png", uuid::Uuid::new_v4()));
 
-    let image = display.image().ok_or_else(|| {
-        AutomaticallyError::Capture("Failed to capture screen on macOS".to_string())
-    })?;
+    let status = Command::new("screencapture")
+        .args(["-x", "-t", "png", &temp_path.to_string_lossy()])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map_err(|e| AutomaticallyError::Capture(format!("screencapture failed: {}", e)))?;
 
-    let width = image.width() as u32;
-    let height = image.height() as u32;
-
-    let data_provider = image
-        .data_provider()
-        .ok_or_else(|| AutomaticallyError::Capture("No data provider".to_string()))?;
-    let data = data_provider.data();
-    let bytes = data.bytes();
-
-    let mut rgb_data = Vec::with_capacity((width * height * 3) as usize);
-    for i in 0..(width * height) as usize {
-        let offset = i * 4;
-        if offset + 2 < bytes.len() {
-            rgb_data.push(bytes[offset + 2]);
-            rgb_data.push(bytes[offset + 1]);
-            rgb_data.push(bytes[offset]);
-        }
+    if !status.success() {
+        return Err(AutomaticallyError::Capture(
+            "screencapture command failed".to_string(),
+        ));
     }
+
+    let img = image::open(&temp_path)
+        .map_err(|e| AutomaticallyError::Capture(format!("Failed to open screenshot: {}", e)))?;
+
+    let _ = std::fs::remove_file(&temp_path);
+
+    let rgb_img = img.to_rgb8();
+    let width = rgb_img.width();
+    let height = rgb_img.height();
+    let rgb_data = rgb_img.into_raw();
 
     Ok(ImageFrame::new(width, height, rgb_data))
 }

@@ -513,7 +513,7 @@ fn key_up_linux(key: &str) -> Result<()> {
 /// macOS平台：按下按键 — 使用CoreGraphics CGEvent API
 #[cfg(target_os = "macos")]
 fn key_down_macos(key: &str) -> Result<()> {
-    use core_graphics::event::{CGEvent, CGEventFlags, CGKeyCode};
+    use core_graphics::event::{CGEvent, CGKeyCode};
     use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 
     let keycode = match key.to_lowercase().as_str() {
@@ -600,7 +600,7 @@ fn key_down_macos(key: &str) -> Result<()> {
 /// macOS平台：释放按键 — 使用CoreGraphics CGEvent API
 #[cfg(target_os = "macos")]
 fn key_up_macos(key: &str) -> Result<()> {
-    use core_graphics::event::{CGEvent, CGEventFlags, CGKeyCode};
+    use core_graphics::event::{CGEvent, CGKeyCode};
     use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 
     let keycode = match key.to_lowercase().as_str() {

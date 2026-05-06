@@ -37,33 +37,80 @@ impl Default for ChromeLaunchConfig {
     }
 }
 
-/// 检测系统安装的Chrome/Edge浏览器 — 扫描Windows常见安装路径
+/// 检测系统安装的Chrome/Edge浏览器 — 根据平台扫描常见安装路径
 pub fn detect_chrome_installations() -> Vec<BrowserInfo> {
     let mut browsers = Vec::new();
 
-    let chrome_paths = get_windows_chrome_paths();
-    for path in chrome_paths {
-        if std::path::Path::new(&path).exists() {
-            let version = get_chrome_version(&path);
-            browsers.push(BrowserInfo {
-                name: "Google Chrome".to_string(),
-                path: path.clone(),
-                version,
-                is_installed: true,
-            });
+    #[cfg(target_os = "windows")]
+    {
+        let chrome_paths = get_windows_chrome_paths();
+        for path in chrome_paths {
+            if std::path::Path::new(&path).exists() {
+                let version = get_chrome_version(&path);
+                browsers.push(BrowserInfo {
+                    name: "Google Chrome".to_string(),
+                    path: path.clone(),
+                    version,
+                    is_installed: true,
+                });
+            }
+        }
+
+        let edge_paths = get_windows_edge_paths();
+        for path in edge_paths {
+            if std::path::Path::new(&path).exists() {
+                let version = get_chrome_version(&path);
+                browsers.push(BrowserInfo {
+                    name: "Microsoft Edge".to_string(),
+                    path: path.clone(),
+                    version,
+                    is_installed: true,
+                });
+            }
         }
     }
 
-    let edge_paths = get_windows_edge_paths();
-    for path in edge_paths {
-        if std::path::Path::new(&path).exists() {
-            let version = get_chrome_version(&path);
-            browsers.push(BrowserInfo {
-                name: "Microsoft Edge".to_string(),
-                path: path.clone(),
-                version,
-                is_installed: true,
-            });
+    #[cfg(target_os = "macos")]
+    {
+        let macos_paths = [
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        ];
+        let names = ["Google Chrome", "Microsoft Edge", "Chromium"];
+        for (i, path) in macos_paths.iter().enumerate() {
+            if std::path::Path::new(path).exists() {
+                let version = get_chrome_version(path);
+                browsers.push(BrowserInfo {
+                    name: names[i].to_string(),
+                    path: path.to_string(),
+                    version,
+                    is_installed: true,
+                });
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let linux_paths = [
+            ("/usr/bin/google-chrome", "Google Chrome"),
+            ("/usr/bin/google-chrome-stable", "Google Chrome"),
+            ("/usr/bin/chromium", "Chromium"),
+            ("/usr/bin/chromium-browser", "Chromium"),
+            ("/usr/bin/microsoft-edge", "Microsoft Edge"),
+            ("/usr/bin/microsoft-edge-stable", "Microsoft Edge"),
+        ];
+        for (path, name) in &linux_paths {
+            if std::path::Path::new(path).exists() {
+                let version = get_chrome_version(path);
+                browsers.push(BrowserInfo {
+                    name: name.to_string(),
+                    path: path.to_string(),
+                    version,
+                    is_installed: true,
+                });
+            }
         }
     }
 
@@ -152,6 +199,16 @@ fn get_chrome_version(path: &str) -> Option<String> {
             ])
             .output()
         {
+            let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !version.is_empty() {
+                return Some(version);
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(output) = Command::new(path).arg("--version").output() {
             let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if !version.is_empty() {
                 return Some(version);
